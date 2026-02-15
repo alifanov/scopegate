@@ -8,7 +8,7 @@ AI Access Proxy Layer. Connect external services (e.g. Google), define granular 
 - **Language**: TypeScript
 - **Database**: PostgreSQL + Prisma 7
 - **UI**: Tailwind CSS v4, shadcn/ui
-- **Auth**: JWT (httpOnly cookies)
+- **Auth**: Better Auth (database-backed sessions, Prisma adapter)
 - **MCP**: `@modelcontextprotocol/sdk` (Streamable HTTP)
 - **Package Manager**: pnpm
 
@@ -37,8 +37,10 @@ cp .env.example .env
 | Variable | Description |
 |---|---|
 | `DATABASE_URL` | PostgreSQL connection string |
-| `JWT_SECRET` | Secret key for JWT signing |
-| `NEXTAUTH_URL` | App base URL (e.g. `http://localhost:3000`) |
+| `BETTER_AUTH_SECRET` | Secret key for session signing |
+| `BETTER_AUTH_URL` | App base URL (e.g. `http://localhost:3000`) |
+| `ADMIN_EMAIL` | Bootstrap admin email |
+| `ADMIN_PASSWORD` | Bootstrap admin password |
 
 3. Run database migrations:
 
@@ -63,7 +65,7 @@ src/
 │   ├── (dashboard)/         # Protected dashboard pages
 │   │   └── projects/        # Project management, endpoints, audit, settings
 │   ├── api/
-│   │   ├── auth/            # Register, login, logout
+│   │   ├── auth/[...all]/    # Better Auth catch-all handler
 │   │   ├── projects/        # Projects CRUD, endpoints, services, audit
 │   │   └── mcp/[apiKey]/    # MCP Streamable HTTP handler
 │   ├── layout.tsx
@@ -74,8 +76,10 @@ src/
 │   └── shared/              # Reusable app components
 ├── lib/
 │   ├── db.ts                # Prisma client singleton
-│   ├── auth.ts              # JWT sign/verify, password hashing
+│   ├── auth.ts              # Better Auth server instance
+│   ├── auth-client.ts       # Better Auth client SDK
 │   ├── auth-middleware.ts   # getCurrentUser() helper
+│   ├── bootstrap.ts         # Admin user bootstrap on empty DB
 │   └── mcp/
 │       ├── permissions.ts   # Permission groups (source of truth)
 │       ├── tools.ts         # MCP tool definitions
@@ -98,7 +102,7 @@ pnpm prisma studio    # Open Prisma Studio (DB browser)
 
 ## How It Works
 
-1. **Register/Login** — create an account and sign in
+1. **Login** — sign in with admin credentials (bootstrapped from env vars on first run)
 2. **Create a Project** — organize endpoints and services by project
 3. **Connect a Service** — add a service connection to the project
 4. **Create an MCP Endpoint** — select a service connection and pick specific permissions (e.g. `gmail:read_emails`, `calendar:create_event`)
@@ -118,6 +122,8 @@ Permissions are defined in `src/lib/mcp/permissions.ts` and grouped by service:
 ## Database Schema
 
 - **User** — authentication, team membership
+- **Session** — database-backed auth sessions
+- **Account** — auth provider credentials (email/password)
 - **Project** — logical grouping for services and endpoints
 - **TeamMember** — user-project relationship with roles (owner/member)
 - **ServiceConnection** — OAuth tokens for connected services

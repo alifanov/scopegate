@@ -11,6 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Framework**: Next.js (App Router)
 - **Package Manager**: pnpm (use `pnpm add -S` to install with save)
 - **Database ORM**: Prisma
+- **Auth**: Better Auth (database-backed sessions, Prisma adapter, bcrypt password hashing)
 - **Language**: TypeScript
 
 ## Commands
@@ -22,6 +23,15 @@ pnpm lint         # Run linter
 pnpm prisma generate   # Regenerate Prisma client after schema changes
 pnpm prisma migrate dev # Create and apply migrations
 ```
+
+## Auth Architecture
+
+- **Server instance**: `src/lib/auth.ts` — Better Auth with Prisma adapter and `nextCookies()` plugin
+- **Client SDK**: `src/lib/auth-client.ts` — `createAuthClient()` from `better-auth/react`
+- **Session check (server)**: `src/lib/auth-middleware.ts` — `getCurrentUser()` returns `{ userId, email } | null`
+- **Catch-all route**: `src/app/api/auth/[...all]/route.ts` — handles all Better Auth endpoints
+- **Middleware**: `src/middleware.ts` — uses `getSessionCookie()` from `better-auth/cookies`
+- **ENV vars**: `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`
 
 ## Prisma Convention
 

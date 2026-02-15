@@ -155,17 +155,37 @@ export default function EndpointDetailPage() {
             </TabsList>
             <TabsContent value="claude-code" className="space-y-2 pt-3">
               <p className="text-sm text-muted-foreground">
-                Run this command in your terminal:
+                Add to <code className="text-xs">.mcp.json</code>:
               </p>
               <div className="relative">
-                <code className="block rounded bg-muted p-3 pr-10 text-sm break-all">
-                  {`claude mcp add --transport http ${endpointSlug} ${mcpUrl}`}
-                </code>
+                <pre className="block rounded bg-muted p-3 pr-10 text-sm overflow-x-auto">
+{JSON.stringify({
+  mcpServers: {
+    [endpointSlug]: {
+      type: "url",
+      url: mcpUrl,
+      env: {
+        SCOPEGATE_API_KEY: endpoint.apiKey,
+      },
+    },
+  },
+}, null, 2)}
+                </pre>
                 <button
                   type="button"
                   onClick={() =>
                     copyToClipboard(
-                      `claude mcp add --transport http ${endpointSlug} ${mcpUrl}`
+                      JSON.stringify({
+                        mcpServers: {
+                          [endpointSlug]: {
+                            type: "url",
+                            url: mcpUrl,
+                            env: {
+                              SCOPEGATE_API_KEY: endpoint.apiKey,
+                            },
+                          },
+                        },
+                      }, null, 2)
                     )
                   }
                   className="absolute right-2 top-2 rounded p-1 text-muted-foreground hover:text-foreground transition-colors"
@@ -185,6 +205,9 @@ export default function EndpointDetailPage() {
     [endpointSlug]: {
       type: "http",
       url: mcpUrl,
+      env: {
+        SCOPEGATE_API_KEY: endpoint.apiKey,
+      },
     },
   },
 }, null, 2)}
@@ -198,6 +221,9 @@ export default function EndpointDetailPage() {
                           [endpointSlug]: {
                             type: "http",
                             url: mcpUrl,
+                            env: {
+                              SCOPEGATE_API_KEY: endpoint.apiKey,
+                            },
                           },
                         },
                       }, null, 2)
@@ -220,6 +246,9 @@ export default function EndpointDetailPage() {
     [endpointSlug]: {
       type: "http",
       url: mcpUrl,
+      env: {
+        SCOPEGATE_API_KEY: endpoint.apiKey,
+      },
     },
   },
 }, null, 2)}
@@ -233,6 +262,9 @@ export default function EndpointDetailPage() {
                           [endpointSlug]: {
                             type: "http",
                             url: mcpUrl,
+                            env: {
+                              SCOPEGATE_API_KEY: endpoint.apiKey,
+                            },
                           },
                         },
                       }, null, 2)

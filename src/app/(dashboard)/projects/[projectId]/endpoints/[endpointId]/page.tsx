@@ -146,27 +146,7 @@ export default function EndpointDetailPage() {
             Copy the config for your tool to connect to this endpoint
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">
-              Set the environment variable in your shell:
-            </p>
-            <div className="relative">
-              <code className="block rounded bg-muted p-3 pr-10 text-sm break-all">
-                {`export SCOPEGATE_MCP_URL="${mcpUrl}"`}
-              </code>
-              <button
-                type="button"
-                onClick={() =>
-                  copyToClipboard(`export SCOPEGATE_MCP_URL="${mcpUrl}"`)
-                }
-                className="absolute right-2 top-2 rounded p-1 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Copy className="size-4" />
-              </button>
-            </div>
-          </div>
-
+        <CardContent>
           <Tabs defaultValue="claude-code">
             <TabsList>
               <TabsTrigger value="claude-code">Claude Code</TabsTrigger>
@@ -179,13 +159,13 @@ export default function EndpointDetailPage() {
               </p>
               <div className="relative">
                 <code className="block rounded bg-muted p-3 pr-10 text-sm break-all">
-                  {`claude mcp add ${endpointSlug} --transport http $SCOPEGATE_MCP_URL`}
+                  {`claude mcp add ${endpointSlug} --transport http ${mcpUrl}`}
                 </code>
                 <button
                   type="button"
                   onClick={() =>
                     copyToClipboard(
-                      `claude mcp add ${endpointSlug} --transport http $SCOPEGATE_MCP_URL`
+                      `claude mcp add ${endpointSlug} --transport http ${mcpUrl}`
                     )
                   }
                   className="absolute right-2 top-2 rounded p-1 text-muted-foreground hover:text-foreground transition-colors"
@@ -204,7 +184,7 @@ export default function EndpointDetailPage() {
   mcpServers: {
     [endpointSlug]: {
       type: "http",
-      url: "${SCOPEGATE_MCP_URL}",
+      url: mcpUrl,
     },
   },
 }, null, 2)}
@@ -217,7 +197,7 @@ export default function EndpointDetailPage() {
                         mcpServers: {
                           [endpointSlug]: {
                             type: "http",
-                            url: "${SCOPEGATE_MCP_URL}",
+                            url: mcpUrl,
                           },
                         },
                       }, null, 2)
@@ -239,7 +219,7 @@ export default function EndpointDetailPage() {
   mcpServers: {
     [endpointSlug]: {
       type: "http",
-      url: "${SCOPEGATE_MCP_URL}",
+      url: mcpUrl,
     },
   },
 }, null, 2)}
@@ -252,7 +232,7 @@ export default function EndpointDetailPage() {
                         mcpServers: {
                           [endpointSlug]: {
                             type: "http",
-                            url: "${SCOPEGATE_MCP_URL}",
+                            url: mcpUrl,
                           },
                         },
                       }, null, 2)

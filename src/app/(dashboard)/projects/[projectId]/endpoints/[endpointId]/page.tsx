@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface EndpointDetails {
   id: string;
@@ -126,6 +127,107 @@ export default function EndpointDetailPage() {
               Regenerate
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick Connect</CardTitle>
+          <CardDescription>
+            Copy the config for your tool to connect to this endpoint
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="claude-code">
+            <TabsList>
+              <TabsTrigger value="claude-code">Claude Code</TabsTrigger>
+              <TabsTrigger value="cursor">Cursor</TabsTrigger>
+              <TabsTrigger value="opencode">OpenCode</TabsTrigger>
+            </TabsList>
+            <TabsContent value="claude-code" className="space-y-3 pt-3">
+              <p className="text-sm text-muted-foreground">
+                Run this command in your terminal:
+              </p>
+              <code className="block rounded bg-muted p-3 text-sm break-all">
+                {`claude mcp add ${endpoint.name.toLowerCase().replace(/\s+/g, "-")} ${mcpUrl}`}
+              </code>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  navigator.clipboard.writeText(
+                    `claude mcp add ${endpoint.name.toLowerCase().replace(/\s+/g, "-")} ${mcpUrl}`
+                  )
+                }
+              >
+                Copy
+              </Button>
+            </TabsContent>
+            <TabsContent value="cursor" className="space-y-3 pt-3">
+              <p className="text-sm text-muted-foreground">
+                Add to <code className="text-xs">.cursor/mcp.json</code>:
+              </p>
+              <pre className="block rounded bg-muted p-3 text-sm overflow-x-auto">
+{JSON.stringify({
+  mcpServers: {
+    [endpoint.name.toLowerCase().replace(/\s+/g, "-")]: {
+      url: mcpUrl,
+    },
+  },
+}, null, 2)}
+              </pre>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  navigator.clipboard.writeText(
+                    JSON.stringify({
+                      mcpServers: {
+                        [endpoint.name.toLowerCase().replace(/\s+/g, "-")]: {
+                          url: mcpUrl,
+                        },
+                      },
+                    }, null, 2)
+                  )
+                }
+              >
+                Copy
+              </Button>
+            </TabsContent>
+            <TabsContent value="opencode" className="space-y-3 pt-3">
+              <p className="text-sm text-muted-foreground">
+                Add to <code className="text-xs">opencode.json</code>:
+              </p>
+              <pre className="block rounded bg-muted p-3 text-sm overflow-x-auto">
+{JSON.stringify({
+  mcpServers: {
+    [endpoint.name.toLowerCase().replace(/\s+/g, "-")]: {
+      type: "sse",
+      url: mcpUrl,
+    },
+  },
+}, null, 2)}
+              </pre>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  navigator.clipboard.writeText(
+                    JSON.stringify({
+                      mcpServers: {
+                        [endpoint.name.toLowerCase().replace(/\s+/g, "-")]: {
+                          type: "sse",
+                          url: mcpUrl,
+                        },
+                      },
+                    }, null, 2)
+                  )
+                }
+              >
+                Copy
+              </Button>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 

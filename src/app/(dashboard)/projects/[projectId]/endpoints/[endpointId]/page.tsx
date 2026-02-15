@@ -159,13 +159,13 @@ export default function EndpointDetailPage() {
               </p>
               <div className="relative">
                 <code className="block rounded bg-muted p-3 pr-10 text-sm break-all">
-                  {`claude mcp add ${endpointSlug} --transport http ${mcpUrl}`}
+                  {`claude mcp add --transport http --env SCOPEGATE_API_KEY=${endpoint.apiKey} ${endpointSlug} ${mcpUrl}`}
                 </code>
                 <button
                   type="button"
                   onClick={() =>
                     copyToClipboard(
-                      `claude mcp add ${endpointSlug} --transport http ${mcpUrl}`
+                      `claude mcp add --transport http --env SCOPEGATE_API_KEY=${endpoint.apiKey} ${endpointSlug} ${mcpUrl}`
                     )
                   }
                   className="absolute right-2 top-2 rounded p-1 text-muted-foreground hover:text-foreground transition-colors"

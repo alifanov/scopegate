@@ -185,6 +185,9 @@ export default function EndpointDetailPage() {
     [endpointSlug]: {
       type: "http",
       url: mcpUrl,
+      env: {
+        SCOPEGATE_API_KEY: endpoint.apiKey,
+      },
     },
   },
 }, null, 2)}
@@ -198,6 +201,9 @@ export default function EndpointDetailPage() {
                           [endpointSlug]: {
                             type: "http",
                             url: mcpUrl,
+                            env: {
+                              SCOPEGATE_API_KEY: endpoint.apiKey,
+                            },
                           },
                         },
                       }, null, 2)
@@ -220,6 +226,9 @@ export default function EndpointDetailPage() {
     [endpointSlug]: {
       type: "http",
       url: mcpUrl,
+      env: {
+        SCOPEGATE_API_KEY: endpoint.apiKey,
+      },
     },
   },
 }, null, 2)}
@@ -233,6 +242,9 @@ export default function EndpointDetailPage() {
                           [endpointSlug]: {
                             type: "http",
                             url: mcpUrl,
+                            env: {
+                              SCOPEGATE_API_KEY: endpoint.apiKey,
+                            },
                           },
                         },
                       }, null, 2)

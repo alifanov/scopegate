@@ -1,9 +1,13 @@
-import { cookies } from "next/headers";
-import { verifyJwt, type JwtPayload } from "./auth";
+import { headers } from "next/headers";
+import { auth } from "./auth";
 
-export async function getCurrentUser(): Promise<JwtPayload | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
-  if (!token) return null;
-  return verifyJwt(token);
+export async function getCurrentUser(): Promise<{
+  userId: string;
+  email: string;
+} | null> {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (!session) return null;
+  return { userId: session.user.id, email: session.user.email };
 }

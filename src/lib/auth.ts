@@ -1,32 +1,21 @@
+import { betterAuth } from "better-auth";
+import { prismaAdapter } from "better-auth/adapters/prisma";
+import { nextCookies } from "better-auth/next-js";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import { db } from "./db";
 
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-do-not-use";
-
-export interface JwtPayload {
-  userId: string;
-  email: string;
-}
-
-export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 12);
-}
-
-export async function comparePassword(
-  password: string,
-  hash: string
-): Promise<boolean> {
-  return bcrypt.compare(password, hash);
-}
-
-export function signJwt(payload: JwtPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
-}
-
-export function verifyJwt(token: string): JwtPayload | null {
-  try {
-    return jwt.verify(token, JWT_SECRET) as JwtPayload;
-  } catch {
-    return null;
-  }
-}
+export const auth = betterAuth({
+  database: prismaAdapter(db, {
+    provider: "postgresql",
+  }),
+  emailAndPassword: {
+    enabled: true,
+    async hashPassword(password: string) {
+      return bcrypt.hash(password, 12);
+    },
+    async verifyPassword({ password, hash }: { password: string; hash: string }) {
+      return bcrypt.compare(password, hash);
+    },
+  },
+  plugins: [nextCookies()],
+});

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getSessionCookie } from "better-auth/cookies";
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -14,18 +15,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Dashboard routes — require JWT cookie
-  const token = request.cookies.get("token")?.value;
-  if (!token) {
+  // Dashboard routes — require session cookie
+  const sessionToken = getSessionCookie(request);
+  if (!sessionToken) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  // Basic JWT structure check (full verification happens in API routes)
-  const parts = token.split(".");
-  if (parts.length !== 3) {
-    const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }
 

@@ -75,9 +75,7 @@ export default function EndpointDetailPage() {
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const mcpUrl = `${origin}/api/mcp/${endpoint.apiKey}`;
-  const mcpBaseUrl = `${origin}/api/mcp/`;
   const endpointSlug = endpoint.name.toLowerCase().replace(/\s+/g, "-");
-  const envVar = `SCOPEGATE_API_KEY=${endpoint.apiKey}`;
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -141,23 +139,7 @@ export default function EndpointDetailPage() {
             Copy the config for your tool to connect to this endpoint
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">
-              Set this environment variable:
-            </p>
-            <code className="block rounded bg-muted p-3 text-sm font-mono break-all">
-              {envVar}
-            </code>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigator.clipboard.writeText(envVar)}
-            >
-              Copy
-            </Button>
-          </div>
-          <Separator />
+        <CardContent>
           <Tabs defaultValue="claude-code">
             <TabsList>
               <TabsTrigger value="claude-code">Claude Code</TabsTrigger>
@@ -169,14 +151,14 @@ export default function EndpointDetailPage() {
                 Run this command in your terminal:
               </p>
               <code className="block rounded bg-muted p-3 text-sm break-all">
-                {`claude mcp add ${endpointSlug} --transport http ${mcpBaseUrl}\$SCOPEGATE_API_KEY`}
+                {`claude mcp add ${endpointSlug} --transport http ${mcpUrl}`}
               </code>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() =>
                   navigator.clipboard.writeText(
-                    `claude mcp add ${endpointSlug} --transport http ${mcpBaseUrl}$SCOPEGATE_API_KEY`
+                    `claude mcp add ${endpointSlug} --transport http ${mcpUrl}`
                   )
                 }
               >
@@ -192,7 +174,7 @@ export default function EndpointDetailPage() {
   mcpServers: {
     [endpointSlug]: {
       type: "http",
-      url: `${mcpBaseUrl}\${SCOPEGATE_API_KEY}`,
+      url: mcpUrl,
     },
   },
 }, null, 2)}
@@ -206,7 +188,7 @@ export default function EndpointDetailPage() {
                       mcpServers: {
                         [endpointSlug]: {
                           type: "http",
-                          url: `${mcpBaseUrl}\${SCOPEGATE_API_KEY}`,
+                          url: mcpUrl,
                         },
                       },
                     }, null, 2)
@@ -225,7 +207,7 @@ export default function EndpointDetailPage() {
   mcpServers: {
     [endpointSlug]: {
       type: "http",
-      url: `${mcpBaseUrl}\${SCOPEGATE_API_KEY}`,
+      url: mcpUrl,
     },
   },
 }, null, 2)}
@@ -239,7 +221,7 @@ export default function EndpointDetailPage() {
                       mcpServers: {
                         [endpointSlug]: {
                           type: "http",
-                          url: `${mcpBaseUrl}\${SCOPEGATE_API_KEY}`,
+                          url: mcpUrl,
                         },
                       },
                     }, null, 2)

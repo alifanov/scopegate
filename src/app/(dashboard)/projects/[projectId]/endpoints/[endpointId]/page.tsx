@@ -1,0 +1,199 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+
+interface EndpointDetails {
+  id: string;
+  name: string;
+  apiKey: string;
+  isActive: boolean;
+  rateLimitPerMinute: number;
+  serviceConnection: { provider: string; accountEmail: string };
+  permissions: { id: string; action: string }[];
+  _count: { auditLogs: number };
+  createdAt: string;
+}
+
+export default function EndpointDetailPage() {
+  const { projectId, endpointId } = useParams<{
+    projectId: string;
+    endpointId: string;
+  }>();
+  const [endpoint, setEndpoint] = useState<EndpointDetails | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showKey, setShowKey] = useState(false);
+
+  useEffect(() => {
+    loadEndpoint();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, endpointId]);
+
+  async function loadEndpoint() {
+    const res = await fetch(
+      `/api/projects/${projectId}/endpoints/${endpointId}`
+    );
+    if (res.ok) {
+      const data = await res.json();
+      setEndpoint(data.endpoint);
+    }
+    setLoading(false);
+  }
+
+  async function handleToggleActive() {
+    if (!endpoint) return;
+    await fetch(`/api/projects/${projectId}/endpoints/${endpointId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive: !endpoint.isActive }),
+    });
+    loadEndpoint();
+  }
+
+  async function handleRegenerateKey() {
+    if (!confirm("Regenerate API key? The old key will stop working.")) return;
+    await fetch(
+      `/api/projects/${projectId}/endpoints/${endpointId}/regenerate-key`,
+      { method: "POST" }
+    );
+    loadEndpoint();
+  }
+
+  if (loading) return <p className="text-muted-foreground">Loading...</p>;
+  if (!endpoint) return <p className="text-destructive">Endpoint not found</p>;
+
+  const mcpUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/api/mcp/${endpoint.apiKey}`;
+
+  return (
+    <div className="max-w-2xl space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">{endpoint.name}</h1>
+        <Badge variant={endpoint.isActive ? "default" : "secondary"}>
+          {endpoint.isActive ? "Active" : "Inactive"}
+        </Badge>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>MCP Endpoint URL</CardTitle>
+          <CardDescription>
+            Use this URL in your AI agent&apos;s MCP configuration
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <code className="block rounded bg-muted p-3 text-sm break-all">
+            {mcpUrl}
+          </code>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigator.clipboard.writeText(mcpUrl)}
+            >
+              Copy URL
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>API Key</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <code className="block rounded bg-muted p-3 text-sm font-mono">
+            {showKey ? endpoint.apiKey : "••••••••••••••••"}
+          </code>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowKey(!showKey)}
+            >
+              {showKey ? "Hide" : "Reveal"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleRegenerateKey}>
+              Regenerate
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Details</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="text-muted-foreground">Service</p>
+              <p className="font-medium capitalize">
+                {endpoint.serviceConnection.provider}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {endpoint.serviceConnection.accountEmail}
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Rate Limit</p>
+              <p className="font-medium">
+                {endpoint.rateLimitPerMinute} req/min
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Total Requests</p>
+              <p className="font-medium">{endpoint._count.auditLogs}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Created</p>
+              <p className="font-medium">
+                {new Date(endpoint.createdAt).toLocaleDateString()}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Permissions</CardTitle>
+          <CardDescription>
+            Actions this endpoint is allowed to perform
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {endpoint.permissions.map((p) => (
+              <Badge key={p.id} variant="outline">
+                {p.action}
+              </Badge>
+            ))}
+            {endpoint.permissions.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No permissions configured
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Separator />
+
+      <div className="flex gap-2">
+        <Button variant="outline" onClick={handleToggleActive}>
+          {endpoint.isActive ? "Deactivate" : "Activate"}
+        </Button>
+      </div>
+    </div>
+  );
+}

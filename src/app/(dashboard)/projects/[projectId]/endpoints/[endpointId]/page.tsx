@@ -155,37 +155,17 @@ export default function EndpointDetailPage() {
             </TabsList>
             <TabsContent value="claude-code" className="space-y-2 pt-3">
               <p className="text-sm text-muted-foreground">
-                Add to <code className="text-xs">.mcp.json</code>:
+                Run in your terminal:
               </p>
               <div className="relative">
                 <pre className="block rounded bg-muted p-3 pr-10 text-sm overflow-x-auto">
-{JSON.stringify({
-  mcpServers: {
-    [endpointSlug]: {
-      type: "url",
-      url: mcpUrl,
-      env: {
-        SCOPEGATE_API_KEY: endpoint.apiKey,
-      },
-    },
-  },
-}, null, 2)}
+{`claude mcp add --transport http ${endpointSlug} ${mcpUrl} --header "Authorization: Bearer ${endpoint.apiKey}"`}
                 </pre>
                 <button
                   type="button"
                   onClick={() =>
                     copyToClipboard(
-                      JSON.stringify({
-                        mcpServers: {
-                          [endpointSlug]: {
-                            type: "url",
-                            url: mcpUrl,
-                            env: {
-                              SCOPEGATE_API_KEY: endpoint.apiKey,
-                            },
-                          },
-                        },
-                      }, null, 2)
+                      `claude mcp add --transport http ${endpointSlug} ${mcpUrl} --header "Authorization: Bearer ${endpoint.apiKey}"`
                     )
                   }
                   className="absolute right-2 top-2 rounded p-1 text-muted-foreground hover:text-foreground transition-colors"
@@ -205,8 +185,8 @@ export default function EndpointDetailPage() {
     [endpointSlug]: {
       type: "http",
       url: mcpUrl,
-      env: {
-        SCOPEGATE_API_KEY: endpoint.apiKey,
+      headers: {
+        Authorization: `Bearer ${endpoint.apiKey}`,
       },
     },
   },
@@ -221,8 +201,8 @@ export default function EndpointDetailPage() {
                           [endpointSlug]: {
                             type: "http",
                             url: mcpUrl,
-                            env: {
-                              SCOPEGATE_API_KEY: endpoint.apiKey,
+                            headers: {
+                              Authorization: `Bearer ${endpoint.apiKey}`,
                             },
                           },
                         },
@@ -246,8 +226,8 @@ export default function EndpointDetailPage() {
     [endpointSlug]: {
       type: "http",
       url: mcpUrl,
-      env: {
-        SCOPEGATE_API_KEY: endpoint.apiKey,
+      headers: {
+        Authorization: `Bearer ${endpoint.apiKey}`,
       },
     },
   },
@@ -262,8 +242,8 @@ export default function EndpointDetailPage() {
                           [endpointSlug]: {
                             type: "http",
                             url: mcpUrl,
-                            env: {
-                              SCOPEGATE_API_KEY: endpoint.apiKey,
+                            headers: {
+                              Authorization: `Bearer ${endpoint.apiKey}`,
                             },
                           },
                         },

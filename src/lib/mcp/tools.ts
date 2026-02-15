@@ -161,6 +161,169 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       return { success: false, note: "Drive API not yet connected", params };
     },
   },
+  // Google Ads tools
+  {
+    name: "googleAds_list_campaigns",
+    description: "List campaigns in the Google Ads account",
+    action: "googleAds:list_campaigns",
+    inputSchema: z.object({
+      status: z.string().optional(),
+      maxResults: z.number().optional().default(50),
+    }),
+    handler: async (params) => {
+      return { campaigns: [], note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_get_campaign_performance",
+    description: "Get performance metrics for a specific campaign",
+    action: "googleAds:get_campaign_performance",
+    inputSchema: z.object({
+      campaignId: z.string(),
+      dateRangeStart: z.string().optional(),
+      dateRangeEnd: z.string().optional(),
+      datePreset: z.string().optional(),
+    }),
+    handler: async (params) => {
+      return { performance: null, note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_list_ad_groups",
+    description: "List ad groups within a campaign",
+    action: "googleAds:list_ad_groups",
+    inputSchema: z.object({
+      campaignId: z.string(),
+      status: z.string().optional(),
+      maxResults: z.number().optional().default(50),
+    }),
+    handler: async (params) => {
+      return { adGroups: [], note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_get_ad_group_performance",
+    description: "Get performance metrics for a specific ad group",
+    action: "googleAds:get_ad_group_performance",
+    inputSchema: z.object({
+      adGroupId: z.string(),
+      dateRangeStart: z.string().optional(),
+      dateRangeEnd: z.string().optional(),
+      datePreset: z.string().optional(),
+    }),
+    handler: async (params) => {
+      return { performance: null, note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_list_keywords",
+    description: "List keywords in an ad group",
+    action: "googleAds:list_keywords",
+    inputSchema: z.object({
+      adGroupId: z.string(),
+      maxResults: z.number().optional().default(50),
+    }),
+    handler: async (params) => {
+      return { keywords: [], note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_get_keyword_performance",
+    description: "Get performance metrics for a specific keyword",
+    action: "googleAds:get_keyword_performance",
+    inputSchema: z.object({
+      adGroupId: z.string(),
+      keywordId: z.string(),
+      dateRangeStart: z.string().optional(),
+      dateRangeEnd: z.string().optional(),
+      datePreset: z.string().optional(),
+    }),
+    handler: async (params) => {
+      return { performance: null, note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_get_account_overview",
+    description: "Get an overview of the Google Ads account performance",
+    action: "googleAds:get_account_overview",
+    inputSchema: z.object({
+      dateRangeStart: z.string().optional(),
+      dateRangeEnd: z.string().optional(),
+      datePreset: z.string().optional(),
+    }),
+    handler: async (params) => {
+      return { overview: null, note: "Google Ads API not yet connected", params };
+    },
+  },
+  // Google Search Console tools
+  {
+    name: "searchConsole_list_sites",
+    description: "List all sites verified in Google Search Console",
+    action: "searchConsole:list_sites",
+    inputSchema: z.object({}),
+    handler: async () => {
+      return { sites: [], note: "Search Console API not yet connected" };
+    },
+  },
+  {
+    name: "searchConsole_query_analytics",
+    description: "Query search analytics data for a site",
+    action: "searchConsole:query_analytics",
+    inputSchema: z.object({
+      siteUrl: z.string(),
+      startDate: z.string(),
+      endDate: z.string(),
+      dimensions: z.array(z.string()).optional(),
+      rowLimit: z.number().optional().default(1000),
+      dimensionFilterGroups: z.array(z.object({
+        filters: z.array(z.object({
+          dimension: z.string(),
+          operator: z.string(),
+          expression: z.string(),
+        })),
+      })).optional(),
+      type: z.string().optional(),
+    }),
+    handler: async (params) => {
+      return { rows: [], note: "Search Console API not yet connected", params };
+    },
+  },
+  {
+    name: "searchConsole_inspect_url",
+    description: "Inspect a URL in Google Search Console",
+    action: "searchConsole:inspect_url",
+    inputSchema: z.object({
+      inspectionUrl: z.string(),
+      siteUrl: z.string(),
+      languageCode: z.string().optional(),
+    }),
+    handler: async (params) => {
+      return { result: null, note: "Search Console API not yet connected", params };
+    },
+  },
+  {
+    name: "searchConsole_list_sitemaps",
+    description: "List sitemaps submitted for a site",
+    action: "searchConsole:list_sitemaps",
+    inputSchema: z.object({
+      siteUrl: z.string(),
+    }),
+    handler: async (params) => {
+      return { sitemaps: [], note: "Search Console API not yet connected", params };
+    },
+  },
+  {
+    name: "searchConsole_submit_sitemap",
+    description: "Submit a sitemap for a site",
+    action: "searchConsole:submit_sitemap",
+    inputSchema: z.object({
+      siteUrl: z.string(),
+      feedpath: z.string(),
+    }),
+    handler: async (params) => {
+      return { success: false, note: "Search Console API not yet connected", params };
+    },
+  },
 ];
 
 export function getToolsByActions(actions: string[]): ToolDefinition[] {

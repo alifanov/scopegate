@@ -35,6 +35,30 @@ export const PERMISSION_GROUPS: Record<string, PermissionGroup> = {
       "drive:delete_file",
     ],
   },
+  googleAds: {
+    name: "Google Ads",
+    description: "Access to Google Ads operations",
+    actions: [
+      "googleAds:list_campaigns",
+      "googleAds:get_campaign_performance",
+      "googleAds:list_ad_groups",
+      "googleAds:get_ad_group_performance",
+      "googleAds:list_keywords",
+      "googleAds:get_keyword_performance",
+      "googleAds:get_account_overview",
+    ],
+  },
+  searchConsole: {
+    name: "Google Search Console",
+    description: "Access to Google Search Console operations",
+    actions: [
+      "searchConsole:list_sites",
+      "searchConsole:query_analytics",
+      "searchConsole:inspect_url",
+      "searchConsole:list_sitemaps",
+      "searchConsole:submit_sitemap",
+    ],
+  },
 };
 
 export const ALL_ACTIONS = Object.values(PERMISSION_GROUPS).flatMap(

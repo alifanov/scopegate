@@ -136,7 +136,10 @@ export default function NewEndpointPage() {
                         name="service"
                         value={s.id}
                         checked={selectedService === s.id}
-                        onChange={() => setSelectedService(s.id)}
+                        onChange={() => {
+                          setSelectedService(s.id);
+                          setSelectedPermissions(new Set());
+                        }}
                         className="mr-3"
                       />
                       <div>
@@ -160,7 +163,17 @@ export default function NewEndpointPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {Object.entries(PERMISSION_GROUPS).map(([key, group]) => (
+              {!selectedService && (
+                <p className="text-sm text-muted-foreground">
+                  Select a service connection above to see available permissions.
+                </p>
+              )}
+              {Object.entries(PERMISSION_GROUPS)
+              .filter(([key]) => {
+                const service = services.find((s) => s.id === selectedService);
+                return service ? key === service.provider : false;
+              })
+              .map(([key, group]) => (
                 <div key={key} className="space-y-3">
                   <div className="flex items-center space-x-2">
                     <Checkbox

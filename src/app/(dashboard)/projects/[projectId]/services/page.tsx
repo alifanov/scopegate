@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -38,15 +37,10 @@ export default function ServicesPage() {
     load();
   }, [projectId]);
 
-  function handleConnectGoogle() {
-    window.location.href = `/api/oauth/google?projectId=${projectId}`;
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Connected Services</h1>
-        <Button onClick={handleConnectGoogle}>Connect Google</Button>
       </div>
 
       {loading ? (
@@ -56,7 +50,7 @@ export default function ServicesPage() {
           <CardHeader>
             <CardTitle>No services connected</CardTitle>
             <CardDescription>
-              Connect a Google account to start creating MCP endpoints.
+              Service connections will appear here once configured.
             </CardDescription>
           </CardHeader>
         </Card>

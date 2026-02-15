@@ -38,8 +38,6 @@ cp .env.example .env
 |---|---|
 | `DATABASE_URL` | PostgreSQL connection string |
 | `JWT_SECRET` | Secret key for JWT signing |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
 | `NEXTAUTH_URL` | App base URL (e.g. `http://localhost:3000`) |
 
 3. Run database migrations:
@@ -67,7 +65,6 @@ src/
 │   ├── api/
 │   │   ├── auth/            # Register, login, logout
 │   │   ├── projects/        # Projects CRUD, endpoints, services, audit
-│   │   ├── oauth/google/    # Google OAuth flow (stub)
 │   │   └── mcp/[apiKey]/    # MCP Streamable HTTP handler
 │   ├── layout.tsx
 │   └── page.tsx             # Landing page
@@ -103,7 +100,7 @@ pnpm prisma studio    # Open Prisma Studio (DB browser)
 
 1. **Register/Login** — create an account and sign in
 2. **Create a Project** — organize endpoints and services by project
-3. **Connect a Service** — link a Google account via OAuth
+3. **Connect a Service** — add a service connection to the project
 4. **Create an MCP Endpoint** — select a service connection and pick specific permissions (e.g. `gmail:read_emails`, `calendar:create_event`)
 5. **Use the MCP URL** — plug the endpoint URL into any MCP-compatible AI agent; only the allowed actions are exposed
 6. **Monitor** — track every request in the audit log

@@ -11,14 +11,9 @@ export default function HomePage() {
           and expose MCP endpoints for your AI agents.
         </p>
       </div>
-      <div className="flex gap-4">
-        <Button asChild>
-          <Link href="/login">Sign In</Link>
-        </Button>
-        <Button variant="outline" asChild>
-          <Link href="/register">Create Account</Link>
-        </Button>
-      </div>
+      <Button asChild>
+        <Link href="/login">Sign In</Link>
+      </Button>
     </div>
   );
 }

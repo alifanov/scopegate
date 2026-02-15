@@ -1,11 +1,16 @@
 import { z } from "zod";
+import { googleCalendarFetch } from "./google-calendar";
+
+export interface ToolContext {
+  serviceConnectionId: string;
+}
 
 export interface ToolDefinition {
   name: string;
   description: string;
   action: string;
   inputSchema: z.ZodType;
-  handler: (params: Record<string, unknown>) => Promise<unknown>;
+  handler: (params: Record<string, unknown>, context: ToolContext) => Promise<unknown>;
 }
 
 // Tool definitions mapped to permission actions
@@ -69,8 +74,19 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       timeMin: z.string().optional(),
       timeMax: z.string().optional(),
     }),
-    handler: async (params) => {
-      return { events: [], note: "Calendar API not yet connected", params };
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        maxResults: String(params.maxResults ?? 10),
+        orderBy: "startTime",
+        singleEvents: "true",
+      });
+      if (params.timeMin) query.set("timeMin", params.timeMin as string);
+      if (params.timeMax) query.set("timeMax", params.timeMax as string);
+
+      return googleCalendarFetch(
+        context.serviceConnectionId,
+        `/calendars/primary/events?${query.toString()}`
+      );
     },
   },
   {
@@ -83,8 +99,22 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       end: z.string(),
       description: z.string().optional(),
     }),
-    handler: async (params) => {
-      return { success: false, note: "Calendar API not yet connected", params };
+    handler: async (params, context) => {
+      const body = {
+        summary: params.summary,
+        description: params.description,
+        start: { dateTime: params.start },
+        end: { dateTime: params.end },
+      };
+
+      return googleCalendarFetch(
+        context.serviceConnectionId,
+        "/calendars/primary/events",
+        {
+          method: "POST",
+          body: JSON.stringify(body),
+        }
+      );
     },
   },
   {
@@ -98,8 +128,22 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       end: z.string().optional(),
       description: z.string().optional(),
     }),
-    handler: async (params) => {
-      return { success: false, note: "Calendar API not yet connected", params };
+    handler: async (params, context) => {
+      const { eventId, ...fields } = params;
+      const body: Record<string, unknown> = {};
+      if (fields.summary) body.summary = fields.summary;
+      if (fields.description) body.description = fields.description;
+      if (fields.start) body.start = { dateTime: fields.start };
+      if (fields.end) body.end = { dateTime: fields.end };
+
+      return googleCalendarFetch(
+        context.serviceConnectionId,
+        `/calendars/primary/events/${eventId}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(body),
+        }
+      );
     },
   },
   {
@@ -109,8 +153,12 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: z.object({
       eventId: z.string(),
     }),
-    handler: async (params) => {
-      return { success: false, note: "Calendar API not yet connected", params };
+    handler: async (params, context) => {
+      return googleCalendarFetch(
+        context.serviceConnectionId,
+        `/calendars/primary/events/${params.eventId}`,
+        { method: "DELETE" }
+      );
     },
   },
   // Drive tools

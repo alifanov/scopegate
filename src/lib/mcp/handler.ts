@@ -6,7 +6,8 @@ import { z } from "zod";
 export function createMcpServerForEndpoint(
   endpointId: string,
   endpointName: string,
-  allowedActions: string[]
+  allowedActions: string[],
+  serviceConnectionId: string
 ) {
   const server = new McpServer({
     name: `ScopeGate — ${endpointName}`,
@@ -16,7 +17,7 @@ export function createMcpServerForEndpoint(
   const tools = getToolsByActions(allowedActions);
 
   for (const tool of tools) {
-    registerTool(server, tool, endpointId);
+    registerTool(server, tool, endpointId, serviceConnectionId);
   }
 
   return server;
@@ -25,7 +26,8 @@ export function createMcpServerForEndpoint(
 function registerTool(
   server: McpServer,
   tool: ToolDefinition,
-  endpointId: string
+  endpointId: string,
+  serviceConnectionId: string
 ) {
   const shape = getZodShape(tool.inputSchema);
 
@@ -36,7 +38,7 @@ function registerTool(
     async (params) => {
       const startTime = Date.now();
       try {
-        const result = await tool.handler(params as Record<string, unknown>);
+        const result = await tool.handler(params as Record<string, unknown>, { serviceConnectionId });
         const duration = Date.now() - startTime;
 
         // Log to audit

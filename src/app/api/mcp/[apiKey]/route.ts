@@ -49,7 +49,8 @@ async function handleMcpRequest(
   const server = createMcpServerForEndpoint(
     endpoint.id,
     endpoint.name,
-    allowedActions
+    allowedActions,
+    endpoint.serviceConnectionId
   );
 
   // Create stateless transport for this request

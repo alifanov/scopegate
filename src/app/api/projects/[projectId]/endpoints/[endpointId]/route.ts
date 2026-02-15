@@ -54,7 +54,7 @@ export async function PATCH(request: Request, { params }: Params) {
     const { name, isActive, rateLimitPerMinute, permissions } =
       await request.json();
 
-    const endpoint = await db.mcpEndpoint.update({
+    await db.mcpEndpoint.update({
       where: { id: endpointId },
       data: {
         ...(name !== undefined && { name }),

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useProject } from "@/components/project/project-context";
@@ -12,7 +13,8 @@ export function Sidebar() {
   return (
     <aside className="flex w-64 flex-col border-r bg-muted/30">
       <div className="flex h-14 items-center border-b px-4">
-        <Link href="/projects" className="text-lg font-semibold">
+        <Link href="/projects" className="flex items-center gap-2 text-lg font-semibold">
+          <Image src="/logo.png" alt="ScopeGate" width={28} height={28} />
           ScopeGate
         </Link>
       </div>

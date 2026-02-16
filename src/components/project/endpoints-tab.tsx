@@ -72,7 +72,7 @@ export function EndpointsTab({ projectId }: { projectId: string }) {
           No endpoints yet. Connect a service first, then create an endpoint.
         </p>
       ) : (
-        <div className="rounded-md border">
+        <div className="rounded-md border overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>

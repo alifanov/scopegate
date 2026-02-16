@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Copy } from "lucide-react";
+import { Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +51,11 @@ export default function EndpointDetailPage() {
   const [regenerating, setRegenerating] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [toggleOpen, setToggleOpen] = useState(false);
+  const [toggling, setToggling] = useState(false);
+
+  // Copy feedback
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Rename
   const [renaming, setRenaming] = useState(false);
@@ -97,19 +102,27 @@ export default function EndpointDetailPage() {
 
   async function handleToggleActive() {
     if (!endpoint) return;
-    const res = await fetch(
-      `/api/projects/${projectId}/endpoints/${endpointId}`,
-      {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: !endpoint.isActive }),
+    setToggling(true);
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/endpoints/${endpointId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isActive: !endpoint.isActive }),
+        }
+      );
+      if (res.ok) {
+        toast.success(endpoint.isActive ? "Endpoint deactivated" : "Endpoint activated");
+        loadEndpoint();
+      } else {
+        toast.error("Failed to update endpoint status");
       }
-    );
-    if (res.ok) {
-      toast.success(endpoint.isActive ? "Endpoint deactivated" : "Endpoint activated");
-      loadEndpoint();
-    } else {
+    } catch {
       toast.error("Failed to update endpoint status");
+    } finally {
+      setToggling(false);
+      setToggleOpen(false);
     }
   }
 
@@ -188,9 +201,25 @@ export default function EndpointDetailPage() {
   const mcpUrl = `${origin}/api/mcp/${endpoint.apiKey}`;
   const endpointSlug = endpoint.name.toLowerCase().replace(/\s+/g, "-");
 
-  function copyToClipboard(text: string) {
+  function copyToClipboard(text: string, id: string) {
     navigator.clipboard.writeText(text);
+    setCopiedId(id);
     toast.success("Copied to clipboard");
+    setTimeout(() => setCopiedId(null), 2000);
+  }
+
+  function CopyButton({ text, id }: { text: string; id: string }) {
+    const isCopied = copiedId === id;
+    return (
+      <button
+        type="button"
+        aria-label="Copy to clipboard"
+        onClick={() => copyToClipboard(text, id)}
+        className="absolute right-2 top-2 cursor-pointer rounded p-1 text-muted-foreground hover:text-foreground transition-colors"
+      >
+        {isCopied ? <Check className="size-4 text-green-500" /> : <Copy className="size-4" />}
+      </button>
+    );
   }
 
   return (
@@ -257,13 +286,7 @@ export default function EndpointDetailPage() {
             <code className="block rounded bg-muted p-3 pr-10 text-sm break-all">
               {mcpUrl}
             </code>
-            <button
-              type="button"
-              onClick={() => copyToClipboard(mcpUrl)}
-              className="absolute right-2 top-2 rounded p-1 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Copy className="size-4" />
-            </button>
+            <CopyButton text={mcpUrl} id="mcp-url" />
           </div>
         </CardContent>
       </Card>
@@ -301,6 +324,7 @@ export default function EndpointDetailPage() {
         title="Regenerate API Key"
         description="Regenerate API key? The old key will stop working immediately."
         confirmText="Regenerate"
+        loadingText="Regenerating..."
         variant="destructive"
         onConfirm={handleRegenerateKey}
         loading={regenerating}
@@ -328,17 +352,7 @@ export default function EndpointDetailPage() {
                 <pre className="block rounded bg-muted p-3 pr-10 text-sm overflow-x-auto">
 {`claude mcp add --transport http ${endpointSlug} ${mcpUrl} --header "Authorization: Bearer ${endpoint.apiKey}"`}
                 </pre>
-                <button
-                  type="button"
-                  onClick={() =>
-                    copyToClipboard(
-                      `claude mcp add --transport http ${endpointSlug} ${mcpUrl} --header "Authorization: Bearer ${endpoint.apiKey}"`
-                    )
-                  }
-                  className="absolute right-2 top-2 rounded p-1 text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Copy className="size-4" />
-                </button>
+                <CopyButton text={`claude mcp add --transport http ${endpointSlug} ${mcpUrl} --header "Authorization: Bearer ${endpoint.apiKey}"`} id="claude-code" />
               </div>
             </TabsContent>
             <TabsContent value="cursor" className="space-y-2 pt-3">
@@ -359,27 +373,7 @@ export default function EndpointDetailPage() {
   },
 }, null, 2)}
                 </pre>
-                <button
-                  type="button"
-                  onClick={() =>
-                    copyToClipboard(
-                      JSON.stringify({
-                        mcpServers: {
-                          [endpointSlug]: {
-                            type: "http",
-                            url: mcpUrl,
-                            headers: {
-                              Authorization: `Bearer ${endpoint.apiKey}`,
-                            },
-                          },
-                        },
-                      }, null, 2)
-                    )
-                  }
-                  className="absolute right-2 top-2 rounded p-1 text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Copy className="size-4" />
-                </button>
+                <CopyButton text={JSON.stringify({ mcpServers: { [endpointSlug]: { type: "http", url: mcpUrl, headers: { Authorization: `Bearer ${endpoint.apiKey}` } } } }, null, 2)} id="cursor" />
               </div>
             </TabsContent>
             <TabsContent value="opencode" className="space-y-2 pt-3">
@@ -400,27 +394,7 @@ export default function EndpointDetailPage() {
   },
 }, null, 2)}
                 </pre>
-                <button
-                  type="button"
-                  onClick={() =>
-                    copyToClipboard(
-                      JSON.stringify({
-                        mcpServers: {
-                          [endpointSlug]: {
-                            type: "http",
-                            url: mcpUrl,
-                            headers: {
-                              Authorization: `Bearer ${endpoint.apiKey}`,
-                            },
-                          },
-                        },
-                      }, null, 2)
-                    )
-                  }
-                  className="absolute right-2 top-2 rounded p-1 text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Copy className="size-4" />
-                </button>
+                <CopyButton text={JSON.stringify({ mcpServers: { [endpointSlug]: { type: "http", url: mcpUrl, headers: { Authorization: `Bearer ${endpoint.apiKey}` } } } }, null, 2)} id="opencode" />
               </div>
             </TabsContent>
           </Tabs>
@@ -455,7 +429,7 @@ export default function EndpointDetailPage() {
             <div>
               <p className="text-muted-foreground">Created</p>
               <p className="font-medium">
-                {new Date(endpoint.createdAt).toLocaleDateString()}
+                {new Date(endpoint.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
               </p>
             </div>
           </div>
@@ -509,10 +483,30 @@ export default function EndpointDetailPage() {
       <Separator />
 
       <div className="flex gap-2">
-        <Button variant="outline" onClick={handleToggleActive}>
+        <Button
+          variant="outline"
+          onClick={() => setToggleOpen(true)}
+          disabled={toggling}
+        >
           {endpoint.isActive ? "Deactivate" : "Activate"}
         </Button>
       </div>
+
+      <ConfirmDialog
+        open={toggleOpen}
+        onOpenChange={setToggleOpen}
+        title={endpoint.isActive ? "Deactivate Endpoint" : "Activate Endpoint"}
+        description={
+          endpoint.isActive
+            ? "Deactivate this endpoint? AI agents using it will lose access immediately."
+            : "Activate this endpoint? AI agents will be able to use it."
+        }
+        confirmText={endpoint.isActive ? "Deactivate" : "Activate"}
+        loadingText={endpoint.isActive ? "Deactivating..." : "Activating..."}
+        variant={endpoint.isActive ? "destructive" : "default"}
+        onConfirm={handleToggleActive}
+        loading={toggling}
+      />
 
       <Card className="border-destructive/50">
         <CardHeader>
@@ -537,6 +531,7 @@ export default function EndpointDetailPage() {
         title="Delete Endpoint"
         description="Are you sure you want to delete this endpoint? This action cannot be undone."
         confirmText="Delete"
+        loadingText="Deleting..."
         variant="destructive"
         onConfirm={handleDelete}
         loading={deleting}

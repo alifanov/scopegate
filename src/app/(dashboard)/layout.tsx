@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { ProjectProvider } from "@/components/project/project-context";
+import { SidebarProvider } from "@/components/layout/sidebar-context";
 
 export default function DashboardLayout({
   children,
@@ -9,13 +11,17 @@ export default function DashboardLayout({
 }) {
   return (
     <ProjectProvider>
-      <div className="flex h-screen">
-        <Sidebar />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <Header />
-          <main className="flex-1 overflow-y-auto p-6">{children}</main>
+      <SidebarProvider>
+        <div className="flex h-screen">
+          <Suspense>
+            <Sidebar />
+          </Suspense>
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <Header />
+            <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
+          </div>
         </div>
-      </div>
+      </SidebarProvider>
     </ProjectProvider>
   );
 }

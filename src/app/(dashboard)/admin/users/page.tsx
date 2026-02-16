@@ -67,7 +67,7 @@ export default function AdminUsersPage() {
       ) : users.length === 0 ? (
         <p className="text-muted-foreground">No users found.</p>
       ) : (
-        <div className="rounded-md border">
+        <div className="rounded-md border overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -82,7 +82,7 @@ export default function AdminUsersPage() {
                   <TableCell className="font-medium">{user.email}</TableCell>
                   <TableCell>{user.name || "-"}</TableCell>
                   <TableCell>
-                    {new Date(user.createdAt).toLocaleDateString()}
+                    {new Date(user.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                   </TableCell>
                 </TableRow>
               ))}

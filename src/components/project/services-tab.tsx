@@ -126,7 +126,7 @@ export function ServicesTab({ projectId }: { projectId: string }) {
               <button
                 key={provider.key}
                 onClick={() => handleConnect(provider.key)}
-                className="w-full rounded-lg border p-4 text-left transition-colors hover:bg-muted"
+                className="w-full cursor-pointer rounded-lg border p-4 text-left transition-colors hover:bg-muted"
               >
                 <div className="font-medium">{provider.name}</div>
                 <div className="text-sm text-muted-foreground">
@@ -144,6 +144,7 @@ export function ServicesTab({ projectId }: { projectId: string }) {
         title="Disconnect Service"
         description="Are you sure you want to disconnect this service? Any endpoints using it will stop working."
         confirmText="Disconnect"
+        loadingText="Disconnecting..."
         variant="destructive"
         onConfirm={handleDisconnect}
         loading={disconnecting !== null}
@@ -190,7 +191,7 @@ export function ServicesTab({ projectId }: { projectId: string }) {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">
-                  Connected {new Date(service.createdAt).toLocaleDateString()}
+                  Connected {new Date(service.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                 </p>
               </CardContent>
             </Card>

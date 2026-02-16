@@ -16,6 +16,7 @@ interface ConfirmDialogProps {
   title: string;
   description: string;
   confirmText?: string;
+  loadingText?: string;
   variant?: "default" | "destructive";
   onConfirm: () => void;
   loading?: boolean;
@@ -27,10 +28,13 @@ export function ConfirmDialog({
   title,
   description,
   confirmText = "Confirm",
+  loadingText,
   variant = "default",
   onConfirm,
   loading = false,
 }: ConfirmDialogProps) {
+  const defaultLoadingText = loadingText || `${confirmText}ing...`;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -47,7 +51,7 @@ export function ConfirmDialog({
             Cancel
           </Button>
           <Button variant={variant} onClick={onConfirm} disabled={loading}>
-            {loading ? "..." : confirmText}
+            {loading ? defaultLoadingText : confirmText}
           </Button>
         </DialogFooter>
       </DialogContent>

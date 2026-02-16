@@ -112,7 +112,7 @@ export function AuditTab({ projectId }: { projectId: string }) {
         <p className="text-muted-foreground">No audit logs yet.</p>
       ) : (
         <>
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -128,7 +128,7 @@ export function AuditTab({ projectId }: { projectId: string }) {
                 {logs.map((log) => (
                   <TableRow key={log.id}>
                     <TableCell className="text-sm">
-                      {new Date(log.createdAt).toLocaleString()}
+                      {new Date(log.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                     </TableCell>
                     <TableCell>{log.endpoint.name}</TableCell>
                     <TableCell>

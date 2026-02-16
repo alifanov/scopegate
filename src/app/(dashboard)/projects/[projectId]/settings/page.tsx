@@ -194,6 +194,7 @@ export default function SettingsPage() {
         title="Delete Project"
         description="Delete this project? This action cannot be undone. All endpoints and data will be permanently removed."
         confirmText="Delete"
+        loadingText="Deleting..."
         variant="destructive"
         onConfirm={handleDelete}
         loading={deleting}

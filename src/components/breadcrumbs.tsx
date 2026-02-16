@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 
 interface BreadcrumbItem {
   label: string;
@@ -9,10 +10,10 @@ interface BreadcrumbItem {
 
 export function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
   return (
-    <nav className="flex items-center text-sm text-muted-foreground">
+    <nav aria-label="Breadcrumb" className="flex items-center text-sm text-muted-foreground">
       {items.map((item, index) => (
         <span key={index} className="flex items-center">
-          {index > 0 && <span className="mx-2">/</span>}
+          {index > 0 && <ChevronRight className="mx-1 size-4" />}
           {item.href ? (
             <Link
               href={item.href}

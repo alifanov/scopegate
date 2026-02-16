@@ -48,3 +48,6 @@ next-env.d.ts
 
 # claude code
 CLAUDE.md
+
+# local scripts
+/scripts/

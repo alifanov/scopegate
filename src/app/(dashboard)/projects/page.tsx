@@ -19,6 +19,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { ProjectListSkeleton } from "@/components/skeletons";
+import { toast } from "sonner";
 
 interface Project {
   id: string;
@@ -35,14 +38,22 @@ export default function ProjectsPage() {
   const [creating, setCreating] = useState(false);
 
   const fetchProjects = useCallback(async () => {
-    const res = await fetch("/api/projects");
-    const data = await res.json();
-    setProjects(data.projects || []);
-    setLoading(false);
+    try {
+      const res = await fetch("/api/projects");
+      if (res.ok) {
+        const data = await res.json();
+        setProjects(data.projects || []);
+      } else {
+        toast.error("Failed to load projects");
+      }
+    } catch {
+      toast.error("Failed to load projects");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchProjects();
   }, [fetchProjects]);
 
@@ -52,21 +63,32 @@ export default function ProjectsPage() {
     const formData = new FormData(e.currentTarget);
     const name = formData.get("name") as string;
 
-    const res = await fetch("/api/projects", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
+    try {
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
 
-    if (res.ok) {
-      setDialogOpen(false);
-      fetchProjects();
+      if (res.ok) {
+        toast.success("Project created");
+        setDialogOpen(false);
+        fetchProjects();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || "Failed to create project");
+      }
+    } catch {
+      toast.error("Failed to create project");
+    } finally {
+      setCreating(false);
     }
-    setCreating(false);
   }
 
   return (
     <div className="space-y-6">
+      <Breadcrumbs items={[{ label: "Projects" }]} />
+
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Projects</h1>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -96,7 +118,7 @@ export default function ProjectsPage() {
       </div>
 
       {loading ? (
-        <p className="text-muted-foreground">Loading...</p>
+        <ProjectListSkeleton />
       ) : projects.length === 0 ? (
         <Card>
           <CardHeader>

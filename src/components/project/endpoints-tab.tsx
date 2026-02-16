@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +12,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableSkeleton } from "@/components/skeletons";
+import { CreateEndpointDialog } from "@/components/project/create-endpoint-dialog";
+import { getProviderDisplayName } from "@/lib/provider-names";
+import { toast } from "sonner";
 
 interface Endpoint {
   id: string;
@@ -26,37 +29,45 @@ interface Endpoint {
   createdAt: string;
 }
 
-export default function EndpointsPage() {
-  const { projectId } = useParams<{ projectId: string }>();
+export function EndpointsTab({ projectId }: { projectId: string }) {
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
-  useEffect(() => {
-    async function load() {
+  const fetchEndpoints = useCallback(async () => {
+    try {
       const res = await fetch(`/api/projects/${projectId}/endpoints`);
       if (res.ok) {
         const data = await res.json();
         setEndpoints(data.endpoints || []);
       }
+    } catch {
+      toast.error("Failed to load endpoints");
+    } finally {
       setLoading(false);
     }
-    load();
   }, [projectId]);
 
+  useEffect(() => {
+    fetchEndpoints();
+  }, [fetchEndpoints]);
+
+  if (loading) return <TableSkeleton />;
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">MCP Endpoints</h1>
-        <Button asChild>
-          <Link href={`/projects/${projectId}/endpoints/new`}>
-            New Endpoint
-          </Link>
-        </Button>
+    <div className="space-y-4">
+      <div className="flex items-center justify-end">
+        <Button onClick={() => setDialogOpen(true)}>New Endpoint</Button>
       </div>
 
-      {loading ? (
-        <p className="text-muted-foreground">Loading...</p>
-      ) : endpoints.length === 0 ? (
+      <CreateEndpointDialog
+        projectId={projectId}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onCreated={fetchEndpoints}
+      />
+
+      {endpoints.length === 0 ? (
         <p className="text-muted-foreground">
           No endpoints yet. Connect a service first, then create an endpoint.
         </p>
@@ -78,9 +89,7 @@ export default function EndpointsPage() {
                 <TableRow key={ep.id}>
                   <TableCell className="font-medium">{ep.name}</TableCell>
                   <TableCell>
-                    <span className="capitalize">
-                      {ep.serviceConnection.provider}
-                    </span>
+                    {getProviderDisplayName(ep.serviceConnection.provider)}
                     <br />
                     <span className="text-xs text-muted-foreground">
                       {ep.serviceConnection.accountEmail}

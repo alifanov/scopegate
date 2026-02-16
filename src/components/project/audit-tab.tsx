@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +17,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { TableSkeleton } from "@/components/skeletons";
+import { toast } from "sonner";
 
 interface AuditEntry {
   id: string;
@@ -36,8 +37,7 @@ interface Pagination {
   pages: number;
 }
 
-export default function AuditPage() {
-  const { projectId } = useParams<{ projectId: string }>();
+export function AuditTab({ projectId }: { projectId: string }) {
   const [logs, setLogs] = useState<AuditEntry[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,18 +46,23 @@ export default function AuditPage() {
 
   useEffect(() => {
     async function load() {
-      const params = new URLSearchParams({ page: String(page), limit: "50" });
-      if (statusFilter) params.set("status", statusFilter);
+      try {
+        const params = new URLSearchParams({ page: String(page), limit: "50" });
+        if (statusFilter) params.set("status", statusFilter);
 
-      const res = await fetch(
-        `/api/projects/${projectId}/audit?${params}`
-      );
-      if (res.ok) {
-        const data = await res.json();
-        setLogs(data.logs || []);
-        setPagination(data.pagination);
+        const res = await fetch(
+          `/api/projects/${projectId}/audit?${params}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setLogs(data.logs || []);
+          setPagination(data.pagination);
+        }
+      } catch {
+        toast.error("Failed to load audit logs");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     load();
   }, [projectId, page, statusFilter]);
@@ -75,10 +80,11 @@ export default function AuditPage() {
     }
   };
 
+  if (loading) return <TableSkeleton />;
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Audit Log</h1>
+    <div className="space-y-4">
+      <div className="flex items-center justify-end">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm">
@@ -102,9 +108,7 @@ export default function AuditPage() {
         </DropdownMenu>
       </div>
 
-      {loading ? (
-        <p className="text-muted-foreground">Loading...</p>
-      ) : logs.length === 0 ? (
+      {logs.length === 0 ? (
         <p className="text-muted-foreground">No audit logs yet.</p>
       ) : (
         <>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -17,8 +17,11 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { TabContentSkeleton } from "@/components/skeletons";
+import { getProviderDisplayName } from "@/lib/provider-names";
+import { PERMISSION_GROUPS } from "@/lib/mcp/permissions";
 import { toast } from "sonner";
 
 interface Service {
@@ -30,37 +33,14 @@ interface Service {
   _count: { mcpEndpoints: number };
 }
 
-const PROVIDERS = [
-  { key: "gmail", name: "Gmail", description: "Access to Gmail operations" },
-  {
-    key: "calendar",
-    name: "Google Calendar",
-    description: "Access to Google Calendar operations",
-  },
-  {
-    key: "drive",
-    name: "Google Drive",
-    description: "Access to Google Drive operations",
-  },
-  {
-    key: "googleAds",
-    name: "Google Ads",
-    description: "Access to Google Ads operations",
-  },
-  {
-    key: "searchConsole",
-    name: "Google Search Console",
-    description: "Access to Google Search Console operations",
-  },
-];
-
-export default function ServicesPage() {
-  const { projectId } = useParams<{ projectId: string }>();
+export function ServicesTab({ projectId }: { projectId: string }) {
   const searchParams = useSearchParams();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [serviceToDisconnect, setServiceToDisconnect] = useState<string | null>(null);
 
   useEffect(() => {
     if (searchParams.get("error") === "oauth_failed") {
@@ -74,31 +54,38 @@ export default function ServicesPage() {
   }, [projectId]);
 
   async function loadServices() {
-    const res = await fetch(`/api/projects/${projectId}/services`);
-    if (res.ok) {
-      const data = await res.json();
-      setServices(data.services || []);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/services`);
+      if (res.ok) {
+        const data = await res.json();
+        setServices(data.services || []);
+      }
+    } catch {
+      toast.error("Failed to load services");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   function handleConnect(providerKey: string) {
     window.location.href = `/api/oauth/google?projectId=${projectId}&provider=${providerKey}`;
   }
 
-  async function handleDisconnect(serviceId: string) {
-    if (!confirm("Are you sure you want to disconnect this service? Any endpoints using it will stop working.")) {
-      return;
-    }
+  function askDisconnect(serviceId: string) {
+    setServiceToDisconnect(serviceId);
+    setConfirmOpen(true);
+  }
 
-    setDisconnecting(serviceId);
+  async function handleDisconnect() {
+    if (!serviceToDisconnect) return;
+    setDisconnecting(serviceToDisconnect);
     try {
       const res = await fetch(
-        `/api/projects/${projectId}/services?serviceId=${serviceId}`,
+        `/api/projects/${projectId}/services?serviceId=${serviceToDisconnect}`,
         { method: "DELETE" }
       );
       if (res.ok) {
-        setServices((prev) => prev.filter((s) => s.id !== serviceId));
+        setServices((prev) => prev.filter((s) => s.id !== serviceToDisconnect));
         toast.success("Service disconnected.");
       } else {
         toast.error("Failed to disconnect service.");
@@ -107,45 +94,62 @@ export default function ServicesPage() {
       toast.error("Failed to disconnect service.");
     } finally {
       setDisconnecting(null);
+      setConfirmOpen(false);
+      setServiceToDisconnect(null);
     }
   }
 
+  if (loading) return <TabContentSkeleton />;
+
+  const providers = Object.entries(PERMISSION_GROUPS).map(([key, group]) => ({
+    key,
+    name: group.name,
+    description: group.description,
+  }));
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Connected Services</h1>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>Connect Service</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Connect a Service</DialogTitle>
-              <DialogDescription>
-                Choose a Google service to connect to this project.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-2">
-              {PROVIDERS.map((provider) => (
-                <button
-                  key={provider.key}
-                  onClick={() => handleConnect(provider.key)}
-                  className="w-full rounded-lg border p-4 text-left transition-colors hover:bg-muted"
-                >
-                  <div className="font-medium">{provider.name}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {provider.description}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </DialogContent>
-        </Dialog>
+    <div className="space-y-4">
+      <div className="flex items-center justify-end">
+        <Button onClick={() => setDialogOpen(true)}>Connect Service</Button>
       </div>
 
-      {loading ? (
-        <p className="text-muted-foreground">Loading...</p>
-      ) : services.length === 0 ? (
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Connect a Service</DialogTitle>
+            <DialogDescription>
+              Choose a Google service to connect to this project.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {providers.map((provider) => (
+              <button
+                key={provider.key}
+                onClick={() => handleConnect(provider.key)}
+                className="w-full rounded-lg border p-4 text-left transition-colors hover:bg-muted"
+              >
+                <div className="font-medium">{provider.name}</div>
+                <div className="text-sm text-muted-foreground">
+                  {provider.description}
+                </div>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Disconnect Service"
+        description="Are you sure you want to disconnect this service? Any endpoints using it will stop working."
+        confirmText="Disconnect"
+        variant="destructive"
+        onConfirm={handleDisconnect}
+        loading={disconnecting !== null}
+      />
+
+      {services.length === 0 ? (
         <Card>
           <CardHeader>
             <CardTitle>No services connected</CardTitle>
@@ -162,8 +166,8 @@ export default function ServicesPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="capitalize">
-                      {service.provider}
+                    <CardTitle>
+                      {getProviderDisplayName(service.provider)}
                     </CardTitle>
                     <CardDescription>{service.accountEmail}</CardDescription>
                   </div>
@@ -175,7 +179,7 @@ export default function ServicesPage() {
                       variant="destructive"
                       size="sm"
                       disabled={disconnecting === service.id}
-                      onClick={() => handleDisconnect(service.id)}
+                      onClick={() => askDisconnect(service.id)}
                     >
                       {disconnecting === service.id
                         ? "Disconnecting..."

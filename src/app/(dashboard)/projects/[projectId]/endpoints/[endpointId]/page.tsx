@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -15,6 +16,12 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { EditPermissionsDialog } from "@/components/project/edit-permissions-dialog";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { EndpointDetailSkeleton } from "@/components/skeletons";
+import { useProject } from "@/components/project/project-context";
+import { getProviderDisplayName } from "@/lib/provider-names";
 
 interface EndpointDetails {
   id: string;
@@ -33,46 +40,148 @@ export default function EndpointDetailPage() {
     projectId: string;
     endpointId: string;
   }>();
+  const router = useRouter();
+  const { project: projectCtx, setProject } = useProject();
   const [endpoint, setEndpoint] = useState<EndpointDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [showKey, setShowKey] = useState(false);
 
+  // Confirm dialogs
+  const [regenerateOpen, setRegenerateOpen] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  // Rename
+  const [renaming, setRenaming] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editingName, setEditingName] = useState(false);
+
+  // Edit permissions
+  const [permDialogOpen, setPermDialogOpen] = useState(false);
+
   useEffect(() => {
     loadEndpoint();
+    // Load project context if not set
+    if (!projectCtx) {
+      fetch(`/api/projects/${projectId}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.project) {
+            setProject({
+              projectId: data.project.id,
+              projectName: data.project.name,
+            });
+          }
+        });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, endpointId]);
 
   async function loadEndpoint() {
-    const res = await fetch(
-      `/api/projects/${projectId}/endpoints/${endpointId}`
-    );
-    if (res.ok) {
-      const data = await res.json();
-      setEndpoint(data.endpoint);
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/endpoints/${endpointId}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setEndpoint(data.endpoint);
+        setEditName(data.endpoint.name);
+      }
+    } catch {
+      toast.error("Failed to load endpoint");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function handleToggleActive() {
     if (!endpoint) return;
-    await fetch(`/api/projects/${projectId}/endpoints/${endpointId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isActive: !endpoint.isActive }),
-    });
-    loadEndpoint();
+    const res = await fetch(
+      `/api/projects/${projectId}/endpoints/${endpointId}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !endpoint.isActive }),
+      }
+    );
+    if (res.ok) {
+      toast.success(endpoint.isActive ? "Endpoint deactivated" : "Endpoint activated");
+      loadEndpoint();
+    } else {
+      toast.error("Failed to update endpoint status");
+    }
   }
 
   async function handleRegenerateKey() {
-    if (!confirm("Regenerate API key? The old key will stop working.")) return;
-    await fetch(
-      `/api/projects/${projectId}/endpoints/${endpointId}/regenerate-key`,
-      { method: "POST" }
-    );
-    loadEndpoint();
+    setRegenerating(true);
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/endpoints/${endpointId}/regenerate-key`,
+        { method: "POST" }
+      );
+      if (res.ok) {
+        toast.success("API key regenerated");
+        loadEndpoint();
+      } else {
+        toast.error("Failed to regenerate API key");
+      }
+    } catch {
+      toast.error("Failed to regenerate API key");
+    } finally {
+      setRegenerating(false);
+      setRegenerateOpen(false);
+    }
   }
 
-  if (loading) return <p className="text-muted-foreground">Loading...</p>;
+  async function handleRename() {
+    if (!editName.trim()) return;
+    setRenaming(true);
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/endpoints/${endpointId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: editName }),
+        }
+      );
+      if (res.ok) {
+        toast.success("Endpoint renamed");
+        setEditingName(false);
+        loadEndpoint();
+      } else {
+        toast.error("Failed to rename endpoint");
+      }
+    } catch {
+      toast.error("Failed to rename endpoint");
+    } finally {
+      setRenaming(false);
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/endpoints/${endpointId}`,
+        { method: "DELETE" }
+      );
+      if (res.ok) {
+        toast.success("Endpoint deleted");
+        router.push(`/projects/${projectId}?tab=endpoints`);
+      } else {
+        toast.error("Failed to delete endpoint");
+      }
+    } catch {
+      toast.error("Failed to delete endpoint");
+    } finally {
+      setDeleting(false);
+      setDeleteOpen(false);
+    }
+  }
+
+  if (loading) return <EndpointDetailSkeleton />;
   if (!endpoint) return <p className="text-destructive">Endpoint not found</p>;
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
@@ -86,8 +195,51 @@ export default function EndpointDetailPage() {
 
   return (
     <div className="max-w-2xl space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: "Projects", href: "/projects" },
+          {
+            label: projectCtx?.projectName || "Project",
+            href: `/projects/${projectId}`,
+          },
+          { label: endpoint.name },
+        ]}
+      />
+
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{endpoint.name}</h1>
+        {editingName ? (
+          <div className="flex items-center gap-2">
+            <Input
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="w-64"
+            />
+            <Button size="sm" onClick={handleRename} disabled={renaming}>
+              {renaming ? "Saving..." : "Save"}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setEditingName(false);
+                setEditName(endpoint.name);
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold">{endpoint.name}</h1>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setEditingName(true)}
+            >
+              Rename
+            </Button>
+          </div>
+        )}
         <Badge variant={endpoint.isActive ? "default" : "secondary"}>
           {endpoint.isActive ? "Active" : "Inactive"}
         </Badge>
@@ -122,7 +274,7 @@ export default function EndpointDetailPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           <code className="block rounded bg-muted p-3 text-sm font-mono">
-            {showKey ? endpoint.apiKey : "••••••••••••••••"}
+            {showKey ? endpoint.apiKey : "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"}
           </code>
           <div className="flex gap-2">
             <Button
@@ -132,12 +284,27 @@ export default function EndpointDetailPage() {
             >
               {showKey ? "Hide" : "Reveal"}
             </Button>
-            <Button variant="outline" size="sm" onClick={handleRegenerateKey}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRegenerateOpen(true)}
+            >
               Regenerate
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={regenerateOpen}
+        onOpenChange={setRegenerateOpen}
+        title="Regenerate API Key"
+        description="Regenerate API key? The old key will stop working immediately."
+        confirmText="Regenerate"
+        variant="destructive"
+        onConfirm={handleRegenerateKey}
+        loading={regenerating}
+      />
 
       <Card>
         <CardHeader>
@@ -268,8 +435,8 @@ export default function EndpointDetailPage() {
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <p className="text-muted-foreground">Service</p>
-              <p className="font-medium capitalize">
-                {endpoint.serviceConnection.provider}
+              <p className="font-medium">
+                {getProviderDisplayName(endpoint.serviceConnection.provider)}
               </p>
               <p className="text-xs text-muted-foreground">
                 {endpoint.serviceConnection.accountEmail}
@@ -297,10 +464,21 @@ export default function EndpointDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Permissions</CardTitle>
-          <CardDescription>
-            Actions this endpoint is allowed to perform
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Permissions</CardTitle>
+              <CardDescription>
+                Actions this endpoint is allowed to perform
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPermDialogOpen(true)}
+            >
+              Edit Permissions
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
@@ -318,6 +496,16 @@ export default function EndpointDetailPage() {
         </CardContent>
       </Card>
 
+      <EditPermissionsDialog
+        projectId={projectId}
+        endpointId={endpointId}
+        currentPermissions={endpoint.permissions.map((p) => p.action)}
+        serviceProvider={endpoint.serviceConnection.provider}
+        open={permDialogOpen}
+        onOpenChange={setPermDialogOpen}
+        onSaved={loadEndpoint}
+      />
+
       <Separator />
 
       <div className="flex gap-2">
@@ -325,6 +513,34 @@ export default function EndpointDetailPage() {
           {endpoint.isActive ? "Deactivate" : "Activate"}
         </Button>
       </div>
+
+      <Card className="border-destructive/50">
+        <CardHeader>
+          <CardTitle className="text-destructive">Danger Zone</CardTitle>
+          <CardDescription>
+            Permanently delete this endpoint and all associated data.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            variant="destructive"
+            onClick={() => setDeleteOpen(true)}
+          >
+            Delete Endpoint
+          </Button>
+        </CardContent>
+      </Card>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete Endpoint"
+        description="Are you sure you want to delete this endpoint? This action cannot be undone."
+        confirmText="Delete"
+        variant="destructive"
+        onConfirm={handleDelete}
+        loading={deleting}
+      />
     </div>
   );
 }

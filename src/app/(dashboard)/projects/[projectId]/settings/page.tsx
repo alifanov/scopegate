@@ -14,6 +14,11 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { TabContentSkeleton } from "@/components/skeletons";
+import { useProject } from "@/components/project/project-context";
+import { toast } from "sonner";
 
 interface TeamMember {
   id: string;
@@ -30,50 +35,87 @@ interface ProjectDetails {
 export default function SettingsPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const router = useRouter();
-  const [project, setProject] = useState<ProjectDetails | null>(null);
+  const { setProject } = useProject();
+  const [project, setProjectLocal] = useState<ProjectDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     async function load() {
       const res = await fetch(`/api/projects/${projectId}`);
       if (res.ok) {
         const data = await res.json();
-        setProject(data.project);
+        setProjectLocal(data.project);
         setName(data.project.name);
+        setProject({
+          projectId: data.project.id,
+          projectName: data.project.name,
+        });
       }
       setLoading(false);
     }
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   async function handleSaveName(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await fetch(`/api/projects/${projectId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
-    setSaving(false);
-  }
-
-  async function handleDelete() {
-    if (!confirm("Delete this project? This action cannot be undone.")) return;
-    const res = await fetch(`/api/projects/${projectId}`, {
-      method: "DELETE",
-    });
-    if (res.ok) {
-      router.push("/projects");
+    try {
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (res.ok) {
+        toast.success("Project name saved");
+        setProject({ projectId, projectName: name });
+      } else {
+        toast.error("Failed to save project name");
+      }
+    } catch {
+      toast.error("Failed to save project name");
+    } finally {
+      setSaving(false);
     }
   }
 
-  if (loading) return <p className="text-muted-foreground">Loading...</p>;
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        toast.success("Project deleted");
+        router.push("/projects");
+      } else {
+        toast.error("Failed to delete project");
+      }
+    } catch {
+      toast.error("Failed to delete project");
+    } finally {
+      setDeleting(false);
+      setDeleteOpen(false);
+    }
+  }
+
+  if (loading) return <TabContentSkeleton />;
   if (!project) return <p className="text-destructive">Project not found</p>;
 
   return (
     <div className="max-w-2xl space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: "Projects", href: "/projects" },
+          { label: project.name, href: `/projects/${projectId}` },
+          { label: "Settings" },
+        ]}
+      />
+
       <h1 className="text-2xl font-bold">Project Settings</h1>
 
       <Card>
@@ -137,11 +179,25 @@ export default function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button variant="destructive" onClick={handleDelete}>
+          <Button
+            variant="destructive"
+            onClick={() => setDeleteOpen(true)}
+          >
             Delete Project
           </Button>
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete Project"
+        description="Delete this project? This action cannot be undone. All endpoints and data will be permanently removed."
+        confirmText="Delete"
+        variant="destructive"
+        onConfirm={handleDelete}
+        loading={deleting}
+      />
     </div>
   );
 }

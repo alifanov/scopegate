@@ -59,8 +59,10 @@ function registerTool(
         };
       } catch (err) {
         const duration = Date.now() - startTime;
-        const errorMsg =
+        const fullError =
           err instanceof Error ? err.message : "Unknown error";
+
+        console.error(`[ScopeGate] Tool ${tool.name} failed:`, fullError);
 
         await db.auditLog.create({
           data: {
@@ -68,13 +70,13 @@ function registerTool(
             action: tool.action,
             params: JSON.parse(JSON.stringify(params)),
             status: "error",
-            error: errorMsg,
+            error: fullError,
             duration,
           },
         });
 
         return {
-          content: [{ type: "text" as const, text: `Error: ${errorMsg}` }],
+          content: [{ type: "text" as const, text: "Error: Tool execution failed" }],
           isError: true,
         };
       }

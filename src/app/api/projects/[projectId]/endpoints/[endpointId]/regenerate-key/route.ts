@@ -21,6 +21,13 @@ export async function POST(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  const existing = await db.mcpEndpoint.findFirst({
+    where: { id: endpointId, projectId },
+  });
+  if (!existing) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const endpoint = await db.mcpEndpoint.update({
     where: { id: endpointId },
     data: { apiKey: createId() },

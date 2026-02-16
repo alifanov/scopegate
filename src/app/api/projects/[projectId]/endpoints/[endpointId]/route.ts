@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-middleware";
+import { ALL_ACTIONS } from "@/lib/mcp/permissions";
 
 type Params = { params: Promise<{ projectId: string; endpointId: string }> };
 
@@ -51,6 +52,13 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 
   try {
+    const existing = await db.mcpEndpoint.findFirst({
+      where: { id: endpointId, projectId },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
     const { name, isActive, rateLimitPerMinute, permissions } =
       await request.json();
 
@@ -65,6 +73,16 @@ export async function PATCH(request: Request, { params }: Params) {
 
     // Update permissions if provided
     if (permissions) {
+      const invalid = (permissions as string[]).filter(
+        (a: string) => !ALL_ACTIONS.includes(a)
+      );
+      if (invalid.length) {
+        return NextResponse.json(
+          { error: `Invalid permissions: ${invalid.join(", ")}` },
+          { status: 400 }
+        );
+      }
+
       await db.endpointPermission.deleteMany({ where: { endpointId } });
       await db.endpointPermission.createMany({
         data: (permissions as string[]).map((action) => ({
@@ -100,6 +118,13 @@ export async function DELETE(_request: Request, { params }: Params) {
     where: { userId_projectId: { userId: user.userId, projectId } },
   });
   if (!member) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const existing = await db.mcpEndpoint.findFirst({
+    where: { id: endpointId, projectId },
+  });
+  if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

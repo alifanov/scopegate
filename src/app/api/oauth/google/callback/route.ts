@@ -6,6 +6,7 @@ import {
   getGoogleUserEmail,
   VALID_PROVIDERS,
 } from "@/lib/google-oauth";
+import { encrypt } from "@/lib/crypto";
 
 export async function GET(request: Request) {
   const baseUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000";
@@ -86,12 +87,15 @@ export async function GET(request: Request) {
       where: { projectId, provider, accountEmail },
     });
 
+    const encryptedAccessToken = encrypt(tokens.access_token);
+    const encryptedRefreshToken = encrypt(tokens.refresh_token);
+
     if (existing) {
       await db.serviceConnection.update({
         where: { id: existing.id },
         data: {
-          accessToken: tokens.access_token,
-          refreshToken: tokens.refresh_token,
+          accessToken: encryptedAccessToken,
+          refreshToken: encryptedRefreshToken,
           expiresAt,
         },
       });
@@ -101,8 +105,8 @@ export async function GET(request: Request) {
           projectId,
           provider,
           accountEmail,
-          accessToken: tokens.access_token,
-          refreshToken: tokens.refresh_token,
+          accessToken: encryptedAccessToken,
+          refreshToken: encryptedRefreshToken,
           expiresAt,
         },
       });

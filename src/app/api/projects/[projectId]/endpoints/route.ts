@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-middleware";
+import { ALL_ACTIONS } from "@/lib/mcp/permissions";
 
 // GET /api/projects/[projectId]/endpoints
 export async function GET(
@@ -60,6 +61,19 @@ export async function POST(
         { error: "Name and serviceConnectionId are required" },
         { status: 400 }
       );
+    }
+
+    // Validate permissions against whitelist
+    if (permissions) {
+      const invalid = (permissions as string[]).filter(
+        (a: string) => !ALL_ACTIONS.includes(a)
+      );
+      if (invalid.length) {
+        return NextResponse.json(
+          { error: `Invalid permissions: ${invalid.join(", ")}` },
+          { status: 400 }
+        );
+      }
     }
 
     // Verify service connection belongs to project

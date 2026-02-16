@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { encrypt, decrypt } from "@/lib/crypto";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
@@ -53,7 +54,8 @@ export async function exchangeCodeForTokens(code: string) {
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Token exchange failed: ${text}`);
+    console.error("[ScopeGate] Token exchange failed:", text);
+    throw new Error("Token exchange failed");
   }
 
   return res.json() as Promise<{
@@ -78,7 +80,8 @@ export async function refreshAccessToken(refreshToken: string) {
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Token refresh failed: ${text}`);
+    console.error("[ScopeGate] Token refresh failed:", text);
+    throw new Error("Token refresh failed");
   }
 
   return res.json() as Promise<{
@@ -117,16 +120,17 @@ export async function getValidAccessToken(
     connection.expiresAt.getTime() < Date.now() + bufferMs;
 
   if (!needsRefresh) {
-    return connection.accessToken;
+    return decrypt(connection.accessToken);
   }
 
-  const tokens = await refreshAccessToken(connection.refreshToken);
+  const decryptedRefreshToken = decrypt(connection.refreshToken);
+  const tokens = await refreshAccessToken(decryptedRefreshToken);
   const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
 
   await db.serviceConnection.update({
     where: { id: serviceConnectionId },
     data: {
-      accessToken: tokens.access_token,
+      accessToken: encrypt(tokens.access_token),
       expiresAt,
     },
   });

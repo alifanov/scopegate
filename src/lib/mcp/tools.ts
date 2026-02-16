@@ -122,7 +122,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Update an existing calendar event",
     action: "calendar:update_event",
     inputSchema: z.object({
-      eventId: z.string(),
+      eventId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid event ID format"),
       summary: z.string().optional(),
       start: z.string().optional(),
       end: z.string().optional(),
@@ -151,7 +151,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Delete a calendar event",
     action: "calendar:delete_event",
     inputSchema: z.object({
-      eventId: z.string(),
+      eventId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid event ID format"),
     }),
     handler: async (params, context) => {
       return googleCalendarFetch(

@@ -13,6 +13,7 @@ import {
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { TableSkeleton } from "@/components/skeletons";
 import { CreateUserDialog } from "@/components/admin/create-user-dialog";
+import { UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
 interface User {
@@ -53,7 +54,7 @@ export default function AdminUsersPage() {
 
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Users</h1>
-        <Button onClick={() => setDialogOpen(true)}>Create User</Button>
+        <Button onClick={() => setDialogOpen(true)}><UserPlus className="size-4" />Create User</Button>
       </div>
 
       <CreateUserDialog

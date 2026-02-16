@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { PERMISSION_GROUPS } from "@/lib/mcp/permissions";
 import { getProviderDisplayName } from "@/lib/provider-names";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
 interface Service {
@@ -246,6 +247,7 @@ export function CreateEndpointDialog({
                 loading || !selectedService || selectedPermissions.size === 0
               }
             >
+              <Plus className="size-4" />
               {loading ? "Creating..." : "Create Endpoint"}
             </Button>
           </form>

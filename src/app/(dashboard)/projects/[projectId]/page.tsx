@@ -11,6 +11,7 @@ import { AuditTab } from "@/components/project/audit-tab";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { useProject } from "@/components/project/project-context";
 import { TabContentSkeleton } from "@/components/skeletons";
+import { Settings } from "lucide-react";
 
 interface ProjectDetails {
   id: string;
@@ -70,7 +71,7 @@ export default function ProjectPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">{project.name}</h1>
         <Button variant="outline" asChild>
-          <Link href={`/projects/${projectId}/settings`}>Settings</Link>
+          <Link href={`/projects/${projectId}/settings`}><Settings className="size-4" />Settings</Link>
         </Button>
       </div>
 

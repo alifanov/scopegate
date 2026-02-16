@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ProjectListSkeleton } from "@/components/skeletons";
+import { Plus, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 
 interface Project {
@@ -93,7 +94,7 @@ export default function ProjectsPage() {
         <h1 className="text-2xl font-bold">Projects</h1>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button>New Project</Button>
+            <Button><Plus className="size-4" />New Project</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -110,6 +111,7 @@ export default function ProjectsPage() {
                 />
               </div>
               <Button type="submit" className="w-full" disabled={creating}>
+                <Plus className="size-4" />
                 {creating ? "Creating..." : "Create"}
               </Button>
             </form>
@@ -122,15 +124,13 @@ export default function ProjectsPage() {
       ) : projects.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
           <div className="rounded-full bg-primary/10 p-4 mb-4">
-            <svg className="size-8 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
-            </svg>
+            <FolderOpen className="size-8 text-primary" />
           </div>
           <h3 className="text-lg font-semibold">No projects yet</h3>
           <p className="text-sm text-muted-foreground mt-1 mb-4 max-w-sm">
             Create your first project to connect services and expose MCP endpoints for your AI agents.
           </p>
-          <Button onClick={() => setDialogOpen(true)}>Create Your First Project</Button>
+          <Button onClick={() => setDialogOpen(true)}><Plus className="size-4" />Create Your First Project</Button>
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

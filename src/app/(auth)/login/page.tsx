@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import Image from "next/image";
+import { LogIn } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 
 export default function LoginPage() {
@@ -96,6 +97,7 @@ export default function LoginPage() {
           </CardContent>
           <CardFooter>
             <Button type="submit" className="w-full" disabled={loading}>
+              <LogIn className="size-4" />
               {loading ? "Signing in..." : "Sign In"}
             </Button>
           </CardFooter>

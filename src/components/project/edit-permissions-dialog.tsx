@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PERMISSION_GROUPS } from "@/lib/mcp/permissions";
+import { Shield } from "lucide-react";
 import { toast } from "sonner";
 
 interface EditPermissionsDialogProps {
@@ -150,6 +151,7 @@ export function EditPermissionsDialog({
             onClick={handleSave}
             disabled={saving || selectedPermissions.size === 0}
           >
+            <Shield className="size-4" />
             {saving ? "Saving..." : "Save Permissions"}
           </Button>
         </DialogFooter>

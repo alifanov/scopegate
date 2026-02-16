@@ -14,6 +14,7 @@ import {
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { TabContentSkeleton } from "@/components/skeletons";
 import { authClient } from "@/lib/auth-client";
+import { Save, Lock } from "lucide-react";
 import { toast } from "sonner";
 
 export default function UserSettingsPage() {
@@ -122,6 +123,7 @@ export default function UserSettingsPage() {
               />
             </div>
             <Button type="submit" className="self-end" disabled={savingName}>
+              <Save className="size-4" />
               {savingName ? "Saving..." : "Save"}
             </Button>
           </form>
@@ -170,6 +172,7 @@ export default function UserSettingsPage() {
               />
             </div>
             <Button type="submit" disabled={changingPassword}>
+              <Lock className="size-4" />
               {changingPassword ? "Changing..." : "Change Password"}
             </Button>
           </form>

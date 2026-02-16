@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
 interface CreateUserDialogProps {
@@ -91,6 +92,7 @@ export function CreateUserDialog({
             />
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
+            <UserPlus className="size-4" />
             {loading ? "Creating..." : "Create User"}
           </Button>
         </form>

@@ -15,6 +15,7 @@ import {
 import { TableSkeleton } from "@/components/skeletons";
 import { CreateEndpointDialog } from "@/components/project/create-endpoint-dialog";
 import { getProviderDisplayName } from "@/lib/provider-names";
+import { Plus, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 interface Endpoint {
@@ -57,7 +58,7 @@ export function EndpointsTab({ projectId }: { projectId: string }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-end">
-        <Button onClick={() => setDialogOpen(true)}>New Endpoint</Button>
+        <Button onClick={() => setDialogOpen(true)}><Plus className="size-4" />New Endpoint</Button>
       </div>
 
       <CreateEndpointDialog
@@ -111,6 +112,7 @@ export function EndpointsTab({ projectId }: { projectId: string }) {
                       <Link
                         href={`/projects/${projectId}/endpoints/${ep.id}`}
                       >
+                        <ExternalLink className="size-4" />
                         Details
                       </Link>
                     </Button>

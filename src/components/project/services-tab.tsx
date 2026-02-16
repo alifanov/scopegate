@@ -22,6 +22,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { TabContentSkeleton } from "@/components/skeletons";
 import { getProviderDisplayName } from "@/lib/provider-names";
 import { PERMISSION_GROUPS } from "@/lib/mcp/permissions";
+import { Plug, Unplug } from "lucide-react";
 import { toast } from "sonner";
 
 interface Service {
@@ -110,7 +111,7 @@ export function ServicesTab({ projectId }: { projectId: string }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-end">
-        <Button onClick={() => setDialogOpen(true)}>Connect Service</Button>
+        <Button onClick={() => setDialogOpen(true)}><Plug className="size-4" />Connect Service</Button>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -182,6 +183,7 @@ export function ServicesTab({ projectId }: { projectId: string }) {
                       disabled={disconnecting === service.id}
                       onClick={() => askDisconnect(service.id)}
                     >
+                      <Unplug className="size-4" />
                       {disconnecting === service.id
                         ? "Disconnecting..."
                         : "Disconnect"}

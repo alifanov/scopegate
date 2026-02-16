@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, Pencil, Eye, EyeOff, RefreshCw, Shield, Power, Trash2, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -244,6 +244,7 @@ export default function EndpointDetailPage() {
               className="w-64"
             />
             <Button size="sm" onClick={handleRename} disabled={renaming}>
+              <Save className="size-4" />
               {renaming ? "Saving..." : "Save"}
             </Button>
             <Button
@@ -254,6 +255,7 @@ export default function EndpointDetailPage() {
                 setEditName(endpoint.name);
               }}
             >
+              <X className="size-4" />
               Cancel
             </Button>
           </div>
@@ -265,6 +267,7 @@ export default function EndpointDetailPage() {
               size="sm"
               onClick={() => setEditingName(true)}
             >
+              <Pencil className="size-4" />
               Rename
             </Button>
           </div>
@@ -305,6 +308,7 @@ export default function EndpointDetailPage() {
               size="sm"
               onClick={() => setShowKey(!showKey)}
             >
+              {showKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
               {showKey ? "Hide" : "Reveal"}
             </Button>
             <Button
@@ -312,6 +316,7 @@ export default function EndpointDetailPage() {
               size="sm"
               onClick={() => setRegenerateOpen(true)}
             >
+              <RefreshCw className="size-4" />
               Regenerate
             </Button>
           </div>
@@ -450,6 +455,7 @@ export default function EndpointDetailPage() {
               size="sm"
               onClick={() => setPermDialogOpen(true)}
             >
+              <Shield className="size-4" />
               Edit Permissions
             </Button>
           </div>
@@ -488,6 +494,7 @@ export default function EndpointDetailPage() {
           onClick={() => setToggleOpen(true)}
           disabled={toggling}
         >
+          <Power className="size-4" />
           {endpoint.isActive ? "Deactivate" : "Activate"}
         </Button>
       </div>
@@ -520,6 +527,7 @@ export default function EndpointDetailPage() {
             variant="destructive"
             onClick={() => setDeleteOpen(true)}
           >
+            <Trash2 className="size-4" />
             Delete Endpoint
           </Button>
         </CardContent>

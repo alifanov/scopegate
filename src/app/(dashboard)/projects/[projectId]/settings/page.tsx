@@ -18,6 +18,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { TabContentSkeleton } from "@/components/skeletons";
 import { useProject } from "@/components/project/project-context";
+import { Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface TeamMember {
@@ -134,6 +135,7 @@ export default function SettingsPage() {
               />
             </div>
             <Button type="submit" className="self-end" disabled={saving}>
+              <Save className="size-4" />
               {saving ? "Saving..." : "Save"}
             </Button>
           </form>
@@ -183,6 +185,7 @@ export default function SettingsPage() {
             variant="destructive"
             onClick={() => setDeleteOpen(true)}
           >
+            <Trash2 className="size-4" />
             Delete Project
           </Button>
         </CardContent>

@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TableSkeleton } from "@/components/skeletons";
+import { Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 interface AuditEntry {
@@ -88,6 +89,7 @@ export function AuditTab({ projectId }: { projectId: string }) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm">
+              <Filter className="size-4" />
               {statusFilter ? `Status: ${statusFilter}` : "All statuses"}
             </Button>
           </DropdownMenuTrigger>
@@ -164,6 +166,7 @@ export function AuditTab({ projectId }: { projectId: string }) {
                   disabled={page <= 1}
                   onClick={() => setPage((p) => p - 1)}
                 >
+                  <ChevronLeft className="size-4" />
                   Previous
                 </Button>
                 <Button
@@ -173,6 +176,7 @@ export function AuditTab({ projectId }: { projectId: string }) {
                   onClick={() => setPage((p) => p + 1)}
                 >
                   Next
+                  <ChevronRight className="size-4" />
                 </Button>
               </div>
             </div>

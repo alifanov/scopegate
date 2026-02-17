@@ -53,10 +53,15 @@ export const PERMISSION_GROUPS: Record<string, PermissionGroup> = {
     description: "Access to Google Search Console operations",
     actions: [
       "searchConsole:list_sites",
+      "searchConsole:get_site",
+      "searchConsole:add_site",
+      "searchConsole:delete_site",
       "searchConsole:query_analytics",
       "searchConsole:inspect_url",
       "searchConsole:list_sitemaps",
+      "searchConsole:get_sitemap",
       "searchConsole:submit_sitemap",
+      "searchConsole:delete_sitemap",
     ],
   },
 };

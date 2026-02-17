@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { googleCalendarFetch } from "./google-calendar";
+import { googleSearchConsoleFetch, googleSearchConsoleV1Fetch } from "./google-search-console";
 
 export interface ToolContext {
   serviceConnectionId: string;
@@ -309,8 +310,58 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "List all sites verified in Google Search Console",
     action: "searchConsole:list_sites",
     inputSchema: z.object({}),
-    handler: async () => {
-      return { sites: [], note: "Search Console API not yet connected" };
+    handler: async (_params, context) => {
+      return googleSearchConsoleFetch(
+        context.serviceConnectionId,
+        "/sites"
+      );
+    },
+  },
+  {
+    name: "searchConsole_get_site",
+    description: "Get details about a specific site in Google Search Console",
+    action: "searchConsole:get_site",
+    inputSchema: z.object({
+      siteUrl: z.string(),
+    }),
+    handler: async (params, context) => {
+      const encodedSiteUrl = encodeURIComponent(params.siteUrl as string);
+      return googleSearchConsoleFetch(
+        context.serviceConnectionId,
+        `/sites/${encodedSiteUrl}`
+      );
+    },
+  },
+  {
+    name: "searchConsole_add_site",
+    description: "Add a site to Google Search Console",
+    action: "searchConsole:add_site",
+    inputSchema: z.object({
+      siteUrl: z.string(),
+    }),
+    handler: async (params, context) => {
+      const encodedSiteUrl = encodeURIComponent(params.siteUrl as string);
+      return googleSearchConsoleFetch(
+        context.serviceConnectionId,
+        `/sites/${encodedSiteUrl}`,
+        { method: "PUT" }
+      );
+    },
+  },
+  {
+    name: "searchConsole_delete_site",
+    description: "Remove a site from Google Search Console",
+    action: "searchConsole:delete_site",
+    inputSchema: z.object({
+      siteUrl: z.string(),
+    }),
+    handler: async (params, context) => {
+      const encodedSiteUrl = encodeURIComponent(params.siteUrl as string);
+      return googleSearchConsoleFetch(
+        context.serviceConnectionId,
+        `/sites/${encodedSiteUrl}`,
+        { method: "DELETE" }
+      );
     },
   },
   {
@@ -332,8 +383,25 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       })).optional(),
       type: z.string().optional(),
     }),
-    handler: async (params) => {
-      return { rows: [], note: "Search Console API not yet connected", params };
+    handler: async (params, context) => {
+      const encodedSiteUrl = encodeURIComponent(params.siteUrl as string);
+      const body: Record<string, unknown> = {
+        startDate: params.startDate,
+        endDate: params.endDate,
+      };
+      if (params.dimensions) body.dimensions = params.dimensions;
+      if (params.rowLimit) body.rowLimit = params.rowLimit;
+      if (params.dimensionFilterGroups) body.dimensionFilterGroups = params.dimensionFilterGroups;
+      if (params.type) body.type = params.type;
+
+      return googleSearchConsoleFetch(
+        context.serviceConnectionId,
+        `/sites/${encodedSiteUrl}/searchAnalytics/query`,
+        {
+          method: "POST",
+          body: JSON.stringify(body),
+        }
+      );
     },
   },
   {
@@ -345,8 +413,21 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       siteUrl: z.string(),
       languageCode: z.string().optional(),
     }),
-    handler: async (params) => {
-      return { result: null, note: "Search Console API not yet connected", params };
+    handler: async (params, context) => {
+      const body: Record<string, unknown> = {
+        inspectionUrl: params.inspectionUrl,
+        siteUrl: params.siteUrl,
+      };
+      if (params.languageCode) body.languageCode = params.languageCode;
+
+      return googleSearchConsoleV1Fetch(
+        context.serviceConnectionId,
+        "/urlInspection/index:inspect",
+        {
+          method: "POST",
+          body: JSON.stringify(body),
+        }
+      );
     },
   },
   {
@@ -355,9 +436,34 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     action: "searchConsole:list_sitemaps",
     inputSchema: z.object({
       siteUrl: z.string(),
+      sitemapIndex: z.string().optional(),
     }),
-    handler: async (params) => {
-      return { sitemaps: [], note: "Search Console API not yet connected", params };
+    handler: async (params, context) => {
+      const encodedSiteUrl = encodeURIComponent(params.siteUrl as string);
+      const query = params.sitemapIndex
+        ? `?sitemapIndex=${encodeURIComponent(params.sitemapIndex as string)}`
+        : "";
+      return googleSearchConsoleFetch(
+        context.serviceConnectionId,
+        `/sites/${encodedSiteUrl}/sitemaps${query}`
+      );
+    },
+  },
+  {
+    name: "searchConsole_get_sitemap",
+    description: "Get details about a specific sitemap",
+    action: "searchConsole:get_sitemap",
+    inputSchema: z.object({
+      siteUrl: z.string(),
+      feedpath: z.string(),
+    }),
+    handler: async (params, context) => {
+      const encodedSiteUrl = encodeURIComponent(params.siteUrl as string);
+      const encodedFeedpath = encodeURIComponent(params.feedpath as string);
+      return googleSearchConsoleFetch(
+        context.serviceConnectionId,
+        `/sites/${encodedSiteUrl}/sitemaps/${encodedFeedpath}`
+      );
     },
   },
   {
@@ -368,8 +474,32 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       siteUrl: z.string(),
       feedpath: z.string(),
     }),
-    handler: async (params) => {
-      return { success: false, note: "Search Console API not yet connected", params };
+    handler: async (params, context) => {
+      const encodedSiteUrl = encodeURIComponent(params.siteUrl as string);
+      const encodedFeedpath = encodeURIComponent(params.feedpath as string);
+      return googleSearchConsoleFetch(
+        context.serviceConnectionId,
+        `/sites/${encodedSiteUrl}/sitemaps/${encodedFeedpath}`,
+        { method: "PUT" }
+      );
+    },
+  },
+  {
+    name: "searchConsole_delete_sitemap",
+    description: "Delete a sitemap from Google Search Console",
+    action: "searchConsole:delete_sitemap",
+    inputSchema: z.object({
+      siteUrl: z.string(),
+      feedpath: z.string(),
+    }),
+    handler: async (params, context) => {
+      const encodedSiteUrl = encodeURIComponent(params.siteUrl as string);
+      const encodedFeedpath = encodeURIComponent(params.feedpath as string);
+      return googleSearchConsoleFetch(
+        context.serviceConnectionId,
+        `/sites/${encodedSiteUrl}/sitemaps/${encodedFeedpath}`,
+        { method: "DELETE" }
+      );
     },
   },
 ];

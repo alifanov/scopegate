@@ -16,6 +16,7 @@ import { TableSkeleton } from "@/components/skeletons";
 import { CreateEndpointDialog } from "@/components/project/create-endpoint-dialog";
 import { getProviderDisplayName } from "@/lib/provider-names";
 import { Plus, ExternalLink } from "lucide-react";
+import { ServiceIcon } from "@/components/service-icons";
 import { toast } from "sonner";
 
 interface Endpoint {
@@ -90,11 +91,16 @@ export function EndpointsTab({ projectId }: { projectId: string }) {
                 <TableRow key={ep.id}>
                   <TableCell className="font-medium">{ep.name}</TableCell>
                   <TableCell>
-                    {getProviderDisplayName(ep.serviceConnection.provider)}
-                    <br />
-                    <span className="text-xs text-muted-foreground">
-                      {ep.serviceConnection.accountEmail}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <ServiceIcon provider={ep.serviceConnection.provider} className="size-5 shrink-0" />
+                      <div>
+                        {getProviderDisplayName(ep.serviceConnection.provider)}
+                        <br />
+                        <span className="text-xs text-muted-foreground">
+                          {ep.serviceConnection.accountEmail}
+                        </span>
+                      </div>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline">

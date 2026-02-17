@@ -22,6 +22,7 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { EndpointDetailSkeleton } from "@/components/skeletons";
 import { useProject } from "@/components/project/project-context";
 import { getProviderDisplayName } from "@/lib/provider-names";
+import { ServiceIcon } from "@/components/service-icons";
 
 interface EndpointDetails {
   id: string;
@@ -414,9 +415,12 @@ export default function EndpointDetailPage() {
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <p className="text-muted-foreground">Service</p>
-              <p className="font-medium">
-                {getProviderDisplayName(endpoint.serviceConnection.provider)}
-              </p>
+              <div className="flex items-center gap-2">
+                <ServiceIcon provider={endpoint.serviceConnection.provider} className="size-5 shrink-0" />
+                <p className="font-medium">
+                  {getProviderDisplayName(endpoint.serviceConnection.provider)}
+                </p>
+              </div>
               <p className="text-xs text-muted-foreground">
                 {endpoint.serviceConnection.accountEmail}
               </p>

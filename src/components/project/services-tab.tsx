@@ -23,6 +23,7 @@ import { TabContentSkeleton } from "@/components/skeletons";
 import { getProviderDisplayName } from "@/lib/provider-names";
 import { PERMISSION_GROUPS } from "@/lib/mcp/permissions";
 import { Plug, Unplug } from "lucide-react";
+import { ServiceIcon } from "@/components/service-icons";
 import { toast } from "sonner";
 
 interface Service {
@@ -127,11 +128,14 @@ export function ServicesTab({ projectId }: { projectId: string }) {
               <button
                 key={provider.key}
                 onClick={() => handleConnect(provider.key)}
-                className="w-full cursor-pointer rounded-lg border p-4 text-left transition-colors hover:bg-muted"
+                className="flex w-full cursor-pointer items-center gap-4 rounded-lg border p-4 text-left transition-colors hover:bg-muted"
               >
-                <div className="font-medium">{provider.name}</div>
-                <div className="text-sm text-muted-foreground">
-                  {provider.description}
+                <ServiceIcon provider={provider.key} className="size-8 shrink-0" />
+                <div>
+                  <div className="font-medium">{provider.name}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {provider.description}
+                  </div>
                 </div>
               </button>
             ))}
@@ -167,11 +171,14 @@ export function ServicesTab({ projectId }: { projectId: string }) {
             <Card key={service.id}>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>
-                      {getProviderDisplayName(service.provider)}
-                    </CardTitle>
-                    <CardDescription>{service.accountEmail}</CardDescription>
+                  <div className="flex items-center gap-3">
+                    <ServiceIcon provider={service.provider} className="size-8 shrink-0" />
+                    <div>
+                      <CardTitle>
+                        {getProviderDisplayName(service.provider)}
+                      </CardTitle>
+                      <CardDescription>{service.accountEmail}</CardDescription>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant="secondary">

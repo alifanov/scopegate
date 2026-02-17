@@ -21,6 +21,7 @@ import {
 import { PERMISSION_GROUPS } from "@/lib/mcp/permissions";
 import { getProviderDisplayName } from "@/lib/provider-names";
 import { Plus } from "lucide-react";
+import { ServiceIcon } from "@/components/service-icons";
 import { toast } from "sonner";
 
 interface Service {
@@ -163,6 +164,7 @@ export function CreateEndpointDialog({
                         }}
                         className="mr-3"
                       />
+                      <ServiceIcon provider={s.provider} className="size-6 shrink-0" />
                       <div>
                         <p className="font-medium">
                           {getProviderDisplayName(s.provider)}

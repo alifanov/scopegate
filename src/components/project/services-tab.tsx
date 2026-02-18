@@ -35,6 +35,11 @@ const API_KEY_PLACEHOLDERS: Record<string, string> = {
   twitter: "Bearer token from X Developer Portal",
 };
 
+const API_KEY_HELP: Record<string, string> = {
+  twitter:
+    "Go to developer.x.com, create a project & app, then copy the Bearer Token from the \"Keys and Tokens\" tab. App-only tokens give read access to public data; user OAuth 2.0 tokens allow full read/write.",
+};
+
 interface Service {
   id: string;
   provider: string;
@@ -206,6 +211,12 @@ export function ServicesTab({ projectId }: { projectId: string }) {
                 <ArrowLeft className="size-3" />
                 Back to services
               </button>
+
+              {apiKeyProvider && API_KEY_HELP[apiKeyProvider] && (
+                <p className="text-sm text-muted-foreground bg-muted rounded-md p-3">
+                  {API_KEY_HELP[apiKeyProvider]}
+                </p>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="api-key">API Key</Label>

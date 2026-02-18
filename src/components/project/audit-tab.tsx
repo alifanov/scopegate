@@ -17,6 +17,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { TableSkeleton } from "@/components/skeletons";
 import { Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
@@ -51,6 +57,7 @@ export function AuditTab({ projectId }: { projectId: string }) {
   const [endpointFilter, setEndpointFilter] = useState<string | null>(null);
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [page, setPage] = useState(1);
+  const [selectedLog, setSelectedLog] = useState<AuditEntry | null>(null);
 
   useEffect(() => {
     async function loadEndpoints() {
@@ -188,8 +195,17 @@ export function AuditTab({ projectId }: { projectId: string }) {
                     <TableCell>
                       {log.duration != null ? `${log.duration}ms` : "-"}
                     </TableCell>
-                    <TableCell className="max-w-xs truncate text-sm text-destructive">
-                      {log.error || "-"}
+                    <TableCell className="max-w-xs text-sm text-destructive">
+                      {log.error ? (
+                        <button
+                          className="max-w-xs truncate block text-left cursor-pointer hover:underline"
+                          onClick={() => setSelectedLog(log)}
+                        >
+                          {log.error}
+                        </button>
+                      ) : (
+                        "-"
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -227,6 +243,40 @@ export function AuditTab({ projectId }: { projectId: string }) {
           )}
         </>
       )}
+
+      <Dialog open={!!selectedLog} onOpenChange={(open) => !open && setSelectedLog(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Error Details</DialogTitle>
+          </DialogHeader>
+          {selectedLog && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="text-muted-foreground">Endpoint</div>
+                <div>{selectedLog.endpoint.name}</div>
+                <div className="text-muted-foreground">Action</div>
+                <div><code className="text-xs">{selectedLog.action}</code></div>
+                <div className="text-muted-foreground">Status</div>
+                <div><Badge variant={statusVariant(selectedLog.status)}>{selectedLog.status}</Badge></div>
+                <div className="text-muted-foreground">Time</div>
+                <div>{new Date(selectedLog.createdAt).toLocaleString()}</div>
+                {selectedLog.duration != null && (
+                  <>
+                    <div className="text-muted-foreground">Duration</div>
+                    <div>{selectedLog.duration}ms</div>
+                  </>
+                )}
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Error</div>
+                <pre className="whitespace-pre-wrap break-words text-sm text-destructive bg-muted p-3 rounded-md max-h-64 overflow-y-auto">
+                  {selectedLog.error}
+                </pre>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

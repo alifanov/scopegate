@@ -28,7 +28,12 @@ import { Plug, Unplug, ArrowLeft } from "lucide-react";
 import { ServiceIcon } from "@/components/service-icons";
 import { toast } from "sonner";
 
-const API_KEY_PROVIDERS = new Set(["openRouter"]);
+const API_KEY_PROVIDERS = new Set(["openRouter", "twitter"]);
+
+const API_KEY_PLACEHOLDERS: Record<string, string> = {
+  openRouter: "sk-or-...",
+  twitter: "Bearer token from X Developer Portal",
+};
 
 interface Service {
   id: string;
@@ -207,7 +212,7 @@ export function ServicesTab({ projectId }: { projectId: string }) {
                 <Input
                   id="api-key"
                   type="password"
-                  placeholder="sk-or-..."
+                  placeholder={apiKeyProvider ? (API_KEY_PLACEHOLDERS[apiKeyProvider] ?? "API key") : "API key"}
                   value={apiKeyValue}
                   onChange={(e) => setApiKeyValue(e.target.value)}
                   required

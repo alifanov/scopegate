@@ -67,6 +67,18 @@ function SearchConsoleIcon(props: SvgProps) {
   );
 }
 
+function TwitterIcon(props: SvgProps) {
+  return (
+    <svg viewBox="0 0 48 48" {...props}>
+      <rect width="48" height="48" rx="10" fill="#000" />
+      <path
+        d="M28.97 13h4.26l-9.31 10.64L34.56 35h-8.58l-6.72-8.78L12.16 35H7.9l9.96-11.38L7.44 13h8.8l6.07 8.02L28.97 13zm-1.5 19.77h2.36L16.65 15.42h-2.53l13.35 17.35z"
+        fill="#fff"
+      />
+    </svg>
+  );
+}
+
 function OpenRouterIcon(props: SvgProps) {
   return (
     <svg viewBox="0 0 48 48" fill="none" {...props}>
@@ -87,6 +99,7 @@ const ICONS: Record<string, (props: SvgProps) => React.ReactElement> = {
   googleAds: GoogleAdsIcon,
   searchConsole: SearchConsoleIcon,
   openRouter: OpenRouterIcon,
+  twitter: TwitterIcon,
 };
 
 export function ServiceIcon({

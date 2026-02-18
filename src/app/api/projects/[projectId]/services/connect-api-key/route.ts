@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-middleware";
 import { encrypt } from "@/lib/crypto";
 
-const API_KEY_PROVIDERS = ["openRouter"] as const;
+const API_KEY_PROVIDERS = ["openRouter", "twitter"] as const;
 type ApiKeyProvider = (typeof API_KEY_PROVIDERS)[number];
 
 function isApiKeyProvider(value: string): value is ApiKeyProvider {
@@ -19,6 +19,17 @@ async function validateOpenRouterKey(
   if (!res.ok) return { valid: false };
   const data = (await res.json()) as { data?: { label?: string } };
   return { valid: true, label: data.data?.label };
+}
+
+async function validateTwitterKey(
+  apiKey: string
+): Promise<{ valid: boolean; label?: string }> {
+  const res = await fetch(
+    "https://api.x.com/2/tweets/search/recent?query=test&max_results=10",
+    { headers: { Authorization: `Bearer ${apiKey}` } }
+  );
+  if (!res.ok) return { valid: false };
+  return { valid: true };
 }
 
 // POST /api/projects/[projectId]/services/connect-api-key
@@ -63,7 +74,10 @@ export async function POST(
   }
 
   // Validate API key
-  const validation = await validateOpenRouterKey(apiKey);
+  const validation =
+    provider === "twitter"
+      ? await validateTwitterKey(apiKey)
+      : await validateOpenRouterKey(apiKey);
   if (!validation.valid) {
     return NextResponse.json(
       { error: "Invalid API key" },

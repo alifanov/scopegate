@@ -58,7 +58,7 @@ export function AuditTab({ projectId }: { projectId: string }) {
         const res = await fetch(`/api/projects/${projectId}/endpoints`);
         if (res.ok) {
           const data = await res.json();
-          setEndpoints(data);
+          setEndpoints(data.endpoints || []);
         }
       } catch {
         // silently ignore — filter just won't be populated

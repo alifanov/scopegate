@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-middleware";
 import { encrypt } from "@/lib/crypto";
+import OAuth from "oauth-1.0a";
+import crypto from "crypto";
+import type { TwitterOAuthCredentials } from "@/lib/mcp/twitter";
 
 const API_KEY_PROVIDERS = ["openRouter", "twitter"] as const;
 type ApiKeyProvider = (typeof API_KEY_PROVIDERS)[number];
@@ -21,15 +24,32 @@ async function validateOpenRouterKey(
   return { valid: true, label: data.data?.label };
 }
 
-async function validateTwitterKey(
-  apiKey: string
+async function validateTwitterCredentials(
+  credentials: TwitterOAuthCredentials
 ): Promise<{ valid: boolean; label?: string }> {
-  const res = await fetch(
-    "https://api.x.com/2/tweets/search/recent?query=test&max_results=10",
-    { headers: { Authorization: `Bearer ${apiKey}` } }
+  const oauth = new OAuth({
+    consumer: { key: credentials.apiKey, secret: credentials.apiSecret },
+    signature_method: "HMAC-SHA1",
+    hash_function(baseString, key) {
+      return crypto.createHmac("sha1", key).update(baseString).digest("base64");
+    },
+  });
+
+  const url = "https://api.x.com/2/users/me";
+  const authorization = oauth.authorize(
+    { url, method: "GET" },
+    { key: credentials.accessToken, secret: credentials.accessTokenSecret }
   );
+  const authHeader = oauth.toHeader(authorization).Authorization;
+
+  const res = await fetch(url, {
+    headers: { Authorization: authHeader },
+  });
+
   if (!res.ok) return { valid: false };
-  return { valid: true };
+
+  const data = (await res.json()) as { data?: { username?: string } };
+  return { valid: true, label: data.data?.username ? `@${data.data.username}` : undefined };
 }
 
 // POST /api/projects/[projectId]/services/connect-api-key
@@ -50,18 +70,18 @@ export async function POST(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  let body: { provider: string; apiKey: string; label?: string };
+  let body: Record<string, string | undefined>;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { provider, apiKey, label } = body;
+  const { provider, label } = body;
 
-  if (!provider || !apiKey) {
+  if (!provider) {
     return NextResponse.json(
-      { error: "Missing provider or apiKey" },
+      { error: "Missing provider" },
       { status: 400 }
     );
   }
@@ -73,11 +93,37 @@ export async function POST(
     );
   }
 
-  // Validate API key
-  const validation =
-    provider === "twitter"
-      ? await validateTwitterKey(apiKey)
-      : await validateOpenRouterKey(apiKey);
+  let validation: { valid: boolean; label?: string };
+  let encryptedValue: string;
+
+  if (provider === "twitter") {
+    const { twitterApiKey, twitterApiSecret, twitterAccessToken, twitterAccessTokenSecret } = body;
+    if (!twitterApiKey || !twitterApiSecret || !twitterAccessToken || !twitterAccessTokenSecret) {
+      return NextResponse.json(
+        { error: "Missing Twitter OAuth credentials" },
+        { status: 400 }
+      );
+    }
+    const credentials: TwitterOAuthCredentials = {
+      apiKey: twitterApiKey,
+      apiSecret: twitterApiSecret,
+      accessToken: twitterAccessToken,
+      accessTokenSecret: twitterAccessTokenSecret,
+    };
+    validation = await validateTwitterCredentials(credentials);
+    encryptedValue = encrypt(JSON.stringify(credentials));
+  } else {
+    const { apiKey } = body;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "Missing apiKey" },
+        { status: 400 }
+      );
+    }
+    validation = await validateOpenRouterKey(apiKey);
+    encryptedValue = encrypt(apiKey);
+  }
+
   if (!validation.valid) {
     return NextResponse.json(
       { error: "Invalid API key" },
@@ -92,13 +138,11 @@ export async function POST(
     where: { projectId, provider },
   });
 
-  const encryptedApiKey = encrypt(apiKey);
-
   if (existing) {
     await db.serviceConnection.update({
       where: { id: existing.id },
       data: {
-        accessToken: encryptedApiKey,
+        accessToken: encryptedValue,
         refreshToken: null,
         accountEmail,
       },
@@ -109,7 +153,7 @@ export async function POST(
         projectId,
         provider,
         accountEmail,
-        accessToken: encryptedApiKey,
+        accessToken: encryptedValue,
         refreshToken: null,
       },
     });

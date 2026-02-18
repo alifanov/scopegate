@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-02-18
+
+### Changed
+
+- Switch Twitter from Bearer Token to OAuth 1.0a for full read/write access
+- Store 4 OAuth credentials (API Key, API Secret, Access Token, Access Token Secret) as encrypted JSON
+- Validate Twitter credentials via OAuth 1.0a-signed GET /2/users/me (returns @username as label)
+- Show 4 separate input fields in Twitter connect dialog with updated help text
+
 ## [0.4.2] - 2026-02-18
 
 ### Changed

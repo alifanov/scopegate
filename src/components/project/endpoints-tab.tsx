@@ -15,7 +15,7 @@ import {
 import { TableSkeleton } from "@/components/skeletons";
 import { CreateEndpointDialog } from "@/components/project/create-endpoint-dialog";
 import { getProviderDisplayName } from "@/lib/provider-names";
-import { Plus, ExternalLink } from "lucide-react";
+import { Plus } from "lucide-react";
 import { ServiceIcon } from "@/components/service-icons";
 import { toast } from "sonner";
 
@@ -83,13 +83,19 @@ export function EndpointsTab({ projectId }: { projectId: string }) {
                 <TableHead>Permissions</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Requests</TableHead>
-                <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
               {endpoints.map((ep) => (
                 <TableRow key={ep.id}>
-                  <TableCell className="font-medium">{ep.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link
+                      href={`/projects/${projectId}/endpoints/${ep.id}`}
+                      className="text-primary hover:underline"
+                    >
+                      {ep.name}
+                    </Link>
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <ServiceIcon provider={ep.serviceConnection.provider} className="size-5 shrink-0" />
@@ -113,16 +119,6 @@ export function EndpointsTab({ projectId }: { projectId: string }) {
                     </Badge>
                   </TableCell>
                   <TableCell>{ep._count.auditLogs}</TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link
-                        href={`/projects/${projectId}/endpoints/${ep.id}`}
-                      >
-                        <ExternalLink className="size-4" />
-                        Details
-                      </Link>
-                    </Button>
-                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

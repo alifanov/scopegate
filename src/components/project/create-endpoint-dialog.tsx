@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,6 +44,7 @@ export function CreateEndpointDialog({
   onOpenChange,
   onCreated,
 }: CreateEndpointDialogProps) {
+  const router = useRouter();
   const [services, setServices] = useState<Service[]>([]);
   const [selectedService, setSelectedService] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(
@@ -99,11 +101,13 @@ export function CreateEndpointDialog({
       });
 
       if (res.ok) {
+        const data = await res.json();
         toast.success("Endpoint created");
         setSelectedService("");
         setSelectedPermissions(new Set());
         onOpenChange(false);
         onCreated();
+        router.push(`/projects/${projectId}/endpoints/${data.endpoint.id}`);
       } else {
         const data = await res.json().catch(() => ({}));
         toast.error(data.error || "Failed to create endpoint");
@@ -165,7 +169,7 @@ export function CreateEndpointDialog({
                         className="mr-3"
                       />
                       <ServiceIcon provider={s.provider} className="size-6 shrink-0" />
-                      <div>
+                      <div className="ml-3">
                         <p className="font-medium">
                           {getProviderDisplayName(s.provider)}
                         </p>

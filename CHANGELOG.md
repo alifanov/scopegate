@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-02-18
+
+### Added
+
+- Negative keywords support for Google Ads: list, add, and remove at both campaign and ad-group levels
+- New permissions: `list_negative_keywords`, `add_negative_keyword`, `remove_negative_keyword`
+
 ## [0.10.1] - 2026-02-18
 
 ### Fixed

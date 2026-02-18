@@ -52,6 +52,8 @@ export const PERMISSION_GROUPS: Record<string, PermissionGroup> = {
       "googleAds:list_keywords",
       "googleAds:get_keyword_performance",
       "googleAds:get_search_terms_report",
+      // Read - Negative Keywords
+      "googleAds:list_negative_keywords",
       // Read - Account
       "googleAds:get_account_overview",
       // Read - Audiences
@@ -96,6 +98,9 @@ export const PERMISSION_GROUPS: Record<string, PermissionGroup> = {
       "googleAds:add_keyword",
       "googleAds:remove_keyword",
       "googleAds:update_keyword_bid",
+      // Write - Negative Keywords
+      "googleAds:add_negative_keyword",
+      "googleAds:remove_negative_keyword",
       // Write - Budgets
       "googleAds:update_budget",
       // Write - Recommendations

@@ -368,6 +368,30 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
+  // Google Ads tools — Read: Negative Keywords
+  {
+    name: "googleAds_list_negative_keywords",
+    description:
+      "List negative keywords. Provide campaignId for campaign-level negatives, or adGroupId for ad-group-level negatives.",
+    action: "googleAds:list_negative_keywords",
+    inputSchema: z.object({
+      campaignId: z.string().optional(),
+      adGroupId: z.string().optional(),
+      maxResults: z.number().optional().default(50),
+    }),
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      if (params.adGroupId) {
+        const query = `SELECT ad_group_criterion.criterion_id, ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group_criterion.status FROM ad_group_criterion WHERE ad_group_criterion.ad_group = 'customers/${cid}/adGroups/${params.adGroupId}' AND ad_group_criterion.type = 'KEYWORD' AND ad_group_criterion.negative = TRUE LIMIT ${params.maxResults ?? 50}`;
+        return googleAdsQuery(context.serviceConnectionId, query);
+      }
+      if (params.campaignId) {
+        const query = `SELECT campaign_criterion.criterion_id, campaign_criterion.keyword.text, campaign_criterion.keyword.match_type FROM campaign_criterion WHERE campaign_criterion.campaign = 'customers/${cid}/campaigns/${params.campaignId}' AND campaign_criterion.type = 'KEYWORD' AND campaign_criterion.negative = TRUE LIMIT ${params.maxResults ?? 50}`;
+        return googleAdsQuery(context.serviceConnectionId, query);
+      }
+      throw new Error("Either campaignId or adGroupId is required");
+    },
+  },
   {
     name: "googleAds_get_search_terms_report",
     description: "Get search terms report showing actual queries that triggered ads",
@@ -1029,6 +1053,89 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
           updateMask: "cpc_bid_micros",
         },
       ]);
+    },
+  },
+  // Google Ads tools — Write: Negative Keywords
+  {
+    name: "googleAds_add_negative_keyword",
+    description:
+      "Add a negative keyword. Provide campaignId for campaign-level or adGroupId for ad-group-level negative keyword.",
+    action: "googleAds:add_negative_keyword",
+    inputSchema: z.object({
+      campaignId: z.string().optional(),
+      adGroupId: z.string().optional(),
+      text: z.string(),
+      matchType: z.enum(["EXACT", "PHRASE", "BROAD"]),
+    }),
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      if (params.adGroupId) {
+        return googleAdsMutate(context.serviceConnectionId, "adGroupCriteria", [
+          {
+            create: {
+              adGroup: `customers/${cid}/adGroups/${params.adGroupId}`,
+              negative: true,
+              keyword: {
+                text: params.text,
+                matchType: params.matchType,
+              },
+              status: "ENABLED",
+            },
+          },
+        ]);
+      }
+      if (params.campaignId) {
+        return googleAdsMutate(
+          context.serviceConnectionId,
+          "campaignCriteria",
+          [
+            {
+              create: {
+                campaign: `customers/${cid}/campaigns/${params.campaignId}`,
+                negative: true,
+                keyword: {
+                  text: params.text,
+                  matchType: params.matchType,
+                },
+              },
+            },
+          ]
+        );
+      }
+      throw new Error("Either campaignId or adGroupId is required");
+    },
+  },
+  {
+    name: "googleAds_remove_negative_keyword",
+    description:
+      "Remove a negative keyword. Provide campaignId for campaign-level or adGroupId for ad-group-level.",
+    action: "googleAds:remove_negative_keyword",
+    inputSchema: z.object({
+      campaignId: z.string().optional(),
+      adGroupId: z.string().optional(),
+      keywordId: z.string(),
+    }),
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      if (params.adGroupId) {
+        return googleAdsMutate(context.serviceConnectionId, "adGroupCriteria", [
+          {
+            remove: `customers/${cid}/adGroupCriteria/${params.adGroupId}~${params.keywordId}`,
+          },
+        ]);
+      }
+      if (params.campaignId) {
+        return googleAdsMutate(
+          context.serviceConnectionId,
+          "campaignCriteria",
+          [
+            {
+              remove: `customers/${cid}/campaignCriteria/${params.campaignId}~${params.keywordId}`,
+            },
+          ]
+        );
+      }
+      throw new Error("Either campaignId or adGroupId is required");
     },
   },
   // Google Ads tools — Write: Budgets

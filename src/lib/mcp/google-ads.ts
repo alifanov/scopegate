@@ -1,7 +1,7 @@
 import { getValidAccessToken } from "@/lib/google-oauth";
 import { db } from "@/lib/db";
 
-const GOOGLE_ADS_API_VERSION = "v18";
+const GOOGLE_ADS_API_VERSION = "v23";
 const GOOGLE_ADS_BASE_URL = `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}`;
 
 function getDeveloperToken(): string {

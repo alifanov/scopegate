@@ -107,20 +107,20 @@ export function EditPermissionsDialog({
         <div className="space-y-3">
           <div className="flex items-center space-x-2">
             <Checkbox
-              id={`edit-group-${serviceProvider}`}
+              id="edit-select-all"
               checked={group.actions.every((a) =>
                 selectedPermissions.has(a)
               )}
               onCheckedChange={() => toggleGroup(group.actions)}
             />
             <Label
-              htmlFor={`edit-group-${serviceProvider}`}
+              htmlFor="edit-select-all"
               className="font-semibold"
             >
-              {group.name}
+              Select All
             </Label>
           </div>
-          <div className="ml-6 space-y-2">
+          <div className="space-y-2">
             {group.actions.map((action) => (
               <div key={action} className="flex items-center space-x-2">
                 <Checkbox

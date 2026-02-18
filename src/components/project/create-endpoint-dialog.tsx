@@ -193,31 +193,33 @@ export function CreateEndpointDialog({
                     permissions.
                   </p>
                 )}
-                {Object.entries(PERMISSION_GROUPS)
-                  .filter(([key]) => {
-                    const service = services.find(
-                      (s) => s.id === selectedService
-                    );
-                    return service ? key === service.provider : false;
-                  })
-                  .map(([key, group]) => (
-                    <div key={key} className="space-y-3">
+                {(() => {
+                  const service = services.find(
+                    (s) => s.id === selectedService
+                  );
+                  const group = service
+                    ? PERMISSION_GROUPS[service.provider]
+                    : null;
+                  if (!group) return null;
+                  const allSelected = group.actions.every((a) =>
+                    selectedPermissions.has(a)
+                  );
+                  return (
+                    <div className="space-y-3">
                       <div className="flex items-center space-x-2">
                         <Checkbox
-                          id={`dialog-group-${key}`}
-                          checked={group.actions.every((a) =>
-                            selectedPermissions.has(a)
-                          )}
+                          id="dialog-select-all"
+                          checked={allSelected}
                           onCheckedChange={() => toggleGroup(group.actions)}
                         />
                         <Label
-                          htmlFor={`dialog-group-${key}`}
+                          htmlFor="dialog-select-all"
                           className="font-semibold"
                         >
-                          {group.name}
+                          Select All
                         </Label>
                       </div>
-                      <div className="ml-6 space-y-2">
+                      <div className="space-y-2">
                         {group.actions.map((action) => (
                           <div
                             key={action}
@@ -238,7 +240,8 @@ export function CreateEndpointDialog({
                         ))}
                       </div>
                     </div>
-                  ))}
+                  );
+                })()}
               </CardContent>
             </Card>
 

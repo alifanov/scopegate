@@ -212,7 +212,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       return { success: false, note: "Drive API not yet connected", params };
     },
   },
-  // Google Ads tools
+  // Google Ads tools — Read: Campaigns
   {
     name: "googleAds_list_campaigns",
     description: "List campaigns in the Google Ads account",
@@ -239,6 +239,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       return { performance: null, note: "Google Ads API not yet connected", params };
     },
   },
+  // Google Ads tools — Read: Ad Groups
   {
     name: "googleAds_list_ad_groups",
     description: "List ad groups within a campaign",
@@ -266,6 +267,36 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       return { performance: null, note: "Google Ads API not yet connected", params };
     },
   },
+  // Google Ads tools — Read: Ads
+  {
+    name: "googleAds_list_ads",
+    description: "List ads within an ad group",
+    action: "googleAds:list_ads",
+    inputSchema: z.object({
+      adGroupId: z.string(),
+      status: z.string().optional(),
+      maxResults: z.number().optional().default(50),
+    }),
+    handler: async (params) => {
+      return { ads: [], note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_get_ad_performance",
+    description: "Get performance metrics for a specific ad",
+    action: "googleAds:get_ad_performance",
+    inputSchema: z.object({
+      adGroupId: z.string(),
+      adId: z.string(),
+      dateRangeStart: z.string().optional(),
+      dateRangeEnd: z.string().optional(),
+      datePreset: z.string().optional(),
+    }),
+    handler: async (params) => {
+      return { performance: null, note: "Google Ads API not yet connected", params };
+    },
+  },
+  // Google Ads tools — Read: Keywords
   {
     name: "googleAds_list_keywords",
     description: "List keywords in an ad group",
@@ -294,6 +325,23 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     },
   },
   {
+    name: "googleAds_get_search_terms_report",
+    description: "Get search terms report showing actual queries that triggered ads",
+    action: "googleAds:get_search_terms_report",
+    inputSchema: z.object({
+      campaignId: z.string().optional(),
+      adGroupId: z.string().optional(),
+      dateRangeStart: z.string().optional(),
+      dateRangeEnd: z.string().optional(),
+      datePreset: z.string().optional(),
+      maxResults: z.number().optional().default(100),
+    }),
+    handler: async (params) => {
+      return { searchTerms: [], note: "Google Ads API not yet connected", params };
+    },
+  },
+  // Google Ads tools — Read: Account
+  {
     name: "googleAds_get_account_overview",
     description: "Get an overview of the Google Ads account performance",
     action: "googleAds:get_account_overview",
@@ -304,6 +352,470 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     }),
     handler: async (params) => {
       return { overview: null, note: "Google Ads API not yet connected", params };
+    },
+  },
+  // Google Ads tools — Read: Audiences
+  {
+    name: "googleAds_list_audiences",
+    description: "List audiences configured in the Google Ads account",
+    action: "googleAds:list_audiences",
+    inputSchema: z.object({
+      maxResults: z.number().optional().default(50),
+    }),
+    handler: async (params) => {
+      return { audiences: [], note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_get_audience_performance",
+    description: "Get performance metrics for a specific audience segment",
+    action: "googleAds:get_audience_performance",
+    inputSchema: z.object({
+      audienceId: z.string(),
+      campaignId: z.string().optional(),
+      dateRangeStart: z.string().optional(),
+      dateRangeEnd: z.string().optional(),
+      datePreset: z.string().optional(),
+    }),
+    handler: async (params) => {
+      return { performance: null, note: "Google Ads API not yet connected", params };
+    },
+  },
+  // Google Ads tools — Read: Conversions
+  {
+    name: "googleAds_list_conversions",
+    description: "List conversion actions configured in the account",
+    action: "googleAds:list_conversions",
+    inputSchema: z.object({
+      maxResults: z.number().optional().default(50),
+    }),
+    handler: async (params) => {
+      return { conversions: [], note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_get_conversion_performance",
+    description: "Get conversion performance metrics",
+    action: "googleAds:get_conversion_performance",
+    inputSchema: z.object({
+      conversionActionId: z.string().optional(),
+      campaignId: z.string().optional(),
+      dateRangeStart: z.string().optional(),
+      dateRangeEnd: z.string().optional(),
+      datePreset: z.string().optional(),
+    }),
+    handler: async (params) => {
+      return { performance: null, note: "Google Ads API not yet connected", params };
+    },
+  },
+  // Google Ads tools — Read: Extensions
+  {
+    name: "googleAds_list_extensions",
+    description: "List ad extensions (sitelinks, callouts, structured snippets, etc.)",
+    action: "googleAds:list_extensions",
+    inputSchema: z.object({
+      type: z.string().optional(),
+      campaignId: z.string().optional(),
+      maxResults: z.number().optional().default(50),
+    }),
+    handler: async (params) => {
+      return { extensions: [], note: "Google Ads API not yet connected", params };
+    },
+  },
+  // Google Ads tools — Read: Budgets & Bidding
+  {
+    name: "googleAds_list_budgets",
+    description: "List campaign budgets",
+    action: "googleAds:list_budgets",
+    inputSchema: z.object({
+      maxResults: z.number().optional().default(50),
+    }),
+    handler: async (params) => {
+      return { budgets: [], note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_get_budget_details",
+    description: "Get details for a specific campaign budget",
+    action: "googleAds:get_budget_details",
+    inputSchema: z.object({
+      budgetId: z.string(),
+    }),
+    handler: async (params) => {
+      return { budget: null, note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_list_bid_strategies",
+    description: "List bidding strategies in the account",
+    action: "googleAds:list_bid_strategies",
+    inputSchema: z.object({
+      maxResults: z.number().optional().default(50),
+    }),
+    handler: async (params) => {
+      return { bidStrategies: [], note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_get_bid_strategy_performance",
+    description: "Get performance metrics for a specific bidding strategy",
+    action: "googleAds:get_bid_strategy_performance",
+    inputSchema: z.object({
+      bidStrategyId: z.string(),
+      dateRangeStart: z.string().optional(),
+      dateRangeEnd: z.string().optional(),
+      datePreset: z.string().optional(),
+    }),
+    handler: async (params) => {
+      return { performance: null, note: "Google Ads API not yet connected", params };
+    },
+  },
+  // Google Ads tools — Read: Recommendations
+  {
+    name: "googleAds_list_recommendations",
+    description: "List Google Ads optimization recommendations",
+    action: "googleAds:list_recommendations",
+    inputSchema: z.object({
+      type: z.string().optional(),
+      campaignId: z.string().optional(),
+      maxResults: z.number().optional().default(50),
+    }),
+    handler: async (params) => {
+      return { recommendations: [], note: "Google Ads API not yet connected", params };
+    },
+  },
+  // Google Ads tools — Read: Change History
+  {
+    name: "googleAds_get_change_history",
+    description: "Get change history for the account showing recent modifications",
+    action: "googleAds:get_change_history",
+    inputSchema: z.object({
+      dateRangeStart: z.string().optional(),
+      dateRangeEnd: z.string().optional(),
+      resourceType: z.string().optional(),
+      maxResults: z.number().optional().default(50),
+    }),
+    handler: async (params) => {
+      return { changes: [], note: "Google Ads API not yet connected", params };
+    },
+  },
+  // Google Ads tools — Read: Labels
+  {
+    name: "googleAds_list_labels",
+    description: "List labels in the Google Ads account",
+    action: "googleAds:list_labels",
+    inputSchema: z.object({
+      maxResults: z.number().optional().default(50),
+    }),
+    handler: async (params) => {
+      return { labels: [], note: "Google Ads API not yet connected", params };
+    },
+  },
+  // Google Ads tools — Read: Assets
+  {
+    name: "googleAds_list_assets",
+    description: "List assets (images, texts, videos, etc.) in the account",
+    action: "googleAds:list_assets",
+    inputSchema: z.object({
+      type: z.string().optional(),
+      maxResults: z.number().optional().default(50),
+    }),
+    handler: async (params) => {
+      return { assets: [], note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_list_asset_groups",
+    description: "List asset groups for Performance Max campaigns",
+    action: "googleAds:list_asset_groups",
+    inputSchema: z.object({
+      campaignId: z.string(),
+      maxResults: z.number().optional().default(50),
+    }),
+    handler: async (params) => {
+      return { assetGroups: [], note: "Google Ads API not yet connected", params };
+    },
+  },
+  // Google Ads tools — Read: Geo & Device Performance
+  {
+    name: "googleAds_get_geo_performance",
+    description: "Get performance metrics broken down by geographic location",
+    action: "googleAds:get_geo_performance",
+    inputSchema: z.object({
+      campaignId: z.string().optional(),
+      dateRangeStart: z.string().optional(),
+      dateRangeEnd: z.string().optional(),
+      datePreset: z.string().optional(),
+      maxResults: z.number().optional().default(50),
+    }),
+    handler: async (params) => {
+      return { geoPerformance: [], note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_get_device_performance",
+    description: "Get performance metrics broken down by device type",
+    action: "googleAds:get_device_performance",
+    inputSchema: z.object({
+      campaignId: z.string().optional(),
+      dateRangeStart: z.string().optional(),
+      dateRangeEnd: z.string().optional(),
+      datePreset: z.string().optional(),
+    }),
+    handler: async (params) => {
+      return { devicePerformance: [], note: "Google Ads API not yet connected", params };
+    },
+  },
+  // Google Ads tools — Write: Campaigns
+  {
+    name: "googleAds_create_campaign",
+    description: "Create a new campaign in Google Ads",
+    action: "googleAds:create_campaign",
+    inputSchema: z.object({
+      name: z.string(),
+      type: z.string(),
+      status: z.string().optional().default("PAUSED"),
+      budgetId: z.string(),
+      biddingStrategyType: z.string().optional(),
+      targetCpa: z.number().optional(),
+      targetRoas: z.number().optional(),
+      networkSettings: z.object({
+        targetGoogleSearch: z.boolean().optional(),
+        targetSearchNetwork: z.boolean().optional(),
+        targetContentNetwork: z.boolean().optional(),
+      }).optional(),
+    }),
+    handler: async (params) => {
+      return { campaign: null, note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_update_campaign",
+    description: "Update an existing campaign's settings",
+    action: "googleAds:update_campaign",
+    inputSchema: z.object({
+      campaignId: z.string(),
+      name: z.string().optional(),
+      status: z.string().optional(),
+      budgetId: z.string().optional(),
+      biddingStrategyType: z.string().optional(),
+      targetCpa: z.number().optional(),
+      targetRoas: z.number().optional(),
+    }),
+    handler: async (params) => {
+      return { campaign: null, note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_pause_campaign",
+    description: "Pause a running campaign",
+    action: "googleAds:pause_campaign",
+    inputSchema: z.object({
+      campaignId: z.string(),
+    }),
+    handler: async (params) => {
+      return { success: false, note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_enable_campaign",
+    description: "Enable a paused campaign",
+    action: "googleAds:enable_campaign",
+    inputSchema: z.object({
+      campaignId: z.string(),
+    }),
+    handler: async (params) => {
+      return { success: false, note: "Google Ads API not yet connected", params };
+    },
+  },
+  // Google Ads tools — Write: Ad Groups
+  {
+    name: "googleAds_create_ad_group",
+    description: "Create a new ad group within a campaign",
+    action: "googleAds:create_ad_group",
+    inputSchema: z.object({
+      campaignId: z.string(),
+      name: z.string(),
+      status: z.string().optional().default("PAUSED"),
+      cpcBidMicros: z.number().optional(),
+    }),
+    handler: async (params) => {
+      return { adGroup: null, note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_update_ad_group",
+    description: "Update an existing ad group's settings",
+    action: "googleAds:update_ad_group",
+    inputSchema: z.object({
+      adGroupId: z.string(),
+      name: z.string().optional(),
+      status: z.string().optional(),
+      cpcBidMicros: z.number().optional(),
+    }),
+    handler: async (params) => {
+      return { adGroup: null, note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_pause_ad_group",
+    description: "Pause an ad group",
+    action: "googleAds:pause_ad_group",
+    inputSchema: z.object({
+      adGroupId: z.string(),
+    }),
+    handler: async (params) => {
+      return { success: false, note: "Google Ads API not yet connected", params };
+    },
+  },
+  // Google Ads tools — Write: Ads
+  {
+    name: "googleAds_create_ad",
+    description: "Create a new responsive search ad in an ad group",
+    action: "googleAds:create_ad",
+    inputSchema: z.object({
+      adGroupId: z.string(),
+      headlines: z.array(z.string()).min(3).max(15),
+      descriptions: z.array(z.string()).min(2).max(4),
+      finalUrls: z.array(z.string()),
+      path1: z.string().optional(),
+      path2: z.string().optional(),
+      status: z.string().optional().default("PAUSED"),
+    }),
+    handler: async (params) => {
+      return { ad: null, note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_update_ad",
+    description: "Update an existing ad",
+    action: "googleAds:update_ad",
+    inputSchema: z.object({
+      adGroupId: z.string(),
+      adId: z.string(),
+      status: z.string().optional(),
+      headlines: z.array(z.string()).optional(),
+      descriptions: z.array(z.string()).optional(),
+      finalUrls: z.array(z.string()).optional(),
+    }),
+    handler: async (params) => {
+      return { ad: null, note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_pause_ad",
+    description: "Pause an ad",
+    action: "googleAds:pause_ad",
+    inputSchema: z.object({
+      adGroupId: z.string(),
+      adId: z.string(),
+    }),
+    handler: async (params) => {
+      return { success: false, note: "Google Ads API not yet connected", params };
+    },
+  },
+  // Google Ads tools — Write: Keywords
+  {
+    name: "googleAds_add_keyword",
+    description: "Add a keyword to an ad group",
+    action: "googleAds:add_keyword",
+    inputSchema: z.object({
+      adGroupId: z.string(),
+      text: z.string(),
+      matchType: z.enum(["EXACT", "PHRASE", "BROAD"]),
+      cpcBidMicros: z.number().optional(),
+      status: z.string().optional().default("ENABLED"),
+    }),
+    handler: async (params) => {
+      return { keyword: null, note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_remove_keyword",
+    description: "Remove a keyword from an ad group",
+    action: "googleAds:remove_keyword",
+    inputSchema: z.object({
+      adGroupId: z.string(),
+      keywordId: z.string(),
+    }),
+    handler: async (params) => {
+      return { success: false, note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_update_keyword_bid",
+    description: "Update the CPC bid for a keyword",
+    action: "googleAds:update_keyword_bid",
+    inputSchema: z.object({
+      adGroupId: z.string(),
+      keywordId: z.string(),
+      cpcBidMicros: z.number(),
+    }),
+    handler: async (params) => {
+      return { success: false, note: "Google Ads API not yet connected", params };
+    },
+  },
+  // Google Ads tools — Write: Budgets
+  {
+    name: "googleAds_update_budget",
+    description: "Update a campaign budget amount",
+    action: "googleAds:update_budget",
+    inputSchema: z.object({
+      budgetId: z.string(),
+      amountMicros: z.number(),
+    }),
+    handler: async (params) => {
+      return { success: false, note: "Google Ads API not yet connected", params };
+    },
+  },
+  // Google Ads tools — Write: Recommendations
+  {
+    name: "googleAds_apply_recommendation",
+    description: "Apply a Google Ads optimization recommendation",
+    action: "googleAds:apply_recommendation",
+    inputSchema: z.object({
+      recommendationId: z.string(),
+    }),
+    handler: async (params) => {
+      return { success: false, note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_dismiss_recommendation",
+    description: "Dismiss a Google Ads optimization recommendation",
+    action: "googleAds:dismiss_recommendation",
+    inputSchema: z.object({
+      recommendationId: z.string(),
+    }),
+    handler: async (params) => {
+      return { success: false, note: "Google Ads API not yet connected", params };
+    },
+  },
+  // Google Ads tools — Write: Labels
+  {
+    name: "googleAds_create_label",
+    description: "Create a new label for organizing campaigns, ad groups, or ads",
+    action: "googleAds:create_label",
+    inputSchema: z.object({
+      name: z.string(),
+      description: z.string().optional(),
+      backgroundColor: z.string().optional(),
+    }),
+    handler: async (params) => {
+      return { label: null, note: "Google Ads API not yet connected", params };
+    },
+  },
+  {
+    name: "googleAds_assign_label",
+    description: "Assign a label to a campaign, ad group, or ad",
+    action: "googleAds:assign_label",
+    inputSchema: z.object({
+      labelId: z.string(),
+      resourceType: z.enum(["campaign", "adGroup", "ad"]),
+      resourceId: z.string(),
+    }),
+    handler: async (params) => {
+      return { success: false, note: "Google Ads API not yet connected", params };
     },
   },
   // Google Search Console tools

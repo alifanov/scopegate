@@ -39,13 +39,71 @@ export const PERMISSION_GROUPS: Record<string, PermissionGroup> = {
     name: "Google Ads",
     description: "Access to Google Ads operations",
     actions: [
+      // Read - Campaigns
       "googleAds:list_campaigns",
       "googleAds:get_campaign_performance",
+      // Read - Ad Groups
       "googleAds:list_ad_groups",
       "googleAds:get_ad_group_performance",
+      // Read - Ads
+      "googleAds:list_ads",
+      "googleAds:get_ad_performance",
+      // Read - Keywords
       "googleAds:list_keywords",
       "googleAds:get_keyword_performance",
+      "googleAds:get_search_terms_report",
+      // Read - Account
       "googleAds:get_account_overview",
+      // Read - Audiences
+      "googleAds:list_audiences",
+      "googleAds:get_audience_performance",
+      // Read - Conversions
+      "googleAds:list_conversions",
+      "googleAds:get_conversion_performance",
+      // Read - Extensions
+      "googleAds:list_extensions",
+      // Read - Budgets & Bidding
+      "googleAds:list_budgets",
+      "googleAds:get_budget_details",
+      "googleAds:list_bid_strategies",
+      "googleAds:get_bid_strategy_performance",
+      // Read - Recommendations
+      "googleAds:list_recommendations",
+      // Read - Change History
+      "googleAds:get_change_history",
+      // Read - Labels
+      "googleAds:list_labels",
+      // Read - Assets
+      "googleAds:list_assets",
+      "googleAds:list_asset_groups",
+      // Read - Geo & Device Performance
+      "googleAds:get_geo_performance",
+      "googleAds:get_device_performance",
+      // Write - Campaigns
+      "googleAds:create_campaign",
+      "googleAds:update_campaign",
+      "googleAds:pause_campaign",
+      "googleAds:enable_campaign",
+      // Write - Ad Groups
+      "googleAds:create_ad_group",
+      "googleAds:update_ad_group",
+      "googleAds:pause_ad_group",
+      // Write - Ads
+      "googleAds:create_ad",
+      "googleAds:update_ad",
+      "googleAds:pause_ad",
+      // Write - Keywords
+      "googleAds:add_keyword",
+      "googleAds:remove_keyword",
+      "googleAds:update_keyword_bid",
+      // Write - Budgets
+      "googleAds:update_budget",
+      // Write - Recommendations
+      "googleAds:apply_recommendation",
+      "googleAds:dismiss_recommendation",
+      // Write - Labels
+      "googleAds:create_label",
+      "googleAds:assign_label",
     ],
   },
   searchConsole: {

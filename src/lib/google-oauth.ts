@@ -123,6 +123,9 @@ export async function getValidAccessToken(
     return decrypt(connection.accessToken);
   }
 
+  if (!connection.refreshToken) {
+    throw new Error("No refresh token available for this connection");
+  }
   const decryptedRefreshToken = decrypt(connection.refreshToken);
   const tokens = await refreshAccessToken(decryptedRefreshToken);
   const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);

@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-02-18
+
+### Added
+
+- OpenRouter connection support with API key authentication
+- 9 OpenRouter MCP tools: chat completion, embeddings, list models, get model endpoints, get generation, key info, credits, activity, and list providers
+- OpenRouter API helper (`openRouterFetch`) for authenticated API calls
+- API key connection route (`POST /api/projects/:projectId/services/connect-api-key`)
+- OpenRouter icon in service icons
+- API key input form in Connect Service dialog for non-OAuth providers
+
+### Changed
+
+- Made `refreshToken` optional in `ServiceConnection` Prisma model to support API-key-based services
+- Updated services dialog description from "Google service" to generic "service"
+
 ## [0.1.1] - 2026-02-17
 
 ### Added

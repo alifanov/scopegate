@@ -64,6 +64,21 @@ export const PERMISSION_GROUPS: Record<string, PermissionGroup> = {
       "searchConsole:delete_sitemap",
     ],
   },
+  openRouter: {
+    name: "OpenRouter",
+    description: "Access to OpenRouter AI API",
+    actions: [
+      "openRouter:chat_completion",
+      "openRouter:get_generation",
+      "openRouter:list_models",
+      "openRouter:get_model_endpoints",
+      "openRouter:get_key_info",
+      "openRouter:get_credits",
+      "openRouter:get_activity",
+      "openRouter:list_providers",
+      "openRouter:create_embeddings",
+    ],
+  },
 };
 
 export const ALL_ACTIONS = Object.values(PERMISSION_GROUPS).flatMap(

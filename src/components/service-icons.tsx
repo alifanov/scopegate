@@ -67,12 +67,26 @@ function SearchConsoleIcon(props: SvgProps) {
   );
 }
 
+function OpenRouterIcon(props: SvgProps) {
+  return (
+    <svg viewBox="0 0 48 48" fill="none" {...props}>
+      <rect width="48" height="48" rx="10" fill="#1a1a2e" />
+      <path
+        d="M24 10C16.268 10 10 16.268 10 24s6.268 14 14 14 14-6.268 14-14S31.732 10 24 10zm0 4a10 10 0 0 1 9.95 8.95H14.05A10 10 0 0 1 24 14zm0 20a10 10 0 0 1-9.95-8.95h19.9A10 10 0 0 1 24 34z"
+        fill="#6366f1"
+      />
+      <circle cx="24" cy="24" r="4" fill="#a5b4fc" />
+    </svg>
+  );
+}
+
 const ICONS: Record<string, (props: SvgProps) => React.ReactElement> = {
   gmail: GmailIcon,
   calendar: CalendarIcon,
   drive: DriveIcon,
   googleAds: GoogleAdsIcon,
   searchConsole: SearchConsoleIcon,
+  openRouter: OpenRouterIcon,
 };
 
 export function ServiceIcon({

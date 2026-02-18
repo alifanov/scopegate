@@ -18,13 +18,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { TabContentSkeleton } from "@/components/skeletons";
 import { getProviderDisplayName } from "@/lib/provider-names";
 import { PERMISSION_GROUPS } from "@/lib/mcp/permissions";
-import { Plug, Unplug } from "lucide-react";
+import { Plug, Unplug, ArrowLeft } from "lucide-react";
 import { ServiceIcon } from "@/components/service-icons";
 import { toast } from "sonner";
+
+const API_KEY_PROVIDERS = new Set(["openRouter"]);
 
 interface Service {
   id: string;
@@ -43,6 +47,12 @@ export function ServicesTab({ projectId }: { projectId: string }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [serviceToDisconnect, setServiceToDisconnect] = useState<string | null>(null);
+
+  // API key form state
+  const [apiKeyProvider, setApiKeyProvider] = useState<string | null>(null);
+  const [apiKeyValue, setApiKeyValue] = useState("");
+  const [apiKeyLabel, setApiKeyLabel] = useState("");
+  const [apiKeySubmitting, setApiKeySubmitting] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("error") === "oauth_failed") {
@@ -70,7 +80,58 @@ export function ServicesTab({ projectId }: { projectId: string }) {
   }
 
   function handleConnect(providerKey: string) {
-    window.location.href = `/api/oauth/google?projectId=${projectId}&provider=${providerKey}`;
+    if (API_KEY_PROVIDERS.has(providerKey)) {
+      setApiKeyProvider(providerKey);
+    } else {
+      window.location.href = `/api/oauth/google?projectId=${projectId}&provider=${providerKey}`;
+    }
+  }
+
+  function resetApiKeyForm() {
+    setApiKeyProvider(null);
+    setApiKeyValue("");
+    setApiKeyLabel("");
+    setApiKeySubmitting(false);
+  }
+
+  function handleDialogClose(open: boolean) {
+    setDialogOpen(open);
+    if (!open) resetApiKeyForm();
+  }
+
+  async function handleApiKeySubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!apiKeyProvider || !apiKeyValue.trim()) return;
+
+    setApiKeySubmitting(true);
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/services/connect-api-key`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            provider: apiKeyProvider,
+            apiKey: apiKeyValue.trim(),
+            label: apiKeyLabel.trim() || undefined,
+          }),
+        }
+      );
+
+      if (res.ok) {
+        toast.success("Service connected successfully.");
+        setDialogOpen(false);
+        resetApiKeyForm();
+        loadServices();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Failed to connect service.");
+      }
+    } catch {
+      toast.error("Failed to connect service.");
+    } finally {
+      setApiKeySubmitting(false);
+    }
   }
 
   function askDisconnect(serviceId: string) {
@@ -115,31 +176,83 @@ export function ServicesTab({ projectId }: { projectId: string }) {
         <Button onClick={() => setDialogOpen(true)}><Plug className="size-4" />Connect Service</Button>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Connect a Service</DialogTitle>
+            <DialogTitle>
+              {apiKeyProvider
+                ? `Connect ${getProviderDisplayName(apiKeyProvider)}`
+                : "Connect a Service"}
+            </DialogTitle>
             <DialogDescription>
-              Choose a Google service to connect to this project.
+              {apiKeyProvider
+                ? "Enter your API key to connect this service."
+                : "Choose a service to connect to this project."}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            {providers.map((provider) => (
+
+          {apiKeyProvider ? (
+            <form onSubmit={handleApiKeySubmit} className="space-y-4">
               <button
-                key={provider.key}
-                onClick={() => handleConnect(provider.key)}
-                className="flex w-full cursor-pointer items-center gap-4 rounded-lg border p-4 text-left transition-colors hover:bg-muted"
+                type="button"
+                onClick={resetApiKeyForm}
+                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
-                <ServiceIcon provider={provider.key} className="size-8 shrink-0" />
-                <div>
-                  <div className="font-medium">{provider.name}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {provider.description}
-                  </div>
-                </div>
+                <ArrowLeft className="size-3" />
+                Back to services
               </button>
-            ))}
-          </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="api-key">API Key</Label>
+                <Input
+                  id="api-key"
+                  type="password"
+                  placeholder="sk-or-..."
+                  value={apiKeyValue}
+                  onChange={(e) => setApiKeyValue(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="api-key-label">Label (optional)</Label>
+                <Input
+                  id="api-key-label"
+                  type="text"
+                  placeholder="e.g. Production Key"
+                  value={apiKeyLabel}
+                  onChange={(e) => setApiKeyLabel(e.target.value)}
+                />
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={apiKeySubmitting || !apiKeyValue.trim()}
+              >
+                {apiKeySubmitting ? "Validating..." : "Connect"}
+              </Button>
+            </form>
+          ) : (
+            <div className="space-y-2">
+              {providers.map((provider) => (
+                <button
+                  key={provider.key}
+                  onClick={() => handleConnect(provider.key)}
+                  className="flex w-full cursor-pointer items-center gap-4 rounded-lg border p-4 text-left transition-colors hover:bg-muted"
+                >
+                  <ServiceIcon provider={provider.key} className="size-8 shrink-0" />
+                  <div>
+                    <div className="font-medium">{provider.name}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {provider.description}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -160,7 +273,7 @@ export function ServicesTab({ projectId }: { projectId: string }) {
           <CardHeader>
             <CardTitle>No services connected</CardTitle>
             <CardDescription>
-              Click &quot;Connect Service&quot; to link a Google service to this
+              Click &quot;Connect Service&quot; to link a service to this
               project.
             </CardDescription>
           </CardHeader>

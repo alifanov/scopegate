@@ -93,7 +93,7 @@ model ServiceConnection {
   provider     String
   accountEmail String
   accessToken  String
-  refreshToken String
+  refreshToken String?
   expiresAt    DateTime?
   projectId    String
   project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)

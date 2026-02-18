@@ -74,6 +74,7 @@ export default function SettingsPage() {
       if (res.ok) {
         toast.success("Project name saved");
         setProject({ projectId, projectName: name });
+        router.push(`/projects/${projectId}`);
       } else {
         toast.error("Failed to save project name");
       }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,11 +11,28 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Separator } from "@/components/ui/separator";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { TabContentSkeleton } from "@/components/skeletons";
+import { TabContentSkeleton, TableSkeleton } from "@/components/skeletons";
+import { CreateUserDialog } from "@/components/admin/create-user-dialog";
 import { authClient } from "@/lib/auth-client";
-import { Save, Lock } from "lucide-react";
+import { Save, Lock, UserPlus } from "lucide-react";
 import { toast } from "sonner";
+
+interface User {
+  id: string;
+  email: string;
+  name: string | null;
+  createdAt: string;
+}
 
 export default function UserSettingsPage() {
   const [loading, setLoading] = useState(true);
@@ -28,6 +45,27 @@ export default function UserSettingsPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
+
+  // Admin: user management
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/users");
+      if (res.ok) {
+        const data = await res.json();
+        setUsers(data.users || []);
+        setIsAdmin(true);
+      }
+    } catch {
+      // not admin or failed
+    } finally {
+      setUsersLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     async function loadProfile() {
@@ -45,7 +83,8 @@ export default function UserSettingsPage() {
       }
     }
     loadProfile();
-  }, []);
+    fetchUsers();
+  }, [fetchUsers]);
 
   async function handleSaveName(e: React.FormEvent) {
     e.preventDefault();
@@ -178,6 +217,61 @@ export default function UserSettingsPage() {
           </form>
         </CardContent>
       </Card>
+
+      {isAdmin && (
+        <>
+          <Separator />
+
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold">User Management</h2>
+            <Button onClick={() => setDialogOpen(true)}>
+              <UserPlus className="size-4" />
+              Create User
+            </Button>
+          </div>
+
+          <CreateUserDialog
+            open={dialogOpen}
+            onOpenChange={setDialogOpen}
+            onCreated={fetchUsers}
+          />
+
+          {usersLoading ? (
+            <TableSkeleton />
+          ) : users.length === 0 ? (
+            <p className="text-muted-foreground">No users found.</p>
+          ) : (
+            <div className="rounded-md border overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Created</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">
+                        {user.email}
+                      </TableCell>
+                      <TableCell>{user.name || "-"}</TableCell>
+                      <TableCell>
+                        {new Date(user.createdAt).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

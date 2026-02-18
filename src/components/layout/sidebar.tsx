@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -12,7 +11,6 @@ import {
   Globe,
   ScrollText,
   Settings,
-  ShieldCheck,
   X,
 } from "lucide-react";
 
@@ -21,14 +19,6 @@ export function Sidebar() {
   const searchParams = useSearchParams();
   const { project } = useProject();
   const { open, setOpen } = useSidebar();
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  // Check admin access
-  useEffect(() => {
-    fetch("/api/admin/users", { method: "HEAD" }).then((res) => {
-      setIsAdmin(res.ok);
-    }).catch(() => {});
-  }, []);
 
   const currentTab = searchParams.get("tab") || "endpoints";
 
@@ -87,10 +77,23 @@ export function Sidebar() {
 
           {project && (
             <>
-              <div className="px-3 pt-4 pb-1">
+              <div className="flex items-center justify-between px-3 pt-4 pb-1">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">
                   {project.projectName}
                 </p>
+                <Link
+                  href={`/projects/${project.projectId}/settings`}
+                  onClick={closeMobile}
+                  className={cn(
+                    "rounded p-0.5 transition-colors",
+                    pathname === `/projects/${project.projectId}/settings`
+                      ? "text-accent-foreground"
+                      : "text-muted-foreground hover:text-accent-foreground"
+                  )}
+                  title="Project settings"
+                >
+                  <Settings className="size-3.5" />
+                </Link>
               </div>
               {[
                 { label: "Endpoints", tab: "endpoints", icon: Globe },
@@ -119,19 +122,6 @@ export function Sidebar() {
                   </Link>
                 );
               })}
-              <Link
-                href={`/projects/${project.projectId}/settings`}
-                onClick={closeMobile}
-                className={cn(
-                  "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ml-2",
-                  pathname === `/projects/${project.projectId}/settings`
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                )}
-              >
-                <Settings className="size-4" />
-                Settings
-              </Link>
             </>
           )}
 
@@ -149,21 +139,6 @@ export function Sidebar() {
             Settings
           </Link>
 
-          {isAdmin && (
-            <Link
-              href="/admin/users"
-              onClick={closeMobile}
-              className={cn(
-                "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                pathname.startsWith("/admin")
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              )}
-            >
-              <ShieldCheck className="size-4" />
-              Admin
-            </Link>
-          )}
         </nav>
       </aside>
     </>

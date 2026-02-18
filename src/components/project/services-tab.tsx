@@ -35,9 +35,16 @@ const API_KEY_PLACEHOLDERS: Record<string, string> = {
   twitter: "Bearer token from X Developer Portal",
 };
 
-const API_KEY_HELP: Record<string, string> = {
-  twitter:
-    "Go to developer.x.com, create a project & app, then copy the Bearer Token from the \"Keys and Tokens\" tab. App-only tokens give read access to public data; user OAuth 2.0 tokens allow full read/write.",
+const API_KEY_HELP: Record<string, React.ReactNode> = {
+  twitter: (
+    <>
+      Go to{" "}
+      <a href="https://developer.x.com" target="_blank" rel="noopener noreferrer" className="underline text-foreground hover:text-foreground/80">
+        developer.x.com
+      </a>
+      , create a project &amp; app, then copy the Bearer Token from the &quot;Keys and Tokens&quot; tab. App-only tokens give read access to public data; user OAuth 2.0 tokens allow full read/write.
+    </>
+  ),
 };
 
 interface Service {

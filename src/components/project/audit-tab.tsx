@@ -38,18 +38,41 @@ interface Pagination {
   pages: number;
 }
 
+interface Endpoint {
+  id: string;
+  name: string;
+}
+
 export function AuditTab({ projectId }: { projectId: string }) {
   const [logs, setLogs] = useState<AuditEntry[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [endpointFilter, setEndpointFilter] = useState<string | null>(null);
+  const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    async function loadEndpoints() {
+      try {
+        const res = await fetch(`/api/projects/${projectId}/endpoints`);
+        if (res.ok) {
+          const data = await res.json();
+          setEndpoints(data);
+        }
+      } catch {
+        // silently ignore — filter just won't be populated
+      }
+    }
+    loadEndpoints();
+  }, [projectId]);
 
   useEffect(() => {
     async function load() {
       try {
         const params = new URLSearchParams({ page: String(page), limit: "50" });
         if (statusFilter) params.set("status", statusFilter);
+        if (endpointFilter) params.set("endpointId", endpointFilter);
 
         const res = await fetch(
           `/api/projects/${projectId}/audit?${params}`
@@ -66,7 +89,7 @@ export function AuditTab({ projectId }: { projectId: string }) {
       }
     }
     load();
-  }, [projectId, page, statusFilter]);
+  }, [projectId, page, statusFilter, endpointFilter]);
 
   const statusVariant = (status: string) => {
     switch (status) {
@@ -85,7 +108,28 @@ export function AuditTab({ projectId }: { projectId: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-end gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <Filter className="size-4" />
+              {endpointFilter
+                ? `Endpoint: ${endpoints.find((e) => e.id === endpointFilter)?.name ?? "..."}`
+                : "All endpoints"}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onClick={() => { setEndpointFilter(null); setPage(1); }}>
+              All
+            </DropdownMenuItem>
+            {endpoints.map((ep) => (
+              <DropdownMenuItem key={ep.id} onClick={() => { setEndpointFilter(ep.id); setPage(1); }}>
+                {ep.name}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm">
@@ -94,16 +138,16 @@ export function AuditTab({ projectId }: { projectId: string }) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuItem onClick={() => setStatusFilter(null)}>
+            <DropdownMenuItem onClick={() => { setStatusFilter(null); setPage(1); }}>
               All
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setStatusFilter("success")}>
+            <DropdownMenuItem onClick={() => { setStatusFilter("success"); setPage(1); }}>
               Success
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setStatusFilter("error")}>
+            <DropdownMenuItem onClick={() => { setStatusFilter("error"); setPage(1); }}>
               Error
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setStatusFilter("denied")}>
+            <DropdownMenuItem onClick={() => { setStatusFilter("denied"); setPage(1); }}>
               Denied
             </DropdownMenuItem>
           </DropdownMenuContent>

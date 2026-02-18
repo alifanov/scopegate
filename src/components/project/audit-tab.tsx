@@ -269,7 +269,7 @@ export function AuditTab({ projectId }: { projectId: string }) {
               </div>
               <div>
                 <div className="text-sm text-muted-foreground mb-1">Error</div>
-                <pre className="whitespace-pre-wrap break-words text-sm text-destructive bg-muted p-3 rounded-md max-h-64 overflow-y-auto">
+                <pre className="whitespace-pre-wrap break-all text-sm text-destructive bg-muted p-3 rounded-md max-h-64 overflow-auto">
                   {selectedLog.error}
                 </pre>
               </div>

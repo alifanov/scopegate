@@ -21,7 +21,7 @@ export async function googleCalendarFetch(
   if (!res.ok) {
     const text = await res.text();
     console.error(`[ScopeGate] Google Calendar API error (${res.status}):`, text);
-    throw new Error("Google Calendar API request failed");
+    throw new Error(`Google Calendar API request failed (${res.status}): ${text}`);
   }
 
   // DELETE returns 204 No Content

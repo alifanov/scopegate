@@ -26,7 +26,7 @@ export async function openRouterFetch(
   if (!res.ok) {
     const text = await res.text();
     console.error(`[ScopeGate] OpenRouter API error (${res.status}):`, text);
-    throw new Error("OpenRouter API request failed");
+    throw new Error(`OpenRouter API request failed (${res.status}): ${text}`);
   }
 
   if (res.status === 204) {

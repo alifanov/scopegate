@@ -39,7 +39,7 @@ export async function getGoogleAdsCustomerId(
   if (!res.ok) {
     const text = await res.text();
     console.error(`[ScopeGate] Google Ads listAccessibleCustomers error (${res.status}):`, text);
-    throw new Error("Failed to list accessible Google Ads customers");
+    throw new Error(`Failed to list accessible Google Ads customers (${res.status}): ${text}`);
   }
 
   const data = (await res.json()) as { resourceNames: string[] };
@@ -89,7 +89,7 @@ export async function googleAdsQuery(
   if (!res.ok) {
     const text = await res.text();
     console.error(`[ScopeGate] Google Ads query error (${res.status}):`, text);
-    throw new Error("Google Ads API query failed");
+    throw new Error(`Google Ads API query failed (${res.status}): ${text}`);
   }
 
   const data = await res.json();
@@ -133,7 +133,7 @@ export async function googleAdsMutate(
   if (!res.ok) {
     const text = await res.text();
     console.error(`[ScopeGate] Google Ads mutate error (${res.status}):`, text);
-    throw new Error("Google Ads API mutate failed");
+    throw new Error(`Google Ads API mutate failed (${res.status}): ${text}`);
   }
 
   return res.json();
@@ -164,7 +164,7 @@ export async function googleAdsApplyRecommendation(
   if (!res.ok) {
     const text = await res.text();
     console.error(`[ScopeGate] Google Ads apply recommendation error (${res.status}):`, text);
-    throw new Error("Google Ads API apply recommendation failed");
+    throw new Error(`Google Ads API apply recommendation failed (${res.status}): ${text}`);
   }
 
   return res.json();
@@ -195,7 +195,7 @@ export async function googleAdsDismissRecommendation(
   if (!res.ok) {
     const text = await res.text();
     console.error(`[ScopeGate] Google Ads dismiss recommendation error (${res.status}):`, text);
-    throw new Error("Google Ads API dismiss recommendation failed");
+    throw new Error(`Google Ads API dismiss recommendation failed (${res.status}): ${text}`);
   }
 
   return res.json();

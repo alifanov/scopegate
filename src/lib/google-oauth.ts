@@ -55,7 +55,7 @@ export async function exchangeCodeForTokens(code: string) {
   if (!res.ok) {
     const text = await res.text();
     console.error("[ScopeGate] Token exchange failed:", text);
-    throw new Error("Token exchange failed");
+    throw new Error(`Token exchange failed (${res.status}): ${text}`);
   }
 
   return res.json() as Promise<{
@@ -81,7 +81,7 @@ export async function refreshAccessToken(refreshToken: string) {
   if (!res.ok) {
     const text = await res.text();
     console.error("[ScopeGate] Token refresh failed:", text);
-    throw new Error("Token refresh failed");
+    throw new Error(`Token refresh failed (${res.status}): ${text}`);
   }
 
   return res.json() as Promise<{

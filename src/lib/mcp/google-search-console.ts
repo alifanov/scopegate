@@ -22,7 +22,7 @@ export async function googleSearchConsoleFetch(
   if (!res.ok) {
     const text = await res.text();
     console.error(`[ScopeGate] Google Search Console API error (${res.status}):`, text);
-    throw new Error("Google Search Console API request failed");
+    throw new Error(`Google Search Console API request failed (${res.status}): ${text}`);
   }
 
   if (res.status === 204) {
@@ -51,7 +51,7 @@ export async function googleSearchConsoleV1Fetch(
   if (!res.ok) {
     const text = await res.text();
     console.error(`[ScopeGate] Google Search Console v1 API error (${res.status}):`, text);
-    throw new Error("Google Search Console API request failed");
+    throw new Error(`Google Search Console API request failed (${res.status}): ${text}`);
   }
 
   if (res.status === 204) {

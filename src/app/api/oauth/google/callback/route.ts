@@ -40,7 +40,7 @@ export async function GET(request: Request) {
 
   if (!VALID_PROVIDERS.includes(provider)) {
     return NextResponse.redirect(
-      `${baseUrl}/projects/${projectId}/services?error=oauth_failed`
+      `${baseUrl}/projects/${projectId}?tab=services&error=oauth_failed`
     );
   }
 
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
 
   if (!csrfValue || csrfValue !== csrfToken) {
     return NextResponse.redirect(
-      `${baseUrl}/projects/${projectId}/services?error=oauth_failed`
+      `${baseUrl}/projects/${projectId}?tab=services&error=oauth_failed`
     );
   }
 
@@ -72,7 +72,7 @@ export async function GET(request: Request) {
   });
   if (!member) {
     return NextResponse.redirect(
-      `${baseUrl}/projects/${projectId}/services?error=oauth_failed`
+      `${baseUrl}/projects/${projectId}?tab=services&error=oauth_failed`
     );
   }
 
@@ -114,7 +114,7 @@ export async function GET(request: Request) {
 
     // Clear CSRF cookie and redirect to services page
     const response = NextResponse.redirect(
-      `${baseUrl}/projects/${projectId}/services`
+      `${baseUrl}/projects/${projectId}?tab=services`
     );
     response.cookies.set("oauth_csrf", "", {
       httpOnly: true,
@@ -127,7 +127,7 @@ export async function GET(request: Request) {
   } catch (err) {
     console.error("OAuth callback error:", err);
     return NextResponse.redirect(
-      `${baseUrl}/projects/${projectId}/services?error=oauth_failed`
+      `${baseUrl}/projects/${projectId}?tab=services&error=oauth_failed`
     );
   }
 }

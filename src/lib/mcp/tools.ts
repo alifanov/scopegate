@@ -1,8 +1,29 @@
 import { z } from "zod";
 import { googleCalendarFetch } from "./google-calendar";
+import { googleAdsQuery, googleAdsMutate, googleAdsApplyRecommendation, googleAdsDismissRecommendation, getGoogleAdsCustomerId } from "./google-ads";
 import { googleSearchConsoleFetch, googleSearchConsoleV1Fetch } from "./google-search-console";
 import { openRouterFetch } from "./openrouter";
 import { twitterFetch, getAuthenticatedUserId } from "./twitter";
+
+function buildDateCondition(params: Record<string, unknown>): string {
+  if (params.dateRangeStart && params.dateRangeEnd) {
+    return ` WHERE segments.date BETWEEN '${params.dateRangeStart}' AND '${params.dateRangeEnd}'`;
+  }
+  if (params.datePreset) {
+    return ` WHERE segments.date DURING ${params.datePreset}`;
+  }
+  return " WHERE segments.date DURING LAST_30_DAYS";
+}
+
+function buildDateAndCondition(params: Record<string, unknown>): string {
+  if (params.dateRangeStart && params.dateRangeEnd) {
+    return ` AND segments.date BETWEEN '${params.dateRangeStart}' AND '${params.dateRangeEnd}'`;
+  }
+  if (params.datePreset) {
+    return ` AND segments.date DURING ${params.datePreset}`;
+  }
+  return " AND segments.date DURING LAST_30_DAYS";
+}
 
 export interface ToolContext {
   serviceConnectionId: string;
@@ -221,8 +242,13 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       status: z.string().optional(),
       maxResults: z.number().optional().default(50),
     }),
-    handler: async (params) => {
-      return { campaigns: [], note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      let query = `SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type, campaign.campaign_budget FROM campaign`;
+      const conditions: string[] = [];
+      if (params.status) conditions.push(`campaign.status = '${params.status}'`);
+      if (conditions.length > 0) query += ` WHERE ${conditions.join(" AND ")}`;
+      query += ` LIMIT ${params.maxResults ?? 50}`;
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   {
@@ -235,8 +261,9 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       dateRangeEnd: z.string().optional(),
       datePreset: z.string().optional(),
     }),
-    handler: async (params) => {
-      return { performance: null, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const query = `SELECT campaign.id, campaign.name, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.ctr, metrics.average_cpc, segments.date FROM campaign WHERE campaign.id = ${params.campaignId}${buildDateAndCondition(params)}`;
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   // Google Ads tools — Read: Ad Groups
@@ -249,8 +276,13 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       status: z.string().optional(),
       maxResults: z.number().optional().default(50),
     }),
-    handler: async (params) => {
-      return { adGroups: [], note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      let query = `SELECT ad_group.id, ad_group.name, ad_group.status, ad_group.campaign, ad_group.cpc_bid_micros FROM ad_group WHERE ad_group.campaign = 'customers/{cid}/campaigns/${params.campaignId}'`;
+      if (params.status) query += ` AND ad_group.status = '${params.status}'`;
+      query += ` LIMIT ${params.maxResults ?? 50}`;
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      query = query.replace("{cid}", cid);
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   {
@@ -263,8 +295,9 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       dateRangeEnd: z.string().optional(),
       datePreset: z.string().optional(),
     }),
-    handler: async (params) => {
-      return { performance: null, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const query = `SELECT ad_group.id, ad_group.name, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.ctr, metrics.average_cpc, segments.date FROM ad_group WHERE ad_group.id = ${params.adGroupId}${buildDateAndCondition(params)}`;
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   // Google Ads tools — Read: Ads
@@ -277,8 +310,13 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       status: z.string().optional(),
       maxResults: z.number().optional().default(50),
     }),
-    handler: async (params) => {
-      return { ads: [], note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      let query = `SELECT ad_group_ad.ad.id, ad_group_ad.ad.type, ad_group_ad.status, ad_group_ad.ad.responsive_search_ad.headlines, ad_group_ad.ad.responsive_search_ad.descriptions, ad_group_ad.ad.final_urls FROM ad_group_ad WHERE ad_group_ad.ad_group = 'customers/{cid}/adGroups/${params.adGroupId}'`;
+      if (params.status) query += ` AND ad_group_ad.status = '${params.status}'`;
+      query += ` LIMIT ${params.maxResults ?? 50}`;
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      query = query.replace("{cid}", cid);
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   {
@@ -292,8 +330,10 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       dateRangeEnd: z.string().optional(),
       datePreset: z.string().optional(),
     }),
-    handler: async (params) => {
-      return { performance: null, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const query = `SELECT ad_group_ad.ad.id, ad_group_ad.ad_group, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.ctr, segments.date FROM ad_group_ad WHERE ad_group_ad.ad_group = 'customers/{cid}/adGroups/${params.adGroupId}' AND ad_group_ad.ad.id = ${params.adId}${buildDateAndCondition(params)}`;
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      return googleAdsQuery(context.serviceConnectionId, query.replace("{cid}", cid));
     },
   },
   // Google Ads tools — Read: Keywords
@@ -305,8 +345,10 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       adGroupId: z.string(),
       maxResults: z.number().optional().default(50),
     }),
-    handler: async (params) => {
-      return { keywords: [], note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      const query = `SELECT ad_group_criterion.criterion_id, ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group_criterion.status, ad_group_criterion.cpc_bid_micros FROM ad_group_criterion WHERE ad_group_criterion.ad_group = 'customers/${cid}/adGroups/${params.adGroupId}' AND ad_group_criterion.type = 'KEYWORD' LIMIT ${params.maxResults ?? 50}`;
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   {
@@ -320,8 +362,10 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       dateRangeEnd: z.string().optional(),
       datePreset: z.string().optional(),
     }),
-    handler: async (params) => {
-      return { performance: null, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      const query = `SELECT ad_group_criterion.criterion_id, ad_group_criterion.keyword.text, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.quality_info.quality_score, segments.date FROM ad_group_criterion WHERE ad_group_criterion.ad_group = 'customers/${cid}/adGroups/${params.adGroupId}' AND ad_group_criterion.criterion_id = ${params.keywordId} AND ad_group_criterion.type = 'KEYWORD'${buildDateAndCondition(params)}`;
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   {
@@ -336,8 +380,17 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       datePreset: z.string().optional(),
       maxResults: z.number().optional().default(100),
     }),
-    handler: async (params) => {
-      return { searchTerms: [], note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      let query = `SELECT search_term_view.search_term, search_term_view.ad_group, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, segments.date FROM search_term_view WHERE segments.date DURING LAST_30_DAYS`;
+      if (params.dateRangeStart && params.dateRangeEnd) {
+        query = query.replace("segments.date DURING LAST_30_DAYS", `segments.date BETWEEN '${params.dateRangeStart}' AND '${params.dateRangeEnd}'`);
+      } else if (params.datePreset) {
+        query = query.replace("segments.date DURING LAST_30_DAYS", `segments.date DURING ${params.datePreset}`);
+      }
+      if (params.campaignId) query += ` AND campaign.id = ${params.campaignId}`;
+      if (params.adGroupId) query += ` AND ad_group.id = ${params.adGroupId}`;
+      query += ` LIMIT ${params.maxResults ?? 100}`;
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   // Google Ads tools — Read: Account
@@ -350,8 +403,9 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       dateRangeEnd: z.string().optional(),
       datePreset: z.string().optional(),
     }),
-    handler: async (params) => {
-      return { overview: null, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const query = `SELECT customer.id, customer.descriptive_name, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.ctr, metrics.average_cpc, segments.date FROM customer${buildDateCondition(params)}`;
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   // Google Ads tools — Read: Audiences
@@ -362,8 +416,9 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: z.object({
       maxResults: z.number().optional().default(50),
     }),
-    handler: async (params) => {
-      return { audiences: [], note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const query = `SELECT audience.id, audience.name, audience.description, audience.status FROM audience LIMIT ${params.maxResults ?? 50}`;
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   {
@@ -377,8 +432,11 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       dateRangeEnd: z.string().optional(),
       datePreset: z.string().optional(),
     }),
-    handler: async (params) => {
-      return { performance: null, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      let query = `SELECT campaign_audience_view.resource_name, metrics.impressions, metrics.clicks, metrics.conversions, metrics.cost_micros, segments.date FROM campaign_audience_view WHERE campaign_audience_view.resource_name LIKE '%${params.audienceId}%'`;
+      if (params.campaignId) query += ` AND campaign.id = ${params.campaignId}`;
+      query += buildDateAndCondition(params);
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   // Google Ads tools — Read: Conversions
@@ -389,8 +447,9 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: z.object({
       maxResults: z.number().optional().default(50),
     }),
-    handler: async (params) => {
-      return { conversions: [], note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const query = `SELECT conversion_action.id, conversion_action.name, conversion_action.type, conversion_action.status, conversion_action.category FROM conversion_action LIMIT ${params.maxResults ?? 50}`;
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   {
@@ -404,8 +463,20 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       dateRangeEnd: z.string().optional(),
       datePreset: z.string().optional(),
     }),
-    handler: async (params) => {
-      return { performance: null, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      let query = `SELECT conversion_action.id, conversion_action.name, metrics.conversions, metrics.conversions_value, metrics.cost_per_conversion, segments.date FROM conversion_action`;
+      const conditions: string[] = [];
+      if (params.conversionActionId) conditions.push(`conversion_action.id = ${params.conversionActionId}`);
+      if (params.campaignId) conditions.push(`campaign.id = ${params.campaignId}`);
+      if (params.dateRangeStart && params.dateRangeEnd) {
+        conditions.push(`segments.date BETWEEN '${params.dateRangeStart}' AND '${params.dateRangeEnd}'`);
+      } else if (params.datePreset) {
+        conditions.push(`segments.date DURING ${params.datePreset}`);
+      } else {
+        conditions.push("segments.date DURING LAST_30_DAYS");
+      }
+      if (conditions.length > 0) query += ` WHERE ${conditions.join(" AND ")}`;
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   // Google Ads tools — Read: Extensions
@@ -418,8 +489,13 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       campaignId: z.string().optional(),
       maxResults: z.number().optional().default(50),
     }),
-    handler: async (params) => {
-      return { extensions: [], note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      let query = `SELECT asset.id, asset.type, asset.name, asset.sitelink_asset, asset.callout_asset, asset.structured_snippet_asset FROM asset`;
+      const conditions: string[] = [];
+      if (params.type) conditions.push(`asset.type = '${params.type}'`);
+      if (conditions.length > 0) query += ` WHERE ${conditions.join(" AND ")}`;
+      query += ` LIMIT ${params.maxResults ?? 50}`;
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   // Google Ads tools — Read: Budgets & Bidding
@@ -430,8 +506,9 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: z.object({
       maxResults: z.number().optional().default(50),
     }),
-    handler: async (params) => {
-      return { budgets: [], note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const query = `SELECT campaign_budget.id, campaign_budget.name, campaign_budget.amount_micros, campaign_budget.delivery_method, campaign_budget.status, campaign_budget.total_amount_micros FROM campaign_budget LIMIT ${params.maxResults ?? 50}`;
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   {
@@ -441,8 +518,9 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: z.object({
       budgetId: z.string(),
     }),
-    handler: async (params) => {
-      return { budget: null, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const query = `SELECT campaign_budget.id, campaign_budget.name, campaign_budget.amount_micros, campaign_budget.delivery_method, campaign_budget.status, campaign_budget.total_amount_micros, campaign_budget.period, campaign_budget.explicitly_shared FROM campaign_budget WHERE campaign_budget.id = ${params.budgetId}`;
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   {
@@ -452,8 +530,9 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: z.object({
       maxResults: z.number().optional().default(50),
     }),
-    handler: async (params) => {
-      return { bidStrategies: [], note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const query = `SELECT bidding_strategy.id, bidding_strategy.name, bidding_strategy.type, bidding_strategy.status FROM bidding_strategy LIMIT ${params.maxResults ?? 50}`;
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   {
@@ -466,8 +545,9 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       dateRangeEnd: z.string().optional(),
       datePreset: z.string().optional(),
     }),
-    handler: async (params) => {
-      return { performance: null, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const query = `SELECT bidding_strategy.id, bidding_strategy.name, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, segments.date FROM bidding_strategy WHERE bidding_strategy.id = ${params.bidStrategyId}${buildDateAndCondition(params)}`;
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   // Google Ads tools — Read: Recommendations
@@ -480,8 +560,17 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       campaignId: z.string().optional(),
       maxResults: z.number().optional().default(50),
     }),
-    handler: async (params) => {
-      return { recommendations: [], note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      let query = `SELECT recommendation.resource_name, recommendation.type, recommendation.impact, recommendation.campaign FROM recommendation`;
+      const conditions: string[] = [];
+      if (params.type) conditions.push(`recommendation.type = '${params.type}'`);
+      if (params.campaignId) conditions.push(`recommendation.campaign = 'customers/{cid}/campaigns/${params.campaignId}'`);
+      if (conditions.length > 0) {
+        const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+        query += ` WHERE ${conditions.join(" AND ")}`.replace("{cid}", cid);
+      }
+      query += ` LIMIT ${params.maxResults ?? 50}`;
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   // Google Ads tools — Read: Change History
@@ -495,8 +584,16 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       resourceType: z.string().optional(),
       maxResults: z.number().optional().default(50),
     }),
-    handler: async (params) => {
-      return { changes: [], note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      let query = `SELECT change_event.change_date_time, change_event.change_resource_type, change_event.resource_name, change_event.old_resource, change_event.new_resource, change_event.user_email FROM change_event`;
+      const conditions: string[] = [];
+      if (params.dateRangeStart && params.dateRangeEnd) {
+        conditions.push(`change_event.change_date_time >= '${params.dateRangeStart}' AND change_event.change_date_time <= '${params.dateRangeEnd}'`);
+      }
+      if (params.resourceType) conditions.push(`change_event.change_resource_type = '${params.resourceType}'`);
+      if (conditions.length > 0) query += ` WHERE ${conditions.join(" AND ")}`;
+      query += ` ORDER BY change_event.change_date_time DESC LIMIT ${params.maxResults ?? 50}`;
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   // Google Ads tools — Read: Labels
@@ -507,8 +604,9 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: z.object({
       maxResults: z.number().optional().default(50),
     }),
-    handler: async (params) => {
-      return { labels: [], note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const query = `SELECT label.id, label.name, label.description, label.status FROM label LIMIT ${params.maxResults ?? 50}`;
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   // Google Ads tools — Read: Assets
@@ -520,8 +618,11 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       type: z.string().optional(),
       maxResults: z.number().optional().default(50),
     }),
-    handler: async (params) => {
-      return { assets: [], note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      let query = `SELECT asset.id, asset.type, asset.name, asset.final_urls FROM asset`;
+      if (params.type) query += ` WHERE asset.type = '${params.type}'`;
+      query += ` LIMIT ${params.maxResults ?? 50}`;
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   {
@@ -532,8 +633,10 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       campaignId: z.string(),
       maxResults: z.number().optional().default(50),
     }),
-    handler: async (params) => {
-      return { assetGroups: [], note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      const query = `SELECT asset_group.id, asset_group.name, asset_group.status, asset_group.campaign FROM asset_group WHERE asset_group.campaign = 'customers/${cid}/campaigns/${params.campaignId}' LIMIT ${params.maxResults ?? 50}`;
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   // Google Ads tools — Read: Geo & Device Performance
@@ -548,8 +651,20 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       datePreset: z.string().optional(),
       maxResults: z.number().optional().default(50),
     }),
-    handler: async (params) => {
-      return { geoPerformance: [], note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      let query = `SELECT geographic_view.country_criterion_id, geographic_view.location_type, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, segments.date FROM geographic_view`;
+      const conditions: string[] = [];
+      if (params.campaignId) conditions.push(`campaign.id = ${params.campaignId}`);
+      if (params.dateRangeStart && params.dateRangeEnd) {
+        conditions.push(`segments.date BETWEEN '${params.dateRangeStart}' AND '${params.dateRangeEnd}'`);
+      } else if (params.datePreset) {
+        conditions.push(`segments.date DURING ${params.datePreset}`);
+      } else {
+        conditions.push("segments.date DURING LAST_30_DAYS");
+      }
+      if (conditions.length > 0) query += ` WHERE ${conditions.join(" AND ")}`;
+      query += ` LIMIT ${params.maxResults ?? 50}`;
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   {
@@ -562,8 +677,9 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       dateRangeEnd: z.string().optional(),
       datePreset: z.string().optional(),
     }),
-    handler: async (params) => {
-      return { devicePerformance: [], note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const query = `SELECT segments.device, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.ctr, segments.date FROM campaign${params.campaignId ? ` WHERE campaign.id = ${params.campaignId}` : ""}${params.campaignId ? buildDateAndCondition(params) : buildDateCondition(params)}`;
+      return googleAdsQuery(context.serviceConnectionId, query);
     },
   },
   // Google Ads tools — Write: Campaigns
@@ -585,8 +701,29 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         targetContentNetwork: z.boolean().optional(),
       }).optional(),
     }),
-    handler: async (params) => {
-      return { campaign: null, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      const campaign: Record<string, unknown> = {
+        name: params.name,
+        advertisingChannelType: params.type,
+        status: params.status ?? "PAUSED",
+        campaignBudget: `customers/${cid}/campaignBudgets/${params.budgetId}`,
+      };
+      if (params.networkSettings) {
+        campaign.networkSettings = params.networkSettings;
+      }
+      if (params.biddingStrategyType) {
+        campaign.biddingStrategyType = params.biddingStrategyType;
+      }
+      if (params.targetCpa !== undefined) {
+        campaign.targetCpa = { targetCpaMicros: params.targetCpa };
+      }
+      if (params.targetRoas !== undefined) {
+        campaign.targetRoas = { targetRoas: params.targetRoas };
+      }
+      return googleAdsMutate(context.serviceConnectionId, "campaigns", [
+        { create: campaign },
+      ]);
     },
   },
   {
@@ -602,8 +739,21 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       targetCpa: z.number().optional(),
       targetRoas: z.number().optional(),
     }),
-    handler: async (params) => {
-      return { campaign: null, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      const campaign: Record<string, unknown> = {
+        resourceName: `customers/${cid}/campaigns/${params.campaignId}`,
+      };
+      const updateMask: string[] = [];
+      if (params.name) { campaign.name = params.name; updateMask.push("name"); }
+      if (params.status) { campaign.status = params.status; updateMask.push("status"); }
+      if (params.budgetId) { campaign.campaignBudget = `customers/${cid}/campaignBudgets/${params.budgetId}`; updateMask.push("campaign_budget"); }
+      if (params.biddingStrategyType) { campaign.biddingStrategyType = params.biddingStrategyType; updateMask.push("bidding_strategy_type"); }
+      if (params.targetCpa !== undefined) { campaign.targetCpa = { targetCpaMicros: params.targetCpa }; updateMask.push("target_cpa"); }
+      if (params.targetRoas !== undefined) { campaign.targetRoas = { targetRoas: params.targetRoas }; updateMask.push("target_roas"); }
+      return googleAdsMutate(context.serviceConnectionId, "campaigns", [
+        { update: campaign, updateMask: updateMask.join(",") },
+      ]);
     },
   },
   {
@@ -613,8 +763,17 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: z.object({
       campaignId: z.string(),
     }),
-    handler: async (params) => {
-      return { success: false, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      return googleAdsMutate(context.serviceConnectionId, "campaigns", [
+        {
+          update: {
+            resourceName: `customers/${cid}/campaigns/${params.campaignId}`,
+            status: "PAUSED",
+          },
+          updateMask: "status",
+        },
+      ]);
     },
   },
   {
@@ -624,8 +783,17 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: z.object({
       campaignId: z.string(),
     }),
-    handler: async (params) => {
-      return { success: false, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      return googleAdsMutate(context.serviceConnectionId, "campaigns", [
+        {
+          update: {
+            resourceName: `customers/${cid}/campaigns/${params.campaignId}`,
+            status: "ENABLED",
+          },
+          updateMask: "status",
+        },
+      ]);
     },
   },
   // Google Ads tools — Write: Ad Groups
@@ -639,8 +807,19 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       status: z.string().optional().default("PAUSED"),
       cpcBidMicros: z.number().optional(),
     }),
-    handler: async (params) => {
-      return { adGroup: null, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      const adGroup: Record<string, unknown> = {
+        name: params.name,
+        campaign: `customers/${cid}/campaigns/${params.campaignId}`,
+        status: params.status ?? "PAUSED",
+      };
+      if (params.cpcBidMicros !== undefined) {
+        adGroup.cpcBidMicros = String(params.cpcBidMicros);
+      }
+      return googleAdsMutate(context.serviceConnectionId, "adGroups", [
+        { create: adGroup },
+      ]);
     },
   },
   {
@@ -653,8 +832,18 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       status: z.string().optional(),
       cpcBidMicros: z.number().optional(),
     }),
-    handler: async (params) => {
-      return { adGroup: null, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      const adGroup: Record<string, unknown> = {
+        resourceName: `customers/${cid}/adGroups/${params.adGroupId}`,
+      };
+      const updateMask: string[] = [];
+      if (params.name) { adGroup.name = params.name; updateMask.push("name"); }
+      if (params.status) { adGroup.status = params.status; updateMask.push("status"); }
+      if (params.cpcBidMicros !== undefined) { adGroup.cpcBidMicros = String(params.cpcBidMicros); updateMask.push("cpc_bid_micros"); }
+      return googleAdsMutate(context.serviceConnectionId, "adGroups", [
+        { update: adGroup, updateMask: updateMask.join(",") },
+      ]);
     },
   },
   {
@@ -664,8 +853,17 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: z.object({
       adGroupId: z.string(),
     }),
-    handler: async (params) => {
-      return { success: false, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      return googleAdsMutate(context.serviceConnectionId, "adGroups", [
+        {
+          update: {
+            resourceName: `customers/${cid}/adGroups/${params.adGroupId}`,
+            status: "PAUSED",
+          },
+          updateMask: "status",
+        },
+      ]);
     },
   },
   // Google Ads tools — Write: Ads
@@ -682,8 +880,26 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       path2: z.string().optional(),
       status: z.string().optional().default("PAUSED"),
     }),
-    handler: async (params) => {
-      return { ad: null, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      const headlines = (params.headlines as string[]).map((text: string) => ({ text }));
+      const descriptions = (params.descriptions as string[]).map((text: string) => ({ text }));
+      const adGroupAd: Record<string, unknown> = {
+        adGroup: `customers/${cid}/adGroups/${params.adGroupId}`,
+        status: params.status ?? "PAUSED",
+        ad: {
+          finalUrls: params.finalUrls,
+          responsiveSearchAd: {
+            headlines,
+            descriptions,
+            path1: params.path1 ?? "",
+            path2: params.path2 ?? "",
+          },
+        },
+      };
+      return googleAdsMutate(context.serviceConnectionId, "adGroupAds", [
+        { create: adGroupAd },
+      ]);
     },
   },
   {
@@ -698,8 +914,33 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       descriptions: z.array(z.string()).optional(),
       finalUrls: z.array(z.string()).optional(),
     }),
-    handler: async (params) => {
-      return { ad: null, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      const adGroupAd: Record<string, unknown> = {
+        resourceName: `customers/${cid}/adGroupAds/${params.adGroupId}~${params.adId}`,
+      };
+      const updateMask: string[] = [];
+      if (params.status) { adGroupAd.status = params.status; updateMask.push("status"); }
+      if (params.headlines) {
+        const headlines = (params.headlines as string[]).map((text: string) => ({ text }));
+        adGroupAd.ad = { ...((adGroupAd.ad as Record<string, unknown>) ?? {}), responsiveSearchAd: { headlines } };
+        updateMask.push("ad.responsive_search_ad.headlines");
+      }
+      if (params.descriptions) {
+        const descriptions = (params.descriptions as string[]).map((text: string) => ({ text }));
+        const existingAd = (adGroupAd.ad as Record<string, unknown>) ?? {};
+        const existingRsa = (existingAd.responsiveSearchAd as Record<string, unknown>) ?? {};
+        adGroupAd.ad = { ...existingAd, responsiveSearchAd: { ...existingRsa, descriptions } };
+        updateMask.push("ad.responsive_search_ad.descriptions");
+      }
+      if (params.finalUrls) {
+        const existingAd = (adGroupAd.ad as Record<string, unknown>) ?? {};
+        adGroupAd.ad = { ...existingAd, finalUrls: params.finalUrls };
+        updateMask.push("ad.final_urls");
+      }
+      return googleAdsMutate(context.serviceConnectionId, "adGroupAds", [
+        { update: adGroupAd, updateMask: updateMask.join(",") },
+      ]);
     },
   },
   {
@@ -710,8 +951,17 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       adGroupId: z.string(),
       adId: z.string(),
     }),
-    handler: async (params) => {
-      return { success: false, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      return googleAdsMutate(context.serviceConnectionId, "adGroupAds", [
+        {
+          update: {
+            resourceName: `customers/${cid}/adGroupAds/${params.adGroupId}~${params.adId}`,
+            status: "PAUSED",
+          },
+          updateMask: "status",
+        },
+      ]);
     },
   },
   // Google Ads tools — Write: Keywords
@@ -726,8 +976,22 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       cpcBidMicros: z.number().optional(),
       status: z.string().optional().default("ENABLED"),
     }),
-    handler: async (params) => {
-      return { keyword: null, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      const criterion: Record<string, unknown> = {
+        adGroup: `customers/${cid}/adGroups/${params.adGroupId}`,
+        keyword: {
+          text: params.text,
+          matchType: params.matchType,
+        },
+        status: params.status ?? "ENABLED",
+      };
+      if (params.cpcBidMicros !== undefined) {
+        criterion.cpcBidMicros = String(params.cpcBidMicros);
+      }
+      return googleAdsMutate(context.serviceConnectionId, "adGroupCriteria", [
+        { create: criterion },
+      ]);
     },
   },
   {
@@ -738,8 +1002,11 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       adGroupId: z.string(),
       keywordId: z.string(),
     }),
-    handler: async (params) => {
-      return { success: false, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      return googleAdsMutate(context.serviceConnectionId, "adGroupCriteria", [
+        { remove: `customers/${cid}/adGroupCriteria/${params.adGroupId}~${params.keywordId}` },
+      ]);
     },
   },
   {
@@ -751,8 +1018,17 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       keywordId: z.string(),
       cpcBidMicros: z.number(),
     }),
-    handler: async (params) => {
-      return { success: false, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      return googleAdsMutate(context.serviceConnectionId, "adGroupCriteria", [
+        {
+          update: {
+            resourceName: `customers/${cid}/adGroupCriteria/${params.adGroupId}~${params.keywordId}`,
+            cpcBidMicros: String(params.cpcBidMicros),
+          },
+          updateMask: "cpc_bid_micros",
+        },
+      ]);
     },
   },
   // Google Ads tools — Write: Budgets
@@ -764,8 +1040,17 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       budgetId: z.string(),
       amountMicros: z.number(),
     }),
-    handler: async (params) => {
-      return { success: false, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      return googleAdsMutate(context.serviceConnectionId, "campaignBudgets", [
+        {
+          update: {
+            resourceName: `customers/${cid}/campaignBudgets/${params.budgetId}`,
+            amountMicros: String(params.amountMicros),
+          },
+          updateMask: "amount_micros",
+        },
+      ]);
     },
   },
   // Google Ads tools — Write: Recommendations
@@ -776,8 +1061,11 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: z.object({
       recommendationId: z.string(),
     }),
-    handler: async (params) => {
-      return { success: false, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      return googleAdsApplyRecommendation(context.serviceConnectionId, [
+        { resourceName: `customers/${cid}/recommendations/${params.recommendationId}` },
+      ]);
     },
   },
   {
@@ -787,8 +1075,11 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: z.object({
       recommendationId: z.string(),
     }),
-    handler: async (params) => {
-      return { success: false, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      return googleAdsDismissRecommendation(context.serviceConnectionId, [
+        { resourceName: `customers/${cid}/recommendations/${params.recommendationId}` },
+      ]);
     },
   },
   // Google Ads tools — Write: Labels
@@ -801,8 +1092,17 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       description: z.string().optional(),
       backgroundColor: z.string().optional(),
     }),
-    handler: async (params) => {
-      return { label: null, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const label: Record<string, unknown> = {
+        name: params.name,
+      };
+      if (params.description) label.description = params.description;
+      if (params.backgroundColor) {
+        label.textLabel = { backgroundColor: params.backgroundColor };
+      }
+      return googleAdsMutate(context.serviceConnectionId, "labels", [
+        { create: label },
+      ]);
     },
   },
   {
@@ -814,8 +1114,29 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       resourceType: z.enum(["campaign", "adGroup", "ad"]),
       resourceId: z.string(),
     }),
-    handler: async (params) => {
-      return { success: false, note: "Google Ads API not yet connected", params };
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      const resourceType = params.resourceType as string;
+      const resourceId = params.resourceId as string;
+      const labelId = params.labelId as string;
+
+      const resourceMap: Record<string, { mutateResource: string; field: string; resourcePath: string }> = {
+        campaign: { mutateResource: "campaignLabels", field: "campaign", resourcePath: `customers/${cid}/campaigns/${resourceId}` },
+        adGroup: { mutateResource: "adGroupLabels", field: "adGroup", resourcePath: `customers/${cid}/adGroups/${resourceId}` },
+        ad: { mutateResource: "adGroupAdLabels", field: "adGroupAd", resourcePath: `customers/${cid}/adGroupAds/${resourceId}` },
+      };
+
+      const config = resourceMap[resourceType];
+      if (!config) throw new Error(`Invalid resource type: ${resourceType}`);
+
+      return googleAdsMutate(context.serviceConnectionId, config.mutateResource, [
+        {
+          create: {
+            [config.field]: config.resourcePath,
+            label: `customers/${cid}/labels/${labelId}`,
+          },
+        },
+      ]);
     },
   },
   // Google Search Console tools

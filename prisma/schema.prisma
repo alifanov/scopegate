@@ -95,6 +95,7 @@ model ServiceConnection {
   accessToken  String
   refreshToken String?
   expiresAt    DateTime?
+  metadata     Json?
   projectId    String
   project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdAt    DateTime      @default(now())

@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-02-18
+
+### Added
+
+- Implement all 43 Google Ads API handlers with real API calls (replacing stubs)
+- Google Ads helper module (`google-ads.ts`) with GAQL query, mutate, and recommendation endpoints
+- Auto-discover and cache Google Ads customer ID during OAuth callback
+- `metadata` JSON field on ServiceConnection for storing provider-specific data (e.g., customer ID)
+- Prisma migration for metadata field
+
 ## [0.9.0] - 2026-02-18
 
 ### Added

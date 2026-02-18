@@ -7,6 +7,7 @@ import {
   VALID_PROVIDERS,
 } from "@/lib/google-oauth";
 import { encrypt } from "@/lib/crypto";
+import { getGoogleAdsCustomerId } from "@/lib/mcp/google-ads";
 
 export async function GET(request: Request) {
   const baseUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000";
@@ -90,6 +91,7 @@ export async function GET(request: Request) {
     const encryptedAccessToken = encrypt(tokens.access_token);
     const encryptedRefreshToken = encrypt(tokens.refresh_token);
 
+    let connectionId: string;
     if (existing) {
       await db.serviceConnection.update({
         where: { id: existing.id },
@@ -99,8 +101,9 @@ export async function GET(request: Request) {
           expiresAt,
         },
       });
+      connectionId = existing.id;
     } else {
-      await db.serviceConnection.create({
+      const created = await db.serviceConnection.create({
         data: {
           projectId,
           provider,
@@ -110,6 +113,16 @@ export async function GET(request: Request) {
           expiresAt,
         },
       });
+      connectionId = created.id;
+    }
+
+    // For Google Ads, discover and store customer ID
+    if (provider === "googleAds") {
+      try {
+        await getGoogleAdsCustomerId(connectionId);
+      } catch (err) {
+        console.error("[ScopeGate] Failed to discover Google Ads customer ID:", err);
+      }
     }
 
     // Clear CSRF cookie and redirect to services page

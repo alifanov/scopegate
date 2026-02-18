@@ -137,7 +137,7 @@ export default function UserSettingsPage() {
   if (loading) return <TabContentSkeleton />;
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6">
       <Breadcrumbs items={[{ label: "Settings" }]} />
 
       <h1 className="text-2xl font-bold">Settings</h1>

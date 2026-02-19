@@ -122,13 +122,15 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       start: z.string(),
       end: z.string(),
       description: z.string().optional(),
+      timeZone: z.string().optional(),
     }),
     handler: async (params, context) => {
+      const timeZone = (params.timeZone as string) || "UTC";
       const body = {
         summary: params.summary,
         description: params.description,
-        start: { dateTime: params.start },
-        end: { dateTime: params.end },
+        start: { dateTime: params.start, timeZone },
+        end: { dateTime: params.end, timeZone },
       };
 
       return googleCalendarFetch(
@@ -151,14 +153,16 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       start: z.string().optional(),
       end: z.string().optional(),
       description: z.string().optional(),
+      timeZone: z.string().optional(),
     }),
     handler: async (params, context) => {
       const { eventId, ...fields } = params;
+      const timeZone = (fields.timeZone as string) || "UTC";
       const body: Record<string, unknown> = {};
       if (fields.summary) body.summary = fields.summary;
       if (fields.description) body.description = fields.description;
-      if (fields.start) body.start = { dateTime: fields.start };
-      if (fields.end) body.end = { dateTime: fields.end };
+      if (fields.start) body.start = { dateTime: fields.start, timeZone };
+      if (fields.end) body.end = { dateTime: fields.end, timeZone };
 
       return googleCalendarFetch(
         context.serviceConnectionId,

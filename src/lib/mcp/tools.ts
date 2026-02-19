@@ -103,8 +103,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         maxResults: String(params.maxResults ?? 10),
         orderBy: "startTime",
         singleEvents: "true",
+        timeMin: (params.timeMin as string) || new Date().toISOString(),
       });
-      if (params.timeMin) query.set("timeMin", params.timeMin as string);
       if (params.timeMax) query.set("timeMax", params.timeMax as string);
 
       return googleCalendarFetch(

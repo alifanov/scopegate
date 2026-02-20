@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.8] - 2026-02-20
+
+### Fixed
+
+- Fix authenticated users being redirected to login page on every visit by checking session before redirect
+- Add auth layout for login page to redirect already-authenticated users to projects
+
 ## [0.11.7] - 2026-02-19
 
 ### Fixed

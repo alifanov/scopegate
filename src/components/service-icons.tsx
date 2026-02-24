@@ -79,6 +79,18 @@ function TwitterIcon(props: SvgProps) {
   );
 }
 
+function LinkedInIcon(props: SvgProps) {
+  return (
+    <svg viewBox="0 0 48 48" {...props}>
+      <rect width="48" height="48" rx="10" fill="#0A66C2" />
+      <path
+        d="M15.5 13.5c0 1.38-1.12 2.5-2.5 2.5S10.5 14.88 10.5 13.5 11.62 11 13 11s2.5 1.12 2.5 2.5zM11 19h4v18h-4V19zm7.5 0h3.84v2.46h.05c.53-1.01 1.84-2.46 3.78-2.46 4.04 0 4.78 2.66 4.78 6.12V37h-4V26.12c0-2.59-.05-5.92-3.61-5.92-3.61 0-4.16 2.82-4.16 5.73V37h-4V19h3.32z"
+        fill="#fff"
+      />
+    </svg>
+  );
+}
+
 function OpenRouterIcon(props: SvgProps) {
   return (
     <svg viewBox="0 0 48 48" fill="none" {...props}>
@@ -98,6 +110,7 @@ const ICONS: Record<string, (props: SvgProps) => React.ReactElement> = {
   drive: DriveIcon,
   googleAds: GoogleAdsIcon,
   searchConsole: SearchConsoleIcon,
+  linkedin: LinkedInIcon,
   openRouter: OpenRouterIcon,
   twitter: TwitterIcon,
 };

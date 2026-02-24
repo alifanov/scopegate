@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-02-24
+
+### Added
+
+- LinkedIn service integration with OAuth 2.0 flow
+- LinkedIn permissions: get_profile, create_post, delete_post, get_post, like_post, unlike_post, comment_on_post, get_post_comments
+- LinkedIn MCP tools for all permission actions
+- LinkedIn icon in service icons
+- Env vars: `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`
+
 ## [0.11.8] - 2026-02-20
 
 ### Fixed

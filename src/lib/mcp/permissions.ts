@@ -142,6 +142,20 @@ export const PERMISSION_GROUPS: Record<string, PermissionGroup> = {
       "openRouter:create_embeddings",
     ],
   },
+  linkedin: {
+    name: "LinkedIn",
+    description: "Access to LinkedIn operations",
+    actions: [
+      "linkedin:get_profile",
+      "linkedin:create_post",
+      "linkedin:delete_post",
+      "linkedin:get_post",
+      "linkedin:like_post",
+      "linkedin:unlike_post",
+      "linkedin:comment_on_post",
+      "linkedin:get_post_comments",
+    ],
+  },
   twitter: {
     name: "Twitter / X",
     description: "Access to Twitter / X API",

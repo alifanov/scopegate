@@ -101,9 +101,13 @@ export function ServicesTab({ projectId }: { projectId: string }) {
     }
   }
 
+  const LINKEDIN_OAUTH_PROVIDER = "linkedin";
+
   function handleConnect(providerKey: string) {
     if (API_KEY_PROVIDERS.has(providerKey)) {
       setApiKeyProvider(providerKey);
+    } else if (providerKey === LINKEDIN_OAUTH_PROVIDER) {
+      window.location.href = `/api/oauth/linkedin?projectId=${projectId}`;
     } else {
       window.location.href = `/api/oauth/google?projectId=${projectId}&provider=${providerKey}`;
     }

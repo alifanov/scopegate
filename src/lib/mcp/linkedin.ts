@@ -54,9 +54,15 @@ export async function linkedinFetch(
     throw new Error(`LinkedIn API request failed (${res.status}): ${text}`);
   }
 
-  if (res.status === 204) {
+  if (res.status === 204 || res.status === 201) {
+    const id = res.headers.get("x-restli-id");
+    return { success: true, ...(id ? { id } : {}) };
+  }
+
+  const text = await res.text();
+  if (!text) {
     return { success: true };
   }
 
-  return res.json();
+  return JSON.parse(text);
 }

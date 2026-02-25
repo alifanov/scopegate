@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.2] - 2026-02-25
+
+### Fixed
+
+- Twitter API 401 on GET endpoints (search_tweets, get_user_tweets, etc.) caused by OAuth signature mismatch — URLSearchParams encodes spaces as '+' but oauth-1.0a's deParam doesn't decode '+' as space; now query params are parsed via URL API and passed as `data` to the OAuth library
+
 ## [0.12.1] - 2026-02-24
 
 ### Fixed

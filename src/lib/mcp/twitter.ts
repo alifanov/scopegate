@@ -34,7 +34,8 @@ export async function getAuthenticatedUserId(
 function createOAuthHeader(
   credentials: TwitterOAuthCredentials,
   url: string,
-  method: string
+  method: string,
+  data?: Record<string, string>
 ): string {
   const oauth = new OAuth({
     consumer: { key: credentials.apiKey, secret: credentials.apiSecret },
@@ -45,7 +46,7 @@ function createOAuthHeader(
   });
 
   const authorization = oauth.authorize(
-    { url, method },
+    { url, method, data },
     { key: credentials.accessToken, secret: credentials.accessTokenSecret }
   );
 
@@ -65,11 +66,29 @@ export async function twitterFetch(
     decrypt(connection.accessToken)
   );
 
-  const url = `${TWITTER_BASE_URL}${path}`;
+  const fullUrl = `${TWITTER_BASE_URL}${path}`;
   const method = (init?.method ?? "GET").toUpperCase();
-  const authHeader = createOAuthHeader(credentials, url, method);
 
-  const res = await fetch(url, {
+  // Parse query params from URL and pass them as `data` to the OAuth library.
+  // URLSearchParams encodes spaces as '+', but oauth-1.0a's deParam uses
+  // decodeURIComponent which does NOT decode '+' as space, causing signature
+  // mismatch and 401 errors. Using URL API to parse correctly decodes '+'.
+  const parsedUrl = new URL(fullUrl);
+  const baseUrl = `${parsedUrl.origin}${parsedUrl.pathname}`;
+  const queryData: Record<string, string> = {};
+  parsedUrl.searchParams.forEach((value, key) => {
+    queryData[key] = value;
+  });
+  const hasQuery = Object.keys(queryData).length > 0;
+
+  const authHeader = createOAuthHeader(
+    credentials,
+    baseUrl,
+    method,
+    hasQuery ? queryData : undefined
+  );
+
+  const res = await fetch(fullUrl, {
     ...init,
     headers: {
       Authorization: authHeader,

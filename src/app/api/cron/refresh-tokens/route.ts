@@ -22,7 +22,13 @@ export async function POST(request: Request) {
   }
 
   const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${cronSecret}`) {
+  const expected = `Bearer ${cronSecret}`;
+  if (authHeader?.trim() !== expected) {
+    console.error("[ScopeGate] Cron auth mismatch", {
+      receivedLength: authHeader?.length,
+      expectedLength: expected.length,
+      match: authHeader === expected,
+    });
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

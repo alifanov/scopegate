@@ -21,14 +21,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const authHeader = request.headers.get("authorization");
-  const expected = `Bearer ${cronSecret}`;
-  if (authHeader?.trim() !== expected) {
-    console.error("[ScopeGate] Cron auth mismatch", {
-      receivedLength: authHeader?.length,
-      expectedLength: expected.length,
-      match: authHeader === expected,
-    });
+  const authHeader = request.headers.get("authorization")?.replace(/\s+/g, " ").trim();
+  const expected = `Bearer ${cronSecret.trim()}`;
+  if (authHeader !== expected) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

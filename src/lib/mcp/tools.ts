@@ -3,8 +3,9 @@ import { googleCalendarFetch } from "./google-calendar";
 import { googleAdsQuery, googleAdsMutate, googleAdsApplyRecommendation, googleAdsDismissRecommendation, getGoogleAdsCustomerId } from "./google-ads";
 import { googleSearchConsoleFetch, googleSearchConsoleV1Fetch } from "./google-search-console";
 import { openRouterFetch } from "./openrouter";
-import { twitterFetch, getAuthenticatedUserId } from "./twitter";
-import { linkedinFetch, getLinkedInMemberUrn } from "./linkedin";
+import { twitterFetch, getAuthenticatedUserId, twitterUploadMedia } from "./twitter";
+import { linkedinFetch, getLinkedInMemberUrn, linkedinUploadImage } from "./linkedin";
+import { downloadImage } from "./image-utils";
 
 function buildDateCondition(params: Record<string, unknown>): string {
   if (params.dateRangeStart && params.dateRangeEnd) {
@@ -1595,13 +1596,17 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     name: "linkedin_create_post",
-    description: "Create a new LinkedIn post (text or with link)",
+    description: "Create a new LinkedIn post (text, with link, or with image)",
     action: "linkedin:create_post",
     inputSchema: z.object({
       text: z.string().describe("The text content of the post"),
       link: z.string().url().optional().describe("Optional URL to share with the post"),
+      image_url: z.string().url().optional().describe("Optional image URL to attach to the post (JPEG, PNG, or GIF, max 5MB). Cannot be used together with link."),
     }),
     handler: async (params, context) => {
+      if (params.link && params.image_url) {
+        throw new Error("Cannot use both 'link' and 'image_url' — LinkedIn posts support one content type at a time.");
+      }
       const authorUrn = await getLinkedInMemberUrn(context.serviceConnectionId);
       const body: Record<string, unknown> = {
         author: authorUrn,
@@ -1618,6 +1623,18 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         body.content = {
           article: {
             source: params.link,
+          },
+        };
+      } else if (params.image_url) {
+        const image = await downloadImage(params.image_url as string);
+        const imageUrn = await linkedinUploadImage(
+          context.serviceConnectionId,
+          image.buffer,
+          image.mimeType
+        );
+        body.content = {
+          media: {
+            id: imageUrn,
           },
         };
       }
@@ -1776,17 +1793,27 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     name: "twitter_post_tweet",
-    description: "Post a new tweet",
+    description: "Post a new tweet, optionally with an image attachment",
     action: "twitter:post_tweet",
     inputSchema: z.object({
       text: z.string().max(280),
       reply_to: z.string().optional(),
       quote_tweet_id: z.string().optional(),
+      image_url: z.string().url().optional().describe("Optional image URL to attach to the tweet (JPEG, PNG, or GIF, max 5MB)"),
     }),
     handler: async (params, context) => {
       const body: Record<string, unknown> = { text: params.text };
       if (params.reply_to) body.reply = { in_reply_to_tweet_id: params.reply_to };
       if (params.quote_tweet_id) body.quote_tweet_id = params.quote_tweet_id;
+      if (params.image_url) {
+        const image = await downloadImage(params.image_url as string);
+        const mediaId = await twitterUploadMedia(
+          context.serviceConnectionId,
+          image.buffer,
+          image.mimeType
+        );
+        body.media = { media_ids: [mediaId] };
+      }
       return twitterFetch(context.serviceConnectionId, "/tweets", {
         method: "POST",
         body: JSON.stringify(body),

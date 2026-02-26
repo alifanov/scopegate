@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-02-26
+
+### Added
+
+- Image upload support for Twitter and LinkedIn MCP post tools via optional `image_url` parameter
+- Shared `downloadImage()` utility with MIME type validation (JPEG, PNG, GIF) and 5MB size limit
+- `twitterUploadMedia()` function using Twitter v1.1 media upload endpoint with OAuth 1.0a signing
+- `linkedinUploadImage()` function using LinkedIn's 3-step image upload flow (initialize, upload binary, return URN)
+- Mutual exclusion validation for LinkedIn posts: `link` and `image_url` cannot be used together
+
 ## [0.14.0] - 2026-02-26
 
 ### Added

@@ -4,6 +4,7 @@ import OAuth from "oauth-1.0a";
 import crypto from "crypto";
 
 const TWITTER_BASE_URL = "https://api.x.com/2";
+const TWITTER_UPLOAD_URL = "https://upload.twitter.com/1.1/media/upload.json";
 
 export interface TwitterOAuthCredentials {
   apiKey: string;
@@ -108,4 +109,46 @@ export async function twitterFetch(
   }
 
   return res.json();
+}
+
+export async function twitterUploadMedia(
+  serviceConnectionId: string,
+  imageBuffer: Buffer,
+  mimeType: string
+): Promise<string> {
+  const connection = await db.serviceConnection.findUniqueOrThrow({
+    where: { id: serviceConnectionId },
+  });
+
+  const credentials: TwitterOAuthCredentials = JSON.parse(
+    decrypt(connection.accessToken)
+  );
+
+  // For multipart uploads, do NOT include body params in the OAuth signature
+  const authHeader = createOAuthHeader(credentials, TWITTER_UPLOAD_URL, "POST");
+
+  const formData = new FormData();
+  formData.append("media_data", imageBuffer.toString("base64"));
+  formData.append("media_category", "tweet_image");
+
+  const res = await fetch(TWITTER_UPLOAD_URL, {
+    method: "POST",
+    headers: {
+      Authorization: authHeader,
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error(`[ScopeGate] Twitter media upload error (${res.status}):`, text);
+    throw new Error(`Twitter media upload failed (${res.status}): ${text}`);
+  }
+
+  const data = (await res.json()) as { media_id_string?: string };
+  if (!data.media_id_string) {
+    throw new Error("Twitter media upload did not return media_id_string");
+  }
+
+  return data.media_id_string;
 }

@@ -66,3 +66,60 @@ export async function linkedinFetch(
 
   return JSON.parse(text);
 }
+
+export async function linkedinUploadImage(
+  serviceConnectionId: string,
+  imageBuffer: Buffer,
+  mimeType: string
+): Promise<string> {
+  const accessToken = await getValidLinkedInAccessToken(serviceConnectionId);
+  const authorUrn = await getLinkedInMemberUrn(serviceConnectionId);
+
+  // Step 1: Initialize upload
+  const initRes = await fetch(`${LINKEDIN_REST_BASE}/images?action=initializeUpload`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      "LinkedIn-Version": LINKEDIN_VERSION,
+    },
+    body: JSON.stringify({
+      initializeUploadRequest: {
+        owner: authorUrn,
+      },
+    }),
+  });
+
+  if (!initRes.ok) {
+    const text = await initRes.text();
+    throw new Error(`LinkedIn image upload init failed (${initRes.status}): ${text}`);
+  }
+
+  const initData = (await initRes.json()) as {
+    value?: { uploadUrl?: string; image?: string };
+  };
+
+  const uploadUrl = initData.value?.uploadUrl;
+  const imageUrn = initData.value?.image;
+  if (!uploadUrl || !imageUrn) {
+    throw new Error("LinkedIn image upload init did not return uploadUrl or image URN");
+  }
+
+  // Step 2: Upload binary image
+  const uploadRes = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": mimeType,
+    },
+    body: new Uint8Array(imageBuffer),
+  });
+
+  if (!uploadRes.ok) {
+    const text = await uploadRes.text();
+    throw new Error(`LinkedIn image binary upload failed (${uploadRes.status}): ${text}`);
+  }
+
+  // Step 3: Return image URN
+  return imageUrn;
+}

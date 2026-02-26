@@ -24,7 +24,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { TabContentSkeleton } from "@/components/skeletons";
 import { getProviderDisplayName } from "@/lib/provider-names";
 import { PERMISSION_GROUPS } from "@/lib/mcp/permissions";
-import { Plug, Unplug, ArrowLeft } from "lucide-react";
+import { Plug, Unplug, ArrowLeft, RefreshCw } from "lucide-react";
 import { ServiceIcon } from "@/components/service-icons";
 import { toast } from "sonner";
 
@@ -60,6 +60,7 @@ export function ServicesTab({ projectId }: { projectId: string }) {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  const [reconnecting, setReconnecting] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [serviceToDisconnect, setServiceToDisconnect] = useState<string | null>(null);
@@ -110,6 +111,19 @@ export function ServicesTab({ projectId }: { projectId: string }) {
       window.location.href = `/api/oauth/linkedin?projectId=${projectId}`;
     } else {
       window.location.href = `/api/oauth/google?projectId=${projectId}&provider=${providerKey}`;
+    }
+  }
+
+  function handleReconnect(service: Service) {
+    setReconnecting(service.id);
+    if (API_KEY_PROVIDERS.has(service.provider)) {
+      setApiKeyProvider(service.provider);
+      setDialogOpen(true);
+      setReconnecting(null);
+    } else if (service.provider === LINKEDIN_OAUTH_PROVIDER) {
+      window.location.href = `/api/oauth/linkedin?projectId=${projectId}`;
+    } else {
+      window.location.href = `/api/oauth/google?projectId=${projectId}&provider=${service.provider}`;
     }
   }
 
@@ -405,6 +419,17 @@ export function ServicesTab({ projectId }: { projectId: string }) {
                     <Badge variant="secondary">
                       {service._count.mcpEndpoints} endpoint(s)
                     </Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={reconnecting === service.id}
+                      onClick={() => handleReconnect(service)}
+                    >
+                      <RefreshCw className={`size-4 ${reconnecting === service.id ? "animate-spin" : ""}`} />
+                      {reconnecting === service.id
+                        ? "Reconnecting..."
+                        : "Reconnect"}
+                    </Button>
                     <Button
                       variant="destructive"
                       size="sm"

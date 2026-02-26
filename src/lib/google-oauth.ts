@@ -91,6 +91,26 @@ export async function refreshAccessToken(refreshToken: string) {
   }>;
 }
 
+export async function revokeGoogleToken(token: string): Promise<void> {
+  try {
+    const res = await fetch(
+      `https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      }
+    );
+    if (!res.ok) {
+      const text = await res.text();
+      console.warn("[ScopeGate] Google token revocation failed:", res.status, text);
+    } else {
+      console.log("[ScopeGate] Google token revoked successfully");
+    }
+  } catch (err) {
+    console.warn("[ScopeGate] Google token revocation error:", err);
+  }
+}
+
 export async function getGoogleUserEmail(
   accessToken: string
 ): Promise<string> {
@@ -135,6 +155,8 @@ export async function getValidAccessToken(
     data: {
       accessToken: encrypt(tokens.access_token),
       expiresAt,
+      status: "active",
+      lastError: null,
     },
   });
 

@@ -80,6 +80,12 @@ export async function refreshLinkedInAccessToken(refreshToken: string) {
   }>;
 }
 
+export async function revokeLinkedInToken(_token: string): Promise<void> {
+  // LinkedIn does not provide a public token revocation API.
+  // Tokens are simply deleted from the database on disconnect.
+  console.log("[ScopeGate] LinkedIn token revocation: no-op (no revocation API available)");
+}
+
 export async function getLinkedInUserInfo(
   accessToken: string
 ): Promise<{ email: string; sub: string; name?: string }> {
@@ -135,7 +141,11 @@ export async function getValidLinkedInAccessToken(
 
   await db.serviceConnection.update({
     where: { id: serviceConnectionId },
-    data: updateData,
+    data: {
+      ...updateData,
+      status: "active",
+      lastError: null,
+    },
   });
 
   return tokens.access_token;

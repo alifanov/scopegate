@@ -10,6 +10,7 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/api/mcp") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/oauth") ||
+    pathname.startsWith("/api/cron") ||
     pathname.startsWith("/login") ||
     pathname === "/"
   ) {

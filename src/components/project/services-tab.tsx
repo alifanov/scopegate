@@ -24,7 +24,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { TabContentSkeleton } from "@/components/skeletons";
 import { getProviderDisplayName } from "@/lib/provider-names";
 import { PERMISSION_GROUPS } from "@/lib/mcp/permissions";
-import { Plug, Unplug, ArrowLeft, RefreshCw } from "lucide-react";
+import { Plug, Unplug, ArrowLeft, RefreshCw, AlertTriangle, XCircle } from "lucide-react";
 import { ServiceIcon } from "@/components/service-icons";
 import { toast } from "sonner";
 
@@ -51,6 +51,8 @@ interface Service {
   provider: string;
   accountEmail: string;
   expiresAt: string | null;
+  status: string;
+  lastError: string | null;
   createdAt: string;
   _count: { mcpEndpoints: number };
 }
@@ -416,6 +418,26 @@ export function ServicesTab({ projectId }: { projectId: string }) {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    {service.status === "expired" && (
+                      <Badge
+                        variant="outline"
+                        className="border-yellow-500 text-yellow-600 dark:text-yellow-400"
+                        title={service.lastError || "Token expired"}
+                      >
+                        <AlertTriangle className="size-3 mr-1" />
+                        Token Expired
+                      </Badge>
+                    )}
+                    {service.status === "error" && (
+                      <Badge
+                        variant="outline"
+                        className="border-red-500 text-red-600 dark:text-red-400"
+                        title={service.lastError || "Connection error"}
+                      >
+                        <XCircle className="size-3 mr-1" />
+                        Error
+                      </Badge>
+                    )}
                     <Badge variant="secondary">
                       {service._count.mcpEndpoints} endpoint(s)
                     </Badge>

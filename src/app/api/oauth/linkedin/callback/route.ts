@@ -87,6 +87,8 @@ export async function GET(request: Request) {
           accessToken: encryptedAccessToken,
           refreshToken: encryptedRefreshToken,
           expiresAt,
+          status: "active",
+          lastError: null,
         },
       });
     } else {

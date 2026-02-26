@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-middleware";
+import { revokeGoogleToken } from "@/lib/google-oauth";
+import { revokeLinkedInToken } from "@/lib/linkedin-oauth";
+import { decrypt } from "@/lib/crypto";
 
 // GET /api/projects/[projectId]/services
 export async function GET(
@@ -27,6 +30,8 @@ export async function GET(
       provider: true,
       accountEmail: true,
       expiresAt: true,
+      status: true,
+      lastError: true,
       createdAt: true,
       updatedAt: true,
       _count: { select: { mcpEndpoints: true } },
@@ -70,6 +75,19 @@ export async function DELETE(
   });
   if (!service || service.projectId !== projectId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  // Revoke token with provider before deleting
+  try {
+    const token = decrypt(service.accessToken);
+    const googleProviders = new Set(["gmail", "calendar", "drive", "googleAds", "searchConsole"]);
+    if (googleProviders.has(service.provider)) {
+      await revokeGoogleToken(token);
+    } else if (service.provider === "linkedin") {
+      await revokeLinkedInToken(token);
+    }
+  } catch (err) {
+    console.warn("[ScopeGate] Token revocation before disconnect failed:", err);
   }
 
   await db.serviceConnection.delete({ where: { id: serviceId } });

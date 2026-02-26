@@ -64,6 +64,27 @@ function registerTool(
 
         console.error(`[ScopeGate] Tool ${tool.name} failed:`, fullError);
 
+        // Detect token-related errors and mark connection status
+        const isTokenError =
+          fullError.includes("Token refresh failed") ||
+          fullError.includes("No refresh token") ||
+          fullError.includes("invalid_grant") ||
+          fullError.includes("Token exchange failed");
+
+        if (isTokenError) {
+          try {
+            await db.serviceConnection.update({
+              where: { id: serviceConnectionId },
+              data: {
+                status: "error",
+                lastError: fullError,
+              },
+            });
+          } catch (updateErr) {
+            console.error("[ScopeGate] Failed to update connection status:", updateErr);
+          }
+        }
+
         await db.auditLog.create({
           data: {
             endpointId,
@@ -75,8 +96,12 @@ function registerTool(
           },
         });
 
+        const userMessage = isTokenError
+          ? "Error: Service connection token expired or invalid. Please reconnect the service."
+          : "Error: Tool execution failed";
+
         return {
-          content: [{ type: "text" as const, text: "Error: Tool execution failed" }],
+          content: [{ type: "text" as const, text: userMessage }],
           isError: true,
         };
       }

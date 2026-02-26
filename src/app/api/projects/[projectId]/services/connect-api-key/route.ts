@@ -145,6 +145,8 @@ export async function POST(
         accessToken: encryptedValue,
         refreshToken: null,
         accountEmail,
+        status: "active",
+        lastError: null,
       },
     });
   } else {

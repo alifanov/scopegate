@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-02-26
+
+### Added
+
+- Background token refresh cron endpoint (`POST /api/cron/refresh-tokens`) with `CRON_SECRET` Bearer auth for Coolify cron jobs
+- `status` and `lastError` fields on ServiceConnection model to track connection health
+- Token revocation on service disconnect (Google OAuth revocation API; LinkedIn no-op)
+- Status badges in services UI: yellow "Token Expired" and red "Error" badges with error tooltip
+- Auto-detection of token errors in MCP tool execution — marks connection as errored and returns user-friendly message
+
+### Changed
+
+- MCP handler now surfaces "token expired" errors instead of generic "Tool execution failed"
+- OAuth callbacks (Google, LinkedIn) and API key connect reset status to "active" on reconnect
+- Lazy token refresh (`getValidAccessToken`) resets status to "active" on successful refresh
+
 ## [0.13.0] - 2026-02-26
 
 ### Added

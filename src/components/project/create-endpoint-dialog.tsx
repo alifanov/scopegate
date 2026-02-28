@@ -29,6 +29,7 @@ interface Service {
   id: string;
   provider: string;
   accountEmail: string;
+  metadata: Record<string, unknown> | null;
 }
 
 interface CreateEndpointDialogProps {
@@ -183,6 +184,14 @@ export function CreateEndpointDialog({
                         <p className="text-sm text-muted-foreground">
                           {s.accountEmail}
                         </p>
+                        {s.provider === "googleAds" && s.metadata?.googleAdsCustomerName && (
+                          <p className="text-sm text-muted-foreground">
+                            {s.metadata.googleAdsCustomerName as string}
+                            {s.metadata.googleAdsCustomerId && (
+                              <span className="text-muted-foreground/70"> · ID: {s.metadata.googleAdsCustomerId as string}</span>
+                            )}
+                          </p>
+                        )}
                       </div>
                     </label>
                   ))}

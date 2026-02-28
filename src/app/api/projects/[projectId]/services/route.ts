@@ -29,6 +29,7 @@ export async function GET(
       id: true,
       provider: true,
       accountEmail: true,
+      metadata: true,
       expiresAt: true,
       status: true,
       lastError: true,

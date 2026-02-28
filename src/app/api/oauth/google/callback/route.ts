@@ -148,7 +148,7 @@ export async function GET(request: Request) {
           await db.serviceConnection.update({
             where: { id: connectionId },
             data: {
-              metadata: { ...(meta ?? {}), googleAdsCustomerId: customers[0].id },
+              metadata: { ...(meta ?? {}), googleAdsCustomerId: customers[0].id, googleAdsCustomerName: customers[0].name },
             },
           });
           // Fall through to normal redirect below

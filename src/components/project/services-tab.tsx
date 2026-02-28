@@ -50,6 +50,7 @@ interface Service {
   id: string;
   provider: string;
   accountEmail: string;
+  metadata: Record<string, unknown> | null;
   expiresAt: string | null;
   status: string;
   lastError: string | null;
@@ -414,7 +415,17 @@ export function ServicesTab({ projectId }: { projectId: string }) {
                       <CardTitle>
                         {getProviderDisplayName(service.provider)}
                       </CardTitle>
-                      <CardDescription>{service.accountEmail}</CardDescription>
+                      <CardDescription>
+                        {service.accountEmail}
+                        {service.provider === "googleAds" && service.metadata?.googleAdsCustomerName && (
+                          <span className="block">
+                            {service.metadata.googleAdsCustomerName as string}
+                            {service.metadata.googleAdsCustomerId && (
+                              <span className="text-muted-foreground/70"> · ID: {service.metadata.googleAdsCustomerId as string}</span>
+                            )}
+                          </span>
+                        )}
+                      </CardDescription>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">

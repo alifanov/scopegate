@@ -75,7 +75,7 @@ export default function SelectAdsAccountPage() {
 
       if (list.length === 1) {
         // Auto-select and save if only one account (edge case)
-        await saveAndRedirect(list[0].id);
+        await saveAndRedirect(list[0].id, list[0].name);
         return;
       }
 
@@ -87,13 +87,13 @@ export default function SelectAdsAccountPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, connectionId]);
 
-  async function saveAndRedirect(customerId: string) {
+  async function saveAndRedirect(customerId: string, customerName?: string) {
     const res = await fetch(
       `/api/projects/${projectId}/services/ads-customers`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ connectionId, customerId }),
+        body: JSON.stringify({ connectionId, customerId, customerName }),
       }
     );
     if (res.ok) {
@@ -108,7 +108,8 @@ export default function SelectAdsAccountPage() {
   async function handleConnect() {
     if (!selected) return;
     setSubmitting(true);
-    await saveAndRedirect(selected);
+    const customer = customers.find((c) => c.id === selected);
+    await saveAndRedirect(selected, customer?.name);
   }
 
   async function handleCancel() {

@@ -67,8 +67,9 @@ export async function POST(
   const body = (await request.json()) as {
     connectionId?: string;
     customerId?: string;
+    customerName?: string;
   };
-  const { connectionId, customerId } = body;
+  const { connectionId, customerId, customerName } = body;
 
   if (!connectionId || !customerId) {
     return NextResponse.json(
@@ -88,7 +89,11 @@ export async function POST(
   await db.serviceConnection.update({
     where: { id: connectionId },
     data: {
-      metadata: { ...(metadata ?? {}), googleAdsCustomerId: customerId },
+      metadata: {
+        ...(metadata ?? {}),
+        googleAdsCustomerId: customerId,
+        ...(customerName ? { googleAdsCustomerName: customerName } : {}),
+      },
     },
   });
 

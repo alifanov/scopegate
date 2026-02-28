@@ -417,11 +417,11 @@ export function ServicesTab({ projectId }: { projectId: string }) {
                       </CardTitle>
                       <CardDescription>
                         {service.accountEmail}
-                        {service.provider === "googleAds" && service.metadata?.googleAdsCustomerName && (
+                        {service.provider === "googleAds" && Boolean(service.metadata?.googleAdsCustomerName) && (
                           <span className="block">
-                            {service.metadata.googleAdsCustomerName as string}
-                            {service.metadata.googleAdsCustomerId && (
-                              <span className="text-muted-foreground/70"> · ID: {service.metadata.googleAdsCustomerId as string}</span>
+                            {service.metadata!.googleAdsCustomerName as string}
+                            {Boolean(service.metadata!.googleAdsCustomerId) && (
+                              <span className="text-muted-foreground/70"> · ID: {service.metadata!.googleAdsCustomerId as string}</span>
                             )}
                           </span>
                         )}

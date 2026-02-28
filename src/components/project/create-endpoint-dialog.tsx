@@ -184,11 +184,11 @@ export function CreateEndpointDialog({
                         <p className="text-sm text-muted-foreground">
                           {s.accountEmail}
                         </p>
-                        {s.provider === "googleAds" && s.metadata?.googleAdsCustomerName && (
+                        {s.provider === "googleAds" && Boolean(s.metadata?.googleAdsCustomerName) && (
                           <p className="text-sm text-muted-foreground">
-                            {s.metadata.googleAdsCustomerName as string}
-                            {s.metadata.googleAdsCustomerId && (
-                              <span className="text-muted-foreground/70"> · ID: {s.metadata.googleAdsCustomerId as string}</span>
+                            {s.metadata!.googleAdsCustomerName as string}
+                            {Boolean(s.metadata!.googleAdsCustomerId) && (
+                              <span className="text-muted-foreground/70"> · ID: {s.metadata!.googleAdsCustomerId as string}</span>
                             )}
                           </p>
                         )}

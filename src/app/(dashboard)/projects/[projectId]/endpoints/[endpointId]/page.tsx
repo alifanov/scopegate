@@ -356,9 +356,9 @@ export default function EndpointDetailPage() {
               </p>
               <div className="relative">
                 <pre className="block rounded bg-muted p-3 pr-10 text-sm overflow-x-auto">
-{`claude mcp add --transport http ${endpointSlug} ${mcpUrl} --header "Authorization: Bearer ${endpoint.apiKey}"`}
+{`claude mcp add --transport http --scope local ${endpointSlug} ${mcpUrl} --header "Authorization: Bearer ${endpoint.apiKey}"`}
                 </pre>
-                <CopyButton text={`claude mcp add --transport http ${endpointSlug} ${mcpUrl} --header "Authorization: Bearer ${endpoint.apiKey}"`} id="claude-code" />
+                <CopyButton text={`claude mcp add --transport http --scope local ${endpointSlug} ${mcpUrl} --header "Authorization: Bearer ${endpoint.apiKey}"`} id="claude-code" />
               </div>
             </TabsContent>
             <TabsContent value="cursor" className="space-y-2 pt-3">

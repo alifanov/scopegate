@@ -7,7 +7,7 @@ import {
   VALID_PROVIDERS,
 } from "@/lib/google-oauth";
 import { encrypt } from "@/lib/crypto";
-import { getGoogleAdsCustomerId } from "@/lib/mcp/google-ads";
+import { listAccessibleCustomers } from "@/lib/mcp/google-ads";
 
 export async function GET(request: Request) {
   const baseUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000";
@@ -118,12 +118,51 @@ export async function GET(request: Request) {
       connectionId = created.id;
     }
 
-    // For Google Ads, discover and store customer ID
+    // For Google Ads, discover customer IDs and handle selection flow
     if (provider === "googleAds") {
       try {
-        await getGoogleAdsCustomerId(connectionId);
+        const customers = await listAccessibleCustomers(connectionId);
+
+        const clearCsrf = (r: ReturnType<typeof NextResponse.redirect>) => {
+          r.cookies.set("oauth_csrf", "", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: 0,
+            path: "/",
+          });
+          return r;
+        };
+
+        if (customers.length === 0) {
+          return clearCsrf(
+            NextResponse.redirect(
+              `${baseUrl}/projects/${projectId}?tab=services&error=oauth_failed`
+            )
+          );
+        }
+
+        if (customers.length === 1) {
+          // Auto-select the only account
+          const meta = existing?.metadata as Record<string, unknown> | null;
+          await db.serviceConnection.update({
+            where: { id: connectionId },
+            data: {
+              metadata: { ...(meta ?? {}), googleAdsCustomerId: customers[0].id },
+            },
+          });
+          // Fall through to normal redirect below
+        } else {
+          // Multiple accounts — let user choose
+          return clearCsrf(
+            NextResponse.redirect(
+              `${baseUrl}/projects/${projectId}/select-ads-account?connectionId=${connectionId}`
+            )
+          );
+        }
       } catch (err) {
-        console.error("[ScopeGate] Failed to discover Google Ads customer ID:", err);
+        console.error("[ScopeGate] Failed to discover Google Ads customers:", err);
+        // Continue with normal redirect on error
       }
     }
 

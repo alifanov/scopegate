@@ -12,26 +12,18 @@ function getDeveloperToken(): string {
   return token;
 }
 
-export async function getGoogleAdsCustomerId(
+export async function listAccessibleCustomers(
   serviceConnectionId: string
-): Promise<string> {
-  const connection = await db.serviceConnection.findUniqueOrThrow({
-    where: { id: serviceConnectionId },
-  });
-
-  const metadata = connection.metadata as Record<string, unknown> | null;
-  if (metadata?.googleAdsCustomerId) {
-    return metadata.googleAdsCustomerId as string;
-  }
-
-  // Discover customer ID via listAccessibleCustomers
+): Promise<Array<{ id: string; name: string; isManager: boolean }>> {
   const accessToken = await getValidAccessToken(serviceConnectionId);
+  const developerToken = getDeveloperToken();
+
   const res = await fetch(
     `${GOOGLE_ADS_BASE_URL}/customers:listAccessibleCustomers`,
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        "developer-token": getDeveloperToken(),
+        "developer-token": developerToken,
       },
     }
   );
@@ -44,17 +36,13 @@ export async function getGoogleAdsCustomerId(
 
   const data = (await res.json()) as { resourceNames: string[] };
   if (!data.resourceNames || data.resourceNames.length === 0) {
-    throw new Error("No accessible Google Ads accounts found");
+    return [];
   }
 
-  // resourceNames are like "customers/1234567890"
   const candidateIds = data.resourceNames.map((r) => r.split("/")[1]);
-  const developerToken = getDeveloperToken();
 
-  // Find the first enabled, non-manager account
-  let customerId: string | null = null;
-  for (const id of candidateIds) {
-    try {
+  const results = await Promise.allSettled(
+    candidateIds.map(async (id) => {
       const checkRes = await fetch(
         `${GOOGLE_ADS_BASE_URL}/customers/${id}/googleAds:searchStream`,
         {
@@ -65,68 +53,72 @@ export async function getGoogleAdsCustomerId(
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            query: "SELECT customer.id, customer.status, customer.manager, customer.descriptive_name FROM customer LIMIT 1",
+            query:
+              "SELECT customer.id, customer.descriptive_name, customer.status, customer.manager FROM customer LIMIT 1",
           }),
         }
       );
-      if (!checkRes.ok) continue;
+
+      if (!checkRes.ok) return null;
 
       const checkData = (await checkRes.json()) as Array<{
         results?: Array<{
-          customer?: { status?: string; manager?: boolean };
+          customer?: {
+            descriptive_name?: string;
+            status?: string;
+            manager?: boolean;
+          };
         }>;
       }>;
+
       const customer = checkData?.[0]?.results?.[0]?.customer;
-      if (customer?.status === "ENABLED" && !customer?.manager) {
-        customerId = id;
-        break;
-      }
-    } catch {
-      continue;
-    }
-  }
+      if (!customer || customer.status !== "ENABLED") return null;
 
-  if (!customerId) {
-    // Fallback: if no enabled non-manager found, try first enabled (including managers)
-    for (const id of candidateIds) {
-      try {
-        const checkRes = await fetch(
-          `${GOOGLE_ADS_BASE_URL}/customers/${id}/googleAds:searchStream`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "developer-token": developerToken,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              query: "SELECT customer.id, customer.status FROM customer LIMIT 1",
-            }),
-          }
-        );
-        if (!checkRes.ok) continue;
+      return {
+        id,
+        name: customer.descriptive_name || id,
+        isManager: customer.manager ?? false,
+      };
+    })
+  );
 
-        const checkData = (await checkRes.json()) as Array<{
-          results?: Array<{
-            customer?: { status?: string };
-          }>;
-        }>;
-        const customer = checkData?.[0]?.results?.[0]?.customer;
-        if (customer?.status === "ENABLED") {
-          customerId = id;
-          break;
-        }
-      } catch {
-        continue;
-      }
-    }
-  }
-
-  if (!customerId) {
-    throw new Error(
-      `No enabled Google Ads accounts found. Accessible accounts: ${candidateIds.join(", ")}`
+  return results
+    .filter(
+      (
+        r
+      ): r is PromiseFulfilledResult<{
+        id: string;
+        name: string;
+        isManager: boolean;
+      } | null> => r.status === "fulfilled"
+    )
+    .map((r) => r.value)
+    .filter(
+      (v): v is { id: string; name: string; isManager: boolean } => v !== null
     );
+}
+
+export async function getGoogleAdsCustomerId(
+  serviceConnectionId: string
+): Promise<string> {
+  const connection = await db.serviceConnection.findUniqueOrThrow({
+    where: { id: serviceConnectionId },
+  });
+
+  const metadata = connection.metadata as Record<string, unknown> | null;
+  if (metadata?.googleAdsCustomerId) {
+    return metadata.googleAdsCustomerId as string;
   }
+
+  const customers = await listAccessibleCustomers(serviceConnectionId);
+
+  if (customers.length === 0) {
+    throw new Error("No accessible Google Ads accounts found");
+  }
+
+  // Prefer non-manager account, fall back to first available
+  const customerId =
+    customers.find((c) => !c.isManager)?.id ?? customers[0].id;
 
   // Store for future use
   await db.serviceConnection.update({

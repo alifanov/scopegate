@@ -10,7 +10,7 @@ export interface DownloadedImage {
 export async function downloadImage(urlOrBase64: string): Promise<DownloadedImage> {
   // Handle data URI (base64)
   if (urlOrBase64.startsWith("data:")) {
-    const match = urlOrBase64.match(/^data:([^;]+);base64,(.+)$/s);
+    const match = urlOrBase64.match(/^data:([^;]+);base64,(.+)$/);
     if (!match) {
       throw new Error("Invalid data URI format. Expected: data:<mime>;base64,<data>");
     }

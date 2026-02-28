@@ -56,8 +56,11 @@
   },
   "pnpm": {
     "overrides": {
-      "hono": ">=4.11.7",
-      "lodash": ">=4.17.23"
+      "hono": ">=4.11.10",
+      "lodash": ">=4.17.23",
+      "rollup": ">=4.59.0",
+      "minimatch": ">=10.2.4",
+      "ajv": ">=8.18.0"
     }
   },
   "devDependencies": {

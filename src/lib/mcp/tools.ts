@@ -1601,7 +1601,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: z.object({
       text: z.string().describe("The text content of the post"),
       link: z.string().url().optional().describe("Optional URL to share with the post"),
-      image_url: z.string().url().optional().describe("Optional image URL to attach to the post (JPEG, PNG, or GIF, max 5MB). Cannot be used together with link."),
+      image_url: z.string().optional().describe("Optional image to attach to the post — either a URL or a base64 data URI (e.g. data:image/jpeg;base64,...). JPEG, PNG, or GIF, max 5MB. Cannot be used together with link."),
     }),
     handler: async (params, context) => {
       if (params.link && params.image_url) {
@@ -1799,7 +1799,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       text: z.string().max(280),
       reply_to: z.string().optional(),
       quote_tweet_id: z.string().optional(),
-      image_url: z.string().url().optional().describe("Optional image URL to attach to the tweet (JPEG, PNG, or GIF, max 5MB)"),
+      image_url: z.string().optional().describe("Optional image to attach to the tweet — either a URL or a base64 data URI (e.g. data:image/jpeg;base64,...). JPEG, PNG, or GIF, max 5MB."),
     }),
     handler: async (params, context) => {
       const body: Record<string, unknown> = { text: params.text };

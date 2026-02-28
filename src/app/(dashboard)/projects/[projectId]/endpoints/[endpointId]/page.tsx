@@ -44,6 +44,7 @@ export default function EndpointDetailPage() {
   const router = useRouter();
   const { project: projectCtx, setProject } = useProject();
   const [endpoint, setEndpoint] = useState<EndpointDetails | null>(null);
+  const [projectName, setProjectName] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [showKey, setShowKey] = useState(false);
 
@@ -74,6 +75,7 @@ export default function EndpointDetailPage() {
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (data?.project) {
+            setProjectName(data.project.name);
             setProject({
               projectId: data.project.id,
               projectName: data.project.name,
@@ -229,7 +231,7 @@ export default function EndpointDetailPage() {
         items={[
           { label: "Projects", href: "/projects" },
           {
-            label: projectCtx?.projectName || "Project",
+            label: projectCtx?.projectName || projectName || "Project",
             href: `/projects/${projectId}`,
           },
           { label: endpoint.name },

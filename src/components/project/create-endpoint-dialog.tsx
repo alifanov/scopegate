@@ -47,6 +47,7 @@ export function CreateEndpointDialog({
   const router = useRouter();
   const [services, setServices] = useState<Service[]>([]);
   const [selectedService, setSelectedService] = useState("");
+  const [name, setName] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(
     new Set()
   );
@@ -86,9 +87,6 @@ export function CreateEndpointDialog({
     e.preventDefault();
     setLoading(true);
 
-    const formData = new FormData(e.currentTarget);
-    const name = formData.get("name") as string;
-
     try {
       const res = await fetch(`/api/projects/${projectId}/endpoints`, {
         method: "POST",
@@ -104,6 +102,7 @@ export function CreateEndpointDialog({
         const data = await res.json();
         toast.success("Endpoint created");
         setSelectedService("");
+        setName("");
         setSelectedPermissions(new Set());
         onOpenChange(false);
         onCreated();
@@ -142,6 +141,8 @@ export function CreateEndpointDialog({
                   id="endpoint-name"
                   name="name"
                   placeholder="e.g. Email Reader for Agent"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   required
                 />
               </div>
@@ -165,6 +166,12 @@ export function CreateEndpointDialog({
                         onChange={() => {
                           setSelectedService(s.id);
                           setSelectedPermissions(new Set());
+                          setName(
+                            getProviderDisplayName(s.provider)
+                              .toLowerCase()
+                              .replace(/\s+/g, "-")
+                              .replace(/[^a-z0-9-]/g, "")
+                          );
                         }}
                         className="mr-3"
                       />

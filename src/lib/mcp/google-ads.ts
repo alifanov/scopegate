@@ -64,7 +64,7 @@ export async function listAccessibleCustomers(
       const checkData = (await checkRes.json()) as Array<{
         results?: Array<{
           customer?: {
-            descriptive_name?: string;
+            descriptiveName?: string;
             status?: string;
             manager?: boolean;
           };
@@ -76,7 +76,7 @@ export async function listAccessibleCustomers(
 
       return {
         id,
-        name: customer.descriptive_name || id,
+        name: customer.descriptiveName || id,
         isManager: customer.manager ?? false,
       };
     })

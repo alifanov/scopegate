@@ -167,12 +167,18 @@ export function CreateEndpointDialog({
                         onChange={() => {
                           setSelectedService(s.id);
                           setSelectedPermissions(new Set());
-                          setName(
-                            getProviderDisplayName(s.provider)
-                              .toLowerCase()
-                              .replace(/\s+/g, "-")
-                              .replace(/[^a-z0-9-]/g, "")
-                          );
+                          const baseName = getProviderDisplayName(s.provider)
+                            .toLowerCase()
+                            .replace(/\s+/g, "-")
+                            .replace(/[^a-z0-9-]/g, "");
+                          const hasMultiple = services.filter((s2) => s2.provider === s.provider).length > 1;
+                          const accountLabel = hasMultiple
+                            ? ((s.metadata?.googleAdsCustomerName as string | undefined) ?? s.accountEmail.split("@")[0])
+                            : "";
+                          const suffix = accountLabel
+                            ? `-${accountLabel.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}`
+                            : "";
+                          setName(`${baseName}${suffix}`);
                         }}
                         className="mr-3"
                       />

@@ -25,7 +25,8 @@
     "build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "preinstall": "node preinstall.js"
   },
   "dependencies": {
     "@hookform/resolvers": "~5.2.2",

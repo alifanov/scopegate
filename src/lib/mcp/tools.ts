@@ -835,7 +835,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       campaignId: z.string(),
       name: z.string(),
       status: z.string().optional().default("PAUSED"),
-      cpcBidMicros: z.number().optional(),
+      cpcBidMicros: z.coerce.number().optional(),
     }),
     handler: async (params, context) => {
       const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
@@ -860,7 +860,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       adGroupId: z.string(),
       name: z.string().optional(),
       status: z.string().optional(),
-      cpcBidMicros: z.number().optional(),
+      cpcBidMicros: z.coerce.number().optional(),
     }),
     handler: async (params, context) => {
       const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
@@ -1003,7 +1003,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       adGroupId: z.string(),
       text: z.string(),
       matchType: z.enum(["EXACT", "PHRASE", "BROAD"]),
-      cpcBidMicros: z.number().optional(),
+      cpcBidMicros: z.coerce.number().optional(),
       status: z.string().optional().default("ENABLED"),
     }),
     handler: async (params, context) => {
@@ -1046,7 +1046,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: z.object({
       adGroupId: z.string(),
       keywordId: z.string(),
-      cpcBidMicros: z.number(),
+      cpcBidMicros: z.coerce.number(),
     }),
     handler: async (params, context) => {
       const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);

@@ -6,6 +6,20 @@ import { openRouterFetch } from "./openrouter";
 import { twitterFetch, getAuthenticatedUserId, twitterUploadMedia } from "./twitter";
 import { linkedinFetch, getLinkedInMemberUrn, linkedinUploadImage } from "./linkedin";
 import { downloadImage } from "./image-utils";
+import { slackFetch } from "./slack";
+import { notionFetch } from "./notion";
+import { hubspotFetch } from "./hubspot";
+import { githubFetch } from "./github";
+import { jiraFetch } from "./jira";
+import { salesforceFetch } from "./salesforce";
+import { metaAdsFetch } from "./meta-ads";
+import { twitterAdsFetch } from "./twitter-ads";
+import { telegramFetch } from "./telegram";
+import { semrushFetch } from "./semrush";
+import { ahrefsFetch } from "./ahrefs";
+import { stripeFetch } from "./stripe";
+import { airtableFetch } from "./airtable";
+import { calendlyFetch } from "./calendly";
 
 function buildDateCondition(params: Record<string, unknown>): string {
   if (params.dateRangeStart && params.dateRangeEnd) {
@@ -2157,6 +2171,1830 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       });
       if (params.dm_event_fields) query.set("dm_event.fields", params.dm_event_fields as string);
       return twitterFetch(context.serviceConnectionId, `/dm_events?${query.toString()}`);
+    },
+  },
+  // =====================
+  // Slack tools
+  // =====================
+  {
+    name: "slack_list_channels",
+    description: "List Slack channels in the workspace",
+    action: "slack:list_channels",
+    inputSchema: z.object({
+      limit: z.number().min(1).max(1000).optional().default(100),
+      types: z.string().optional().default("public_channel"),
+    }),
+    handler: async (params, context) => {
+      return slackFetch(context.serviceConnectionId, "conversations.list", {
+        limit: params.limit,
+        types: params.types,
+      });
+    },
+  },
+  {
+    name: "slack_post_message",
+    description: "Post a message to a Slack channel",
+    action: "slack:post_message",
+    inputSchema: z.object({
+      channel: z.string().describe("Channel ID"),
+      text: z.string(),
+      thread_ts: z.string().optional().describe("Thread timestamp to reply to"),
+    }),
+    handler: async (params, context) => {
+      return slackFetch(context.serviceConnectionId, "chat.postMessage", {
+        channel: params.channel,
+        text: params.text,
+        ...(params.thread_ts ? { thread_ts: params.thread_ts } : {}),
+      });
+    },
+  },
+  {
+    name: "slack_get_channel_history",
+    description: "Get message history from a Slack channel",
+    action: "slack:get_channel_history",
+    inputSchema: z.object({
+      channel: z.string().describe("Channel ID"),
+      limit: z.number().min(1).max(1000).optional().default(20),
+      oldest: z.string().optional().describe("Start of time range (Unix timestamp)"),
+      latest: z.string().optional().describe("End of time range (Unix timestamp)"),
+    }),
+    handler: async (params, context) => {
+      return slackFetch(context.serviceConnectionId, "conversations.history", {
+        channel: params.channel,
+        limit: params.limit,
+        ...(params.oldest ? { oldest: params.oldest } : {}),
+        ...(params.latest ? { latest: params.latest } : {}),
+      });
+    },
+  },
+  {
+    name: "slack_get_user_info",
+    description: "Get information about a Slack user",
+    action: "slack:get_user_info",
+    inputSchema: z.object({
+      user: z.string().describe("User ID"),
+    }),
+    handler: async (params, context) => {
+      return slackFetch(context.serviceConnectionId, "users.info", {
+        user: params.user,
+      });
+    },
+  },
+  {
+    name: "slack_add_reaction",
+    description: "Add a reaction emoji to a message",
+    action: "slack:add_reaction",
+    inputSchema: z.object({
+      channel: z.string().describe("Channel ID"),
+      timestamp: z.string().describe("Message timestamp"),
+      name: z.string().describe("Emoji name without colons (e.g. 'thumbsup')"),
+    }),
+    handler: async (params, context) => {
+      return slackFetch(context.serviceConnectionId, "reactions.add", {
+        channel: params.channel,
+        timestamp: params.timestamp,
+        name: params.name,
+      });
+    },
+  },
+  {
+    name: "slack_remove_reaction",
+    description: "Remove a reaction emoji from a message",
+    action: "slack:remove_reaction",
+    inputSchema: z.object({
+      channel: z.string().describe("Channel ID"),
+      timestamp: z.string().describe("Message timestamp"),
+      name: z.string().describe("Emoji name without colons"),
+    }),
+    handler: async (params, context) => {
+      return slackFetch(context.serviceConnectionId, "reactions.remove", {
+        channel: params.channel,
+        timestamp: params.timestamp,
+        name: params.name,
+      });
+    },
+  },
+  {
+    name: "slack_list_users",
+    description: "List users in the Slack workspace",
+    action: "slack:list_users",
+    inputSchema: z.object({
+      limit: z.number().min(1).max(1000).optional().default(100),
+    }),
+    handler: async (params, context) => {
+      return slackFetch(context.serviceConnectionId, "users.list", {
+        limit: params.limit,
+      });
+    },
+  },
+  {
+    name: "slack_upload_file",
+    description: "Share a file or text snippet in a Slack channel",
+    action: "slack:upload_file",
+    inputSchema: z.object({
+      channel: z.string().describe("Channel ID"),
+      content: z.string().describe("Text content of the file"),
+      filename: z.string().optional(),
+      title: z.string().optional(),
+      filetype: z.string().optional().describe("File type (e.g. 'text', 'python', 'json')"),
+    }),
+    handler: async (params, context) => {
+      return slackFetch(context.serviceConnectionId, "files.upload", {
+        channels: params.channel,
+        content: params.content,
+        filename: params.filename,
+        title: params.title,
+        filetype: params.filetype,
+      });
+    },
+  },
+  // =====================
+  // Notion tools
+  // =====================
+  {
+    name: "notion_search",
+    description: "Search across all pages and databases in Notion",
+    action: "notion:search",
+    inputSchema: z.object({
+      query: z.string().optional(),
+      filter: z.object({ value: z.enum(["page", "database"]), property: z.literal("object") }).optional(),
+      page_size: z.number().min(1).max(100).optional().default(10),
+    }),
+    handler: async (params, context) => {
+      return notionFetch(context.serviceConnectionId, "/search", {
+        method: "POST",
+        body: JSON.stringify({ query: params.query, filter: params.filter, page_size: params.page_size }),
+      });
+    },
+  },
+  {
+    name: "notion_get_page",
+    description: "Get a Notion page by ID",
+    action: "notion:get_page",
+    inputSchema: z.object({ page_id: z.string() }),
+    handler: async (params, context) => {
+      return notionFetch(context.serviceConnectionId, `/pages/${params.page_id}`);
+    },
+  },
+  {
+    name: "notion_create_page",
+    description: "Create a new page in Notion",
+    action: "notion:create_page",
+    inputSchema: z.object({
+      parent: z.object({ database_id: z.string().optional(), page_id: z.string().optional() }),
+      properties: z.record(z.string(), z.unknown()),
+      children: z.array(z.unknown()).optional(),
+    }),
+    handler: async (params, context) => {
+      return notionFetch(context.serviceConnectionId, "/pages", {
+        method: "POST",
+        body: JSON.stringify({ parent: params.parent, properties: params.properties, children: params.children }),
+      });
+    },
+  },
+  {
+    name: "notion_update_page",
+    description: "Update properties of a Notion page",
+    action: "notion:update_page",
+    inputSchema: z.object({
+      page_id: z.string(),
+      properties: z.record(z.string(), z.unknown()),
+      archived: z.boolean().optional(),
+    }),
+    handler: async (params, context) => {
+      return notionFetch(context.serviceConnectionId, `/pages/${params.page_id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ properties: params.properties, archived: params.archived }),
+      });
+    },
+  },
+  {
+    name: "notion_get_database",
+    description: "Get a Notion database by ID",
+    action: "notion:get_database",
+    inputSchema: z.object({ database_id: z.string() }),
+    handler: async (params, context) => {
+      return notionFetch(context.serviceConnectionId, `/databases/${params.database_id}`);
+    },
+  },
+  {
+    name: "notion_query_database",
+    description: "Query a Notion database with optional filter and sort",
+    action: "notion:query_database",
+    inputSchema: z.object({
+      database_id: z.string(),
+      filter: z.record(z.string(), z.unknown()).optional(),
+      sorts: z.array(z.unknown()).optional(),
+      page_size: z.number().min(1).max(100).optional().default(10),
+    }),
+    handler: async (params, context) => {
+      return notionFetch(context.serviceConnectionId, `/databases/${params.database_id}/query`, {
+        method: "POST",
+        body: JSON.stringify({ filter: params.filter, sorts: params.sorts, page_size: params.page_size }),
+      });
+    },
+  },
+  {
+    name: "notion_create_database_item",
+    description: "Create a new item (page) in a Notion database",
+    action: "notion:create_database_item",
+    inputSchema: z.object({
+      database_id: z.string(),
+      properties: z.record(z.string(), z.unknown()),
+    }),
+    handler: async (params, context) => {
+      return notionFetch(context.serviceConnectionId, "/pages", {
+        method: "POST",
+        body: JSON.stringify({ parent: { database_id: params.database_id }, properties: params.properties }),
+      });
+    },
+  },
+  {
+    name: "notion_get_block_children",
+    description: "Get the content blocks of a Notion page or block",
+    action: "notion:get_block_children",
+    inputSchema: z.object({
+      block_id: z.string(),
+      page_size: z.number().min(1).max(100).optional().default(50),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({ page_size: String(params.page_size ?? 50) });
+      return notionFetch(context.serviceConnectionId, `/blocks/${params.block_id}/children?${query.toString()}`);
+    },
+  },
+  {
+    name: "notion_append_block_children",
+    description: "Append content blocks to a Notion page or block",
+    action: "notion:append_block_children",
+    inputSchema: z.object({
+      block_id: z.string(),
+      children: z.array(z.unknown()),
+    }),
+    handler: async (params, context) => {
+      return notionFetch(context.serviceConnectionId, `/blocks/${params.block_id}/children`, {
+        method: "PATCH",
+        body: JSON.stringify({ children: params.children }),
+      });
+    },
+  },
+  {
+    name: "notion_delete_block",
+    description: "Delete (archive) a Notion block",
+    action: "notion:delete_block",
+    inputSchema: z.object({ block_id: z.string() }),
+    handler: async (params, context) => {
+      return notionFetch(context.serviceConnectionId, `/blocks/${params.block_id}`, { method: "DELETE" });
+    },
+  },
+  {
+    name: "notion_list_users",
+    description: "List all users in the Notion workspace",
+    action: "notion:list_users",
+    inputSchema: z.object({
+      page_size: z.number().min(1).max(100).optional().default(50),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({ page_size: String(params.page_size ?? 50) });
+      return notionFetch(context.serviceConnectionId, `/users?${query.toString()}`);
+    },
+  },
+  // =====================
+  // HubSpot tools
+  // =====================
+  {
+    name: "hubspot_list_contacts",
+    description: "List contacts in HubSpot CRM",
+    action: "hubspot:list_contacts",
+    inputSchema: z.object({
+      limit: z.number().min(1).max(100).optional().default(10),
+      properties: z.string().optional().describe("Comma-separated property names"),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({ limit: String(params.limit ?? 10) });
+      if (params.properties) query.set("properties", params.properties as string);
+      return hubspotFetch(context.serviceConnectionId, `/crm/v3/objects/contacts?${query.toString()}`);
+    },
+  },
+  {
+    name: "hubspot_get_contact",
+    description: "Get a contact by ID",
+    action: "hubspot:get_contact",
+    inputSchema: z.object({
+      contactId: z.string(),
+      properties: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      const query = params.properties ? `?properties=${params.properties}` : "";
+      return hubspotFetch(context.serviceConnectionId, `/crm/v3/objects/contacts/${params.contactId}${query}`);
+    },
+  },
+  {
+    name: "hubspot_create_contact",
+    description: "Create a new contact in HubSpot",
+    action: "hubspot:create_contact",
+    inputSchema: z.object({
+      properties: z.record(z.string(), z.string()),
+    }),
+    handler: async (params, context) => {
+      return hubspotFetch(context.serviceConnectionId, "/crm/v3/objects/contacts", {
+        method: "POST",
+        body: JSON.stringify({ properties: params.properties }),
+      });
+    },
+  },
+  {
+    name: "hubspot_update_contact",
+    description: "Update a contact in HubSpot",
+    action: "hubspot:update_contact",
+    inputSchema: z.object({
+      contactId: z.string(),
+      properties: z.record(z.string(), z.string()),
+    }),
+    handler: async (params, context) => {
+      return hubspotFetch(context.serviceConnectionId, `/crm/v3/objects/contacts/${params.contactId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ properties: params.properties }),
+      });
+    },
+  },
+  {
+    name: "hubspot_search_contacts",
+    description: "Search contacts in HubSpot",
+    action: "hubspot:search_contacts",
+    inputSchema: z.object({
+      filterGroups: z.array(z.unknown()),
+      sorts: z.array(z.unknown()).optional(),
+      limit: z.number().min(1).max(100).optional().default(10),
+    }),
+    handler: async (params, context) => {
+      return hubspotFetch(context.serviceConnectionId, "/crm/v3/objects/contacts/search", {
+        method: "POST",
+        body: JSON.stringify({ filterGroups: params.filterGroups, sorts: params.sorts, limit: params.limit }),
+      });
+    },
+  },
+  {
+    name: "hubspot_list_deals",
+    description: "List deals in HubSpot CRM",
+    action: "hubspot:list_deals",
+    inputSchema: z.object({
+      limit: z.number().min(1).max(100).optional().default(10),
+      properties: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({ limit: String(params.limit ?? 10) });
+      if (params.properties) query.set("properties", params.properties as string);
+      return hubspotFetch(context.serviceConnectionId, `/crm/v3/objects/deals?${query.toString()}`);
+    },
+  },
+  {
+    name: "hubspot_get_deal",
+    description: "Get a deal by ID",
+    action: "hubspot:get_deal",
+    inputSchema: z.object({
+      dealId: z.string(),
+      properties: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      const query = params.properties ? `?properties=${params.properties}` : "";
+      return hubspotFetch(context.serviceConnectionId, `/crm/v3/objects/deals/${params.dealId}${query}`);
+    },
+  },
+  {
+    name: "hubspot_create_deal",
+    description: "Create a new deal in HubSpot",
+    action: "hubspot:create_deal",
+    inputSchema: z.object({
+      properties: z.record(z.string(), z.string()),
+    }),
+    handler: async (params, context) => {
+      return hubspotFetch(context.serviceConnectionId, "/crm/v3/objects/deals", {
+        method: "POST",
+        body: JSON.stringify({ properties: params.properties }),
+      });
+    },
+  },
+  {
+    name: "hubspot_update_deal",
+    description: "Update a deal in HubSpot",
+    action: "hubspot:update_deal",
+    inputSchema: z.object({
+      dealId: z.string(),
+      properties: z.record(z.string(), z.string()),
+    }),
+    handler: async (params, context) => {
+      return hubspotFetch(context.serviceConnectionId, `/crm/v3/objects/deals/${params.dealId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ properties: params.properties }),
+      });
+    },
+  },
+  {
+    name: "hubspot_list_companies",
+    description: "List companies in HubSpot CRM",
+    action: "hubspot:list_companies",
+    inputSchema: z.object({
+      limit: z.number().min(1).max(100).optional().default(10),
+      properties: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({ limit: String(params.limit ?? 10) });
+      if (params.properties) query.set("properties", params.properties as string);
+      return hubspotFetch(context.serviceConnectionId, `/crm/v3/objects/companies?${query.toString()}`);
+    },
+  },
+  {
+    name: "hubspot_get_company",
+    description: "Get a company by ID",
+    action: "hubspot:get_company",
+    inputSchema: z.object({
+      companyId: z.string(),
+      properties: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      const query = params.properties ? `?properties=${params.properties}` : "";
+      return hubspotFetch(context.serviceConnectionId, `/crm/v3/objects/companies/${params.companyId}${query}`);
+    },
+  },
+  {
+    name: "hubspot_create_company",
+    description: "Create a new company in HubSpot",
+    action: "hubspot:create_company",
+    inputSchema: z.object({
+      properties: z.record(z.string(), z.string()),
+    }),
+    handler: async (params, context) => {
+      return hubspotFetch(context.serviceConnectionId, "/crm/v3/objects/companies", {
+        method: "POST",
+        body: JSON.stringify({ properties: params.properties }),
+      });
+    },
+  },
+  {
+    name: "hubspot_update_company",
+    description: "Update a company in HubSpot",
+    action: "hubspot:update_company",
+    inputSchema: z.object({
+      companyId: z.string(),
+      properties: z.record(z.string(), z.string()),
+    }),
+    handler: async (params, context) => {
+      return hubspotFetch(context.serviceConnectionId, `/crm/v3/objects/companies/${params.companyId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ properties: params.properties }),
+      });
+    },
+  },
+  {
+    name: "hubspot_search_companies",
+    description: "Search companies in HubSpot",
+    action: "hubspot:search_companies",
+    inputSchema: z.object({
+      filterGroups: z.array(z.unknown()),
+      sorts: z.array(z.unknown()).optional(),
+      limit: z.number().min(1).max(100).optional().default(10),
+    }),
+    handler: async (params, context) => {
+      return hubspotFetch(context.serviceConnectionId, "/crm/v3/objects/companies/search", {
+        method: "POST",
+        body: JSON.stringify({ filterGroups: params.filterGroups, sorts: params.sorts, limit: params.limit }),
+      });
+    },
+  },
+  // =====================
+  // GitHub tools
+  // =====================
+  {
+    name: "github_list_repos",
+    description: "List repositories for the authenticated user",
+    action: "github:list_repos",
+    inputSchema: z.object({
+      per_page: z.number().min(1).max(100).optional().default(30),
+      sort: z.enum(["created", "updated", "pushed", "full_name"]).optional().default("updated"),
+      type: z.enum(["all", "owner", "public", "private", "member"]).optional().default("all"),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        per_page: String(params.per_page ?? 30),
+        sort: (params.sort as string) || "updated",
+        type: (params.type as string) || "all",
+      });
+      return githubFetch(context.serviceConnectionId, `/user/repos?${query.toString()}`);
+    },
+  },
+  {
+    name: "github_get_repo",
+    description: "Get a repository by owner and name",
+    action: "github:get_repo",
+    inputSchema: z.object({ owner: z.string(), repo: z.string() }),
+    handler: async (params, context) => {
+      return githubFetch(context.serviceConnectionId, `/repos/${params.owner}/${params.repo}`);
+    },
+  },
+  {
+    name: "github_list_issues",
+    description: "List issues for a repository",
+    action: "github:list_issues",
+    inputSchema: z.object({
+      owner: z.string(),
+      repo: z.string(),
+      state: z.enum(["open", "closed", "all"]).optional().default("open"),
+      per_page: z.number().min(1).max(100).optional().default(30),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        state: (params.state as string) || "open",
+        per_page: String(params.per_page ?? 30),
+      });
+      return githubFetch(context.serviceConnectionId, `/repos/${params.owner}/${params.repo}/issues?${query.toString()}`);
+    },
+  },
+  {
+    name: "github_get_issue",
+    description: "Get a specific issue",
+    action: "github:get_issue",
+    inputSchema: z.object({
+      owner: z.string(),
+      repo: z.string(),
+      issue_number: z.number(),
+    }),
+    handler: async (params, context) => {
+      return githubFetch(context.serviceConnectionId, `/repos/${params.owner}/${params.repo}/issues/${params.issue_number}`);
+    },
+  },
+  {
+    name: "github_create_issue",
+    description: "Create a new issue",
+    action: "github:create_issue",
+    inputSchema: z.object({
+      owner: z.string(),
+      repo: z.string(),
+      title: z.string(),
+      body: z.string().optional(),
+      labels: z.array(z.string()).optional(),
+      assignees: z.array(z.string()).optional(),
+    }),
+    handler: async (params, context) => {
+      const { owner, repo, ...body } = params;
+      return githubFetch(context.serviceConnectionId, `/repos/${owner}/${repo}/issues`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+    },
+  },
+  {
+    name: "github_update_issue",
+    description: "Update an existing issue",
+    action: "github:update_issue",
+    inputSchema: z.object({
+      owner: z.string(),
+      repo: z.string(),
+      issue_number: z.number(),
+      title: z.string().optional(),
+      body: z.string().optional(),
+      state: z.enum(["open", "closed"]).optional(),
+      labels: z.array(z.string()).optional(),
+    }),
+    handler: async (params, context) => {
+      const { owner, repo, issue_number, ...body } = params;
+      return githubFetch(context.serviceConnectionId, `/repos/${owner}/${repo}/issues/${issue_number}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      });
+    },
+  },
+  {
+    name: "github_list_pull_requests",
+    description: "List pull requests for a repository",
+    action: "github:list_pull_requests",
+    inputSchema: z.object({
+      owner: z.string(),
+      repo: z.string(),
+      state: z.enum(["open", "closed", "all"]).optional().default("open"),
+      per_page: z.number().min(1).max(100).optional().default(30),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        state: (params.state as string) || "open",
+        per_page: String(params.per_page ?? 30),
+      });
+      return githubFetch(context.serviceConnectionId, `/repos/${params.owner}/${params.repo}/pulls?${query.toString()}`);
+    },
+  },
+  {
+    name: "github_get_pull_request",
+    description: "Get a specific pull request",
+    action: "github:get_pull_request",
+    inputSchema: z.object({
+      owner: z.string(),
+      repo: z.string(),
+      pull_number: z.number(),
+    }),
+    handler: async (params, context) => {
+      return githubFetch(context.serviceConnectionId, `/repos/${params.owner}/${params.repo}/pulls/${params.pull_number}`);
+    },
+  },
+  {
+    name: "github_create_pull_request",
+    description: "Create a new pull request",
+    action: "github:create_pull_request",
+    inputSchema: z.object({
+      owner: z.string(),
+      repo: z.string(),
+      title: z.string(),
+      body: z.string().optional(),
+      head: z.string().describe("Branch to merge from"),
+      base: z.string().describe("Branch to merge into"),
+    }),
+    handler: async (params, context) => {
+      const { owner, repo, ...body } = params;
+      return githubFetch(context.serviceConnectionId, `/repos/${owner}/${repo}/pulls`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+    },
+  },
+  {
+    name: "github_list_commits",
+    description: "List commits for a repository",
+    action: "github:list_commits",
+    inputSchema: z.object({
+      owner: z.string(),
+      repo: z.string(),
+      sha: z.string().optional().describe("Branch name or commit SHA"),
+      per_page: z.number().min(1).max(100).optional().default(30),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({ per_page: String(params.per_page ?? 30) });
+      if (params.sha) query.set("sha", params.sha as string);
+      return githubFetch(context.serviceConnectionId, `/repos/${params.owner}/${params.repo}/commits?${query.toString()}`);
+    },
+  },
+  {
+    name: "github_get_authenticated_user",
+    description: "Get the authenticated GitHub user",
+    action: "github:get_authenticated_user",
+    inputSchema: z.object({}),
+    handler: async (_params, context) => {
+      return githubFetch(context.serviceConnectionId, "/user");
+    },
+  },
+  {
+    name: "github_search_repos",
+    description: "Search GitHub repositories",
+    action: "github:search_repos",
+    inputSchema: z.object({
+      query: z.string(),
+      per_page: z.number().min(1).max(100).optional().default(10),
+    }),
+    handler: async (params, context) => {
+      const q = new URLSearchParams({ q: params.query as string, per_page: String(params.per_page ?? 10) });
+      return githubFetch(context.serviceConnectionId, `/search/repositories?${q.toString()}`);
+    },
+  },
+  {
+    name: "github_search_issues",
+    description: "Search GitHub issues and pull requests",
+    action: "github:search_issues",
+    inputSchema: z.object({
+      query: z.string(),
+      per_page: z.number().min(1).max(100).optional().default(10),
+    }),
+    handler: async (params, context) => {
+      const q = new URLSearchParams({ q: params.query as string, per_page: String(params.per_page ?? 10) });
+      return githubFetch(context.serviceConnectionId, `/search/issues?${q.toString()}`);
+    },
+  },
+  // =====================
+  // Jira tools
+  // =====================
+  {
+    name: "jira_list_projects",
+    description: "List all Jira projects",
+    action: "jira:list_projects",
+    inputSchema: z.object({}),
+    handler: async (_params, context) => {
+      return jiraFetch(context.serviceConnectionId, "/rest/api/3/project");
+    },
+  },
+  {
+    name: "jira_get_project",
+    description: "Get a Jira project by key or ID",
+    action: "jira:get_project",
+    inputSchema: z.object({ projectIdOrKey: z.string() }),
+    handler: async (params, context) => {
+      return jiraFetch(context.serviceConnectionId, `/rest/api/3/project/${params.projectIdOrKey}`);
+    },
+  },
+  {
+    name: "jira_search_issues",
+    description: "Search Jira issues using JQL",
+    action: "jira:search_issues",
+    inputSchema: z.object({
+      jql: z.string(),
+      maxResults: z.number().min(1).max(100).optional().default(20),
+      fields: z.array(z.string()).optional(),
+    }),
+    handler: async (params, context) => {
+      return jiraFetch(context.serviceConnectionId, "/rest/api/3/search", {
+        method: "POST",
+        body: JSON.stringify({ jql: params.jql, maxResults: params.maxResults, fields: params.fields }),
+      });
+    },
+  },
+  {
+    name: "jira_get_issue",
+    description: "Get a Jira issue by key or ID",
+    action: "jira:get_issue",
+    inputSchema: z.object({ issueIdOrKey: z.string() }),
+    handler: async (params, context) => {
+      return jiraFetch(context.serviceConnectionId, `/rest/api/3/issue/${params.issueIdOrKey}`);
+    },
+  },
+  {
+    name: "jira_create_issue",
+    description: "Create a new Jira issue",
+    action: "jira:create_issue",
+    inputSchema: z.object({
+      projectKey: z.string(),
+      summary: z.string(),
+      issueType: z.string().default("Task"),
+      description: z.unknown().optional(),
+      assigneeId: z.string().optional(),
+      priority: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      const fields: Record<string, unknown> = {
+        project: { key: params.projectKey },
+        summary: params.summary,
+        issuetype: { name: params.issueType },
+      };
+      if (params.description) fields.description = params.description;
+      if (params.assigneeId) fields.assignee = { accountId: params.assigneeId };
+      if (params.priority) fields.priority = { name: params.priority };
+      return jiraFetch(context.serviceConnectionId, "/rest/api/3/issue", {
+        method: "POST",
+        body: JSON.stringify({ fields }),
+      });
+    },
+  },
+  {
+    name: "jira_update_issue",
+    description: "Update a Jira issue",
+    action: "jira:update_issue",
+    inputSchema: z.object({
+      issueIdOrKey: z.string(),
+      fields: z.record(z.string(), z.unknown()),
+    }),
+    handler: async (params, context) => {
+      return jiraFetch(context.serviceConnectionId, `/rest/api/3/issue/${params.issueIdOrKey}`, {
+        method: "PUT",
+        body: JSON.stringify({ fields: params.fields }),
+      });
+    },
+  },
+  {
+    name: "jira_add_comment",
+    description: "Add a comment to a Jira issue",
+    action: "jira:add_comment",
+    inputSchema: z.object({
+      issueIdOrKey: z.string(),
+      body: z.unknown().describe("Comment body in Atlassian Document Format or simple text"),
+    }),
+    handler: async (params, context) => {
+      return jiraFetch(context.serviceConnectionId, `/rest/api/3/issue/${params.issueIdOrKey}/comment`, {
+        method: "POST",
+        body: JSON.stringify({ body: params.body }),
+      });
+    },
+  },
+  {
+    name: "jira_list_sprints",
+    description: "List sprints for a Jira board",
+    action: "jira:list_sprints",
+    inputSchema: z.object({
+      boardId: z.number(),
+      state: z.string().optional().describe("active, closed, or future"),
+    }),
+    handler: async (params, context) => {
+      const query = params.state ? `?state=${params.state}` : "";
+      return jiraFetch(context.serviceConnectionId, `/rest/agile/1.0/board/${params.boardId}/sprint${query}`);
+    },
+  },
+  {
+    name: "jira_get_transitions",
+    description: "Get available transitions for a Jira issue",
+    action: "jira:get_transitions",
+    inputSchema: z.object({ issueIdOrKey: z.string() }),
+    handler: async (params, context) => {
+      return jiraFetch(context.serviceConnectionId, `/rest/api/3/issue/${params.issueIdOrKey}/transitions`);
+    },
+  },
+  {
+    name: "jira_transition_issue",
+    description: "Transition a Jira issue to a new status",
+    action: "jira:transition_issue",
+    inputSchema: z.object({
+      issueIdOrKey: z.string(),
+      transitionId: z.string(),
+    }),
+    handler: async (params, context) => {
+      return jiraFetch(context.serviceConnectionId, `/rest/api/3/issue/${params.issueIdOrKey}/transitions`, {
+        method: "POST",
+        body: JSON.stringify({ transition: { id: params.transitionId } }),
+      });
+    },
+  },
+  // =====================
+  // Salesforce tools
+  // =====================
+  {
+    name: "salesforce_query",
+    description: "Execute a SOQL query against Salesforce",
+    action: "salesforce:query",
+    inputSchema: z.object({ soql: z.string() }),
+    handler: async (params, context) => {
+      const q = encodeURIComponent(params.soql as string);
+      return salesforceFetch(context.serviceConnectionId, `/services/data/v59.0/query?q=${q}`);
+    },
+  },
+  {
+    name: "salesforce_get_record",
+    description: "Get a Salesforce record by type and ID",
+    action: "salesforce:get_record",
+    inputSchema: z.object({
+      objectType: z.string(),
+      recordId: z.string(),
+    }),
+    handler: async (params, context) => {
+      return salesforceFetch(context.serviceConnectionId, `/services/data/v59.0/sobjects/${params.objectType}/${params.recordId}`);
+    },
+  },
+  {
+    name: "salesforce_create_record",
+    description: "Create a new Salesforce record",
+    action: "salesforce:create_record",
+    inputSchema: z.object({
+      objectType: z.string(),
+      fields: z.record(z.string(), z.unknown()),
+    }),
+    handler: async (params, context) => {
+      return salesforceFetch(context.serviceConnectionId, `/services/data/v59.0/sobjects/${params.objectType}`, {
+        method: "POST",
+        body: JSON.stringify(params.fields),
+      });
+    },
+  },
+  {
+    name: "salesforce_update_record",
+    description: "Update a Salesforce record",
+    action: "salesforce:update_record",
+    inputSchema: z.object({
+      objectType: z.string(),
+      recordId: z.string(),
+      fields: z.record(z.string(), z.unknown()),
+    }),
+    handler: async (params, context) => {
+      return salesforceFetch(context.serviceConnectionId, `/services/data/v59.0/sobjects/${params.objectType}/${params.recordId}`, {
+        method: "PATCH",
+        body: JSON.stringify(params.fields),
+      });
+    },
+  },
+  {
+    name: "salesforce_delete_record",
+    description: "Delete a Salesforce record",
+    action: "salesforce:delete_record",
+    inputSchema: z.object({
+      objectType: z.string(),
+      recordId: z.string(),
+    }),
+    handler: async (params, context) => {
+      return salesforceFetch(context.serviceConnectionId, `/services/data/v59.0/sobjects/${params.objectType}/${params.recordId}`, {
+        method: "DELETE",
+      });
+    },
+  },
+  {
+    name: "salesforce_describe_object",
+    description: "Describe a Salesforce object schema",
+    action: "salesforce:describe_object",
+    inputSchema: z.object({ objectType: z.string() }),
+    handler: async (params, context) => {
+      return salesforceFetch(context.serviceConnectionId, `/services/data/v59.0/sobjects/${params.objectType}/describe`);
+    },
+  },
+  {
+    name: "salesforce_list_objects",
+    description: "List available Salesforce objects",
+    action: "salesforce:list_objects",
+    inputSchema: z.object({}),
+    handler: async (_params, context) => {
+      return salesforceFetch(context.serviceConnectionId, "/services/data/v59.0/sobjects");
+    },
+  },
+  {
+    name: "salesforce_search",
+    description: "Execute a SOSL search in Salesforce",
+    action: "salesforce:search",
+    inputSchema: z.object({ sosl: z.string() }),
+    handler: async (params, context) => {
+      const q = encodeURIComponent(params.sosl as string);
+      return salesforceFetch(context.serviceConnectionId, `/services/data/v59.0/search?q=${q}`);
+    },
+  },
+  // =====================
+  // Meta Ads tools
+  // =====================
+  {
+    name: "metaAds_list_ad_accounts",
+    description: "List ad accounts for the authenticated user",
+    action: "metaAds:list_ad_accounts",
+    inputSchema: z.object({}),
+    handler: async (_params, context) => {
+      return metaAdsFetch(context.serviceConnectionId, "/me/adaccounts?fields=name,account_id,account_status,currency,timezone_name");
+    },
+  },
+  {
+    name: "metaAds_get_ad_account",
+    description: "Get details of an ad account",
+    action: "metaAds:get_ad_account",
+    inputSchema: z.object({ accountId: z.string().describe("Ad account ID (without act_ prefix)") }),
+    handler: async (params, context) => {
+      return metaAdsFetch(context.serviceConnectionId, `/act_${params.accountId}?fields=name,account_id,account_status,currency,balance,amount_spent`);
+    },
+  },
+  {
+    name: "metaAds_list_campaigns",
+    description: "List campaigns for an ad account",
+    action: "metaAds:list_campaigns",
+    inputSchema: z.object({
+      accountId: z.string(),
+      limit: z.number().min(1).max(100).optional().default(25),
+    }),
+    handler: async (params, context) => {
+      return metaAdsFetch(context.serviceConnectionId, `/act_${params.accountId}/campaigns?fields=name,status,objective,daily_budget,lifetime_budget,created_time&limit=${params.limit ?? 25}`);
+    },
+  },
+  {
+    name: "metaAds_get_campaign",
+    description: "Get details of a campaign",
+    action: "metaAds:get_campaign",
+    inputSchema: z.object({ campaignId: z.string() }),
+    handler: async (params, context) => {
+      return metaAdsFetch(context.serviceConnectionId, `/${params.campaignId}?fields=name,status,objective,daily_budget,lifetime_budget`);
+    },
+  },
+  {
+    name: "metaAds_get_campaign_insights",
+    description: "Get performance insights for a campaign",
+    action: "metaAds:get_campaign_insights",
+    inputSchema: z.object({
+      campaignId: z.string(),
+      date_preset: z.string().optional().default("last_30d"),
+    }),
+    handler: async (params, context) => {
+      return metaAdsFetch(context.serviceConnectionId, `/${params.campaignId}/insights?fields=impressions,clicks,spend,cpc,cpm,ctr,reach,actions&date_preset=${params.date_preset ?? "last_30d"}`);
+    },
+  },
+  {
+    name: "metaAds_list_adsets",
+    description: "List ad sets for an ad account",
+    action: "metaAds:list_adsets",
+    inputSchema: z.object({
+      accountId: z.string(),
+      limit: z.number().min(1).max(100).optional().default(25),
+    }),
+    handler: async (params, context) => {
+      return metaAdsFetch(context.serviceConnectionId, `/act_${params.accountId}/adsets?fields=name,status,daily_budget,targeting,bid_amount&limit=${params.limit ?? 25}`);
+    },
+  },
+  {
+    name: "metaAds_get_adset",
+    description: "Get details of an ad set",
+    action: "metaAds:get_adset",
+    inputSchema: z.object({ adsetId: z.string() }),
+    handler: async (params, context) => {
+      return metaAdsFetch(context.serviceConnectionId, `/${params.adsetId}?fields=name,status,daily_budget,targeting`);
+    },
+  },
+  {
+    name: "metaAds_get_adset_insights",
+    description: "Get performance insights for an ad set",
+    action: "metaAds:get_adset_insights",
+    inputSchema: z.object({
+      adsetId: z.string(),
+      date_preset: z.string().optional().default("last_30d"),
+    }),
+    handler: async (params, context) => {
+      return metaAdsFetch(context.serviceConnectionId, `/${params.adsetId}/insights?fields=impressions,clicks,spend,cpc,cpm,ctr,reach&date_preset=${params.date_preset ?? "last_30d"}`);
+    },
+  },
+  {
+    name: "metaAds_list_ads",
+    description: "List ads for an ad account",
+    action: "metaAds:list_ads",
+    inputSchema: z.object({
+      accountId: z.string(),
+      limit: z.number().min(1).max(100).optional().default(25),
+    }),
+    handler: async (params, context) => {
+      return metaAdsFetch(context.serviceConnectionId, `/act_${params.accountId}/ads?fields=name,status,creative,created_time&limit=${params.limit ?? 25}`);
+    },
+  },
+  {
+    name: "metaAds_get_ad",
+    description: "Get details of an ad",
+    action: "metaAds:get_ad",
+    inputSchema: z.object({ adId: z.string() }),
+    handler: async (params, context) => {
+      return metaAdsFetch(context.serviceConnectionId, `/${params.adId}?fields=name,status,creative`);
+    },
+  },
+  {
+    name: "metaAds_get_ad_insights",
+    description: "Get performance insights for an ad",
+    action: "metaAds:get_ad_insights",
+    inputSchema: z.object({
+      adId: z.string(),
+      date_preset: z.string().optional().default("last_30d"),
+    }),
+    handler: async (params, context) => {
+      return metaAdsFetch(context.serviceConnectionId, `/${params.adId}/insights?fields=impressions,clicks,spend,cpc,cpm,ctr&date_preset=${params.date_preset ?? "last_30d"}`);
+    },
+  },
+  {
+    name: "metaAds_get_account_insights",
+    description: "Get performance insights for an ad account",
+    action: "metaAds:get_account_insights",
+    inputSchema: z.object({
+      accountId: z.string(),
+      date_preset: z.string().optional().default("last_30d"),
+    }),
+    handler: async (params, context) => {
+      return metaAdsFetch(context.serviceConnectionId, `/act_${params.accountId}/insights?fields=impressions,clicks,spend,cpc,cpm,ctr,reach,actions&date_preset=${params.date_preset ?? "last_30d"}`);
+    },
+  },
+  {
+    name: "metaAds_update_campaign_status",
+    description: "Update campaign status (ACTIVE or PAUSED)",
+    action: "metaAds:update_campaign_status",
+    inputSchema: z.object({
+      campaignId: z.string(),
+      status: z.enum(["ACTIVE", "PAUSED"]),
+    }),
+    handler: async (params, context) => {
+      return metaAdsFetch(context.serviceConnectionId, `/${params.campaignId}`, {
+        method: "POST",
+        body: JSON.stringify({ status: params.status }),
+      });
+    },
+  },
+  {
+    name: "metaAds_update_adset_status",
+    description: "Update ad set status (ACTIVE or PAUSED)",
+    action: "metaAds:update_adset_status",
+    inputSchema: z.object({
+      adsetId: z.string(),
+      status: z.enum(["ACTIVE", "PAUSED"]),
+    }),
+    handler: async (params, context) => {
+      return metaAdsFetch(context.serviceConnectionId, `/${params.adsetId}`, {
+        method: "POST",
+        body: JSON.stringify({ status: params.status }),
+      });
+    },
+  },
+  // =====================
+  // Twitter Ads tools
+  // =====================
+  {
+    name: "twitterAds_list_accounts",
+    description: "List Twitter Ads accounts",
+    action: "twitterAds:list_accounts",
+    inputSchema: z.object({}),
+    handler: async (_params, context) => {
+      return twitterAdsFetch(context.serviceConnectionId, "/accounts");
+    },
+  },
+  {
+    name: "twitterAds_get_account",
+    description: "Get a Twitter Ads account",
+    action: "twitterAds:get_account",
+    inputSchema: z.object({ accountId: z.string() }),
+    handler: async (params, context) => {
+      return twitterAdsFetch(context.serviceConnectionId, `/accounts/${params.accountId}`);
+    },
+  },
+  {
+    name: "twitterAds_list_campaigns",
+    description: "List campaigns for a Twitter Ads account",
+    action: "twitterAds:list_campaigns",
+    inputSchema: z.object({
+      accountId: z.string(),
+      count: z.number().min(1).max(1000).optional().default(50),
+    }),
+    handler: async (params, context) => {
+      return twitterAdsFetch(context.serviceConnectionId, `/accounts/${params.accountId}/campaigns?count=${params.count ?? 50}`);
+    },
+  },
+  {
+    name: "twitterAds_get_campaign",
+    description: "Get a specific campaign",
+    action: "twitterAds:get_campaign",
+    inputSchema: z.object({
+      accountId: z.string(),
+      campaignId: z.string(),
+    }),
+    handler: async (params, context) => {
+      return twitterAdsFetch(context.serviceConnectionId, `/accounts/${params.accountId}/campaigns/${params.campaignId}`);
+    },
+  },
+  {
+    name: "twitterAds_list_line_items",
+    description: "List line items (ad groups) for a Twitter Ads account",
+    action: "twitterAds:list_line_items",
+    inputSchema: z.object({
+      accountId: z.string(),
+      count: z.number().min(1).max(1000).optional().default(50),
+    }),
+    handler: async (params, context) => {
+      return twitterAdsFetch(context.serviceConnectionId, `/accounts/${params.accountId}/line_items?count=${params.count ?? 50}`);
+    },
+  },
+  {
+    name: "twitterAds_get_line_item",
+    description: "Get a specific line item",
+    action: "twitterAds:get_line_item",
+    inputSchema: z.object({
+      accountId: z.string(),
+      lineItemId: z.string(),
+    }),
+    handler: async (params, context) => {
+      return twitterAdsFetch(context.serviceConnectionId, `/accounts/${params.accountId}/line_items/${params.lineItemId}`);
+    },
+  },
+  {
+    name: "twitterAds_list_promoted_tweets",
+    description: "List promoted tweets for a Twitter Ads account",
+    action: "twitterAds:list_promoted_tweets",
+    inputSchema: z.object({
+      accountId: z.string(),
+      count: z.number().min(1).max(1000).optional().default(50),
+    }),
+    handler: async (params, context) => {
+      return twitterAdsFetch(context.serviceConnectionId, `/accounts/${params.accountId}/promoted_tweets?count=${params.count ?? 50}`);
+    },
+  },
+  {
+    name: "twitterAds_get_campaign_stats",
+    description: "Get campaign performance statistics",
+    action: "twitterAds:get_campaign_stats",
+    inputSchema: z.object({
+      accountId: z.string(),
+      campaignIds: z.string().describe("Comma-separated campaign IDs"),
+      start_time: z.string().describe("ISO 8601 date"),
+      end_time: z.string().describe("ISO 8601 date"),
+      granularity: z.enum(["HOUR", "DAY", "TOTAL"]).optional().default("DAY"),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        entity: "CAMPAIGN",
+        entity_ids: params.campaignIds as string,
+        start_time: params.start_time as string,
+        end_time: params.end_time as string,
+        granularity: (params.granularity as string) || "DAY",
+        metric_groups: "ENGAGEMENT",
+      });
+      return twitterAdsFetch(context.serviceConnectionId, `/stats/accounts/${params.accountId}?${query.toString()}`);
+    },
+  },
+  {
+    name: "twitterAds_update_campaign_status",
+    description: "Update a campaign status",
+    action: "twitterAds:update_campaign_status",
+    inputSchema: z.object({
+      accountId: z.string(),
+      campaignId: z.string(),
+      entity_status: z.enum(["ACTIVE", "PAUSED"]),
+    }),
+    handler: async (params, context) => {
+      return twitterAdsFetch(context.serviceConnectionId, `/accounts/${params.accountId}/campaigns/${params.campaignId}`, {
+        method: "PUT",
+        body: JSON.stringify({ entity_status: params.entity_status }),
+      });
+    },
+  },
+  // =====================
+  // Telegram tools
+  // =====================
+  {
+    name: "telegram_send_message",
+    description: "Send a message via Telegram bot",
+    action: "telegram:send_message",
+    inputSchema: z.object({
+      chat_id: z.union([z.string(), z.number()]),
+      text: z.string(),
+      parse_mode: z.enum(["HTML", "Markdown", "MarkdownV2"]).optional(),
+    }),
+    handler: async (params, context) => {
+      return telegramFetch(context.serviceConnectionId, "sendMessage", {
+        chat_id: params.chat_id,
+        text: params.text,
+        ...(params.parse_mode ? { parse_mode: params.parse_mode } : {}),
+      });
+    },
+  },
+  {
+    name: "telegram_get_updates",
+    description: "Get incoming updates for the Telegram bot",
+    action: "telegram:get_updates",
+    inputSchema: z.object({
+      offset: z.number().optional(),
+      limit: z.number().min(1).max(100).optional().default(20),
+      timeout: z.number().optional().default(0),
+    }),
+    handler: async (params, context) => {
+      return telegramFetch(context.serviceConnectionId, "getUpdates", {
+        offset: params.offset,
+        limit: params.limit,
+        timeout: params.timeout,
+      });
+    },
+  },
+  {
+    name: "telegram_get_chat",
+    description: "Get information about a Telegram chat",
+    action: "telegram:get_chat",
+    inputSchema: z.object({
+      chat_id: z.union([z.string(), z.number()]),
+    }),
+    handler: async (params, context) => {
+      return telegramFetch(context.serviceConnectionId, "getChat", {
+        chat_id: params.chat_id,
+      });
+    },
+  },
+  {
+    name: "telegram_get_chat_members_count",
+    description: "Get the number of members in a chat",
+    action: "telegram:get_chat_members_count",
+    inputSchema: z.object({
+      chat_id: z.union([z.string(), z.number()]),
+    }),
+    handler: async (params, context) => {
+      return telegramFetch(context.serviceConnectionId, "getChatMembersCount", {
+        chat_id: params.chat_id,
+      });
+    },
+  },
+  {
+    name: "telegram_send_photo",
+    description: "Send a photo via Telegram bot",
+    action: "telegram:send_photo",
+    inputSchema: z.object({
+      chat_id: z.union([z.string(), z.number()]),
+      photo: z.string().describe("URL of the photo"),
+      caption: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      return telegramFetch(context.serviceConnectionId, "sendPhoto", {
+        chat_id: params.chat_id,
+        photo: params.photo,
+        ...(params.caption ? { caption: params.caption } : {}),
+      });
+    },
+  },
+  {
+    name: "telegram_send_document",
+    description: "Send a document via Telegram bot",
+    action: "telegram:send_document",
+    inputSchema: z.object({
+      chat_id: z.union([z.string(), z.number()]),
+      document: z.string().describe("URL of the document"),
+      caption: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      return telegramFetch(context.serviceConnectionId, "sendDocument", {
+        chat_id: params.chat_id,
+        document: params.document,
+        ...(params.caption ? { caption: params.caption } : {}),
+      });
+    },
+  },
+  {
+    name: "telegram_pin_message",
+    description: "Pin a message in a chat",
+    action: "telegram:pin_message",
+    inputSchema: z.object({
+      chat_id: z.union([z.string(), z.number()]),
+      message_id: z.number(),
+    }),
+    handler: async (params, context) => {
+      return telegramFetch(context.serviceConnectionId, "pinChatMessage", {
+        chat_id: params.chat_id,
+        message_id: params.message_id,
+      });
+    },
+  },
+  {
+    name: "telegram_unpin_message",
+    description: "Unpin a message in a chat",
+    action: "telegram:unpin_message",
+    inputSchema: z.object({
+      chat_id: z.union([z.string(), z.number()]),
+      message_id: z.number().optional(),
+    }),
+    handler: async (params, context) => {
+      return telegramFetch(context.serviceConnectionId, "unpinChatMessage", {
+        chat_id: params.chat_id,
+        ...(params.message_id ? { message_id: params.message_id } : {}),
+      });
+    },
+  },
+  // =====================
+  // SEMrush tools
+  // =====================
+  {
+    name: "semrush_domain_overview",
+    description: "Get domain overview metrics from SEMrush",
+    action: "semrush:domain_overview",
+    inputSchema: z.object({
+      domain: z.string(),
+      database: z.string().optional().default("us"),
+    }),
+    handler: async (params, context) => {
+      return semrushFetch(context.serviceConnectionId, {
+        type: "domain_ranks",
+        domain: params.domain as string,
+        database: (params.database as string) || "us",
+        export_columns: "Dn,Rk,Or,Ot,Oc,Ad,At,Ac",
+      });
+    },
+  },
+  {
+    name: "semrush_domain_organic",
+    description: "Get organic search data for a domain",
+    action: "semrush:domain_organic",
+    inputSchema: z.object({
+      domain: z.string(),
+      database: z.string().optional().default("us"),
+      display_limit: z.number().optional().default(10),
+    }),
+    handler: async (params, context) => {
+      return semrushFetch(context.serviceConnectionId, {
+        type: "domain_organic",
+        domain: params.domain as string,
+        database: (params.database as string) || "us",
+        display_limit: String(params.display_limit ?? 10),
+        export_columns: "Ph,Po,Nq,Cp,Ur,Tr,Tc,Co,Nr",
+      });
+    },
+  },
+  {
+    name: "semrush_domain_organic_keywords",
+    description: "Get organic keywords for a domain",
+    action: "semrush:domain_organic_keywords",
+    inputSchema: z.object({
+      domain: z.string(),
+      database: z.string().optional().default("us"),
+      display_limit: z.number().optional().default(10),
+    }),
+    handler: async (params, context) => {
+      return semrushFetch(context.serviceConnectionId, {
+        type: "domain_organic",
+        domain: params.domain as string,
+        database: (params.database as string) || "us",
+        display_limit: String(params.display_limit ?? 10),
+        export_columns: "Ph,Po,Nq,Cp,Ur,Tr,Tc,Co,Nr",
+      });
+    },
+  },
+  {
+    name: "semrush_keyword_overview",
+    description: "Get keyword overview data",
+    action: "semrush:keyword_overview",
+    inputSchema: z.object({
+      phrase: z.string(),
+      database: z.string().optional().default("us"),
+    }),
+    handler: async (params, context) => {
+      return semrushFetch(context.serviceConnectionId, {
+        type: "phrase_all",
+        phrase: params.phrase as string,
+        database: (params.database as string) || "us",
+        export_columns: "Ph,Nq,Cp,Co,Nr,Td",
+      });
+    },
+  },
+  {
+    name: "semrush_keyword_difficulty",
+    description: "Get keyword difficulty score",
+    action: "semrush:keyword_difficulty",
+    inputSchema: z.object({
+      phrase: z.string(),
+      database: z.string().optional().default("us"),
+    }),
+    handler: async (params, context) => {
+      return semrushFetch(context.serviceConnectionId, {
+        type: "phrase_kdi",
+        phrase: params.phrase as string,
+        database: (params.database as string) || "us",
+        export_columns: "Ph,Kd",
+      });
+    },
+  },
+  {
+    name: "semrush_backlinks_overview",
+    description: "Get backlinks overview for a domain",
+    action: "semrush:backlinks_overview",
+    inputSchema: z.object({
+      target: z.string(),
+      target_type: z.enum(["root_domain", "domain", "url"]).optional().default("root_domain"),
+    }),
+    handler: async (params, context) => {
+      return semrushFetch(context.serviceConnectionId, {
+        type: "backlinks_overview",
+        target: params.target as string,
+        target_type: (params.target_type as string) || "root_domain",
+        export_columns: "total,domains_num,urls_num,ips_num,follows_num,nofollows_num",
+      });
+    },
+  },
+  // =====================
+  // Ahrefs tools
+  // =====================
+  {
+    name: "ahrefs_domain_rating",
+    description: "Get domain rating from Ahrefs",
+    action: "ahrefs:domain_rating",
+    inputSchema: z.object({
+      target: z.string(),
+      date: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      const p: Record<string, string> = { target: params.target as string };
+      if (params.date) p.date = params.date as string;
+      return ahrefsFetch(context.serviceConnectionId, "/site-explorer/domain-rating", p);
+    },
+  },
+  {
+    name: "ahrefs_backlinks",
+    description: "Get backlinks from Ahrefs",
+    action: "ahrefs:backlinks",
+    inputSchema: z.object({
+      target: z.string(),
+      limit: z.number().min(1).max(1000).optional().default(50),
+    }),
+    handler: async (params, context) => {
+      return ahrefsFetch(context.serviceConnectionId, "/site-explorer/all-backlinks", {
+        target: params.target as string,
+        limit: String(params.limit ?? 50),
+        select: "url_from,url_to,ahrefs_rank,domain_rating,anchor,first_seen,last_seen",
+      });
+    },
+  },
+  {
+    name: "ahrefs_organic_keywords",
+    description: "Get organic keywords from Ahrefs",
+    action: "ahrefs:organic_keywords",
+    inputSchema: z.object({
+      target: z.string(),
+      country: z.string().optional().default("us"),
+      limit: z.number().min(1).max(1000).optional().default(50),
+    }),
+    handler: async (params, context) => {
+      return ahrefsFetch(context.serviceConnectionId, "/site-explorer/organic-keywords", {
+        target: params.target as string,
+        country: (params.country as string) || "us",
+        limit: String(params.limit ?? 50),
+        select: "keyword,volume,position,url,traffic,cpc",
+      });
+    },
+  },
+  {
+    name: "ahrefs_referring_domains",
+    description: "Get referring domains from Ahrefs",
+    action: "ahrefs:referring_domains",
+    inputSchema: z.object({
+      target: z.string(),
+      limit: z.number().min(1).max(1000).optional().default(50),
+    }),
+    handler: async (params, context) => {
+      return ahrefsFetch(context.serviceConnectionId, "/site-explorer/refdomains", {
+        target: params.target as string,
+        limit: String(params.limit ?? 50),
+        select: "domain,domain_rating,backlinks,first_seen,last_seen",
+      });
+    },
+  },
+  {
+    name: "ahrefs_subscription_info",
+    description: "Get Ahrefs subscription info",
+    action: "ahrefs:subscription_info",
+    inputSchema: z.object({}),
+    handler: async (_params, context) => {
+      return ahrefsFetch(context.serviceConnectionId, "/subscription-info");
+    },
+  },
+  // =====================
+  // Stripe tools
+  // =====================
+  {
+    name: "stripe_list_customers",
+    description: "List Stripe customers",
+    action: "stripe:list_customers",
+    inputSchema: z.object({
+      limit: z.number().min(1).max(100).optional().default(10),
+    }),
+    handler: async (params, context) => {
+      return stripeFetch(context.serviceConnectionId, `/customers?limit=${params.limit ?? 10}`);
+    },
+  },
+  {
+    name: "stripe_get_customer",
+    description: "Get a Stripe customer by ID",
+    action: "stripe:get_customer",
+    inputSchema: z.object({ customerId: z.string() }),
+    handler: async (params, context) => {
+      return stripeFetch(context.serviceConnectionId, `/customers/${params.customerId}`);
+    },
+  },
+  {
+    name: "stripe_create_customer",
+    description: "Create a new Stripe customer",
+    action: "stripe:create_customer",
+    inputSchema: z.object({
+      email: z.string().optional(),
+      name: z.string().optional(),
+      description: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      const formData: Record<string, string> = {};
+      if (params.email) formData.email = params.email as string;
+      if (params.name) formData.name = params.name as string;
+      if (params.description) formData.description = params.description as string;
+      return stripeFetch(context.serviceConnectionId, "/customers", { method: "POST", formData });
+    },
+  },
+  {
+    name: "stripe_list_subscriptions",
+    description: "List Stripe subscriptions",
+    action: "stripe:list_subscriptions",
+    inputSchema: z.object({
+      limit: z.number().min(1).max(100).optional().default(10),
+      customer: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({ limit: String(params.limit ?? 10) });
+      if (params.customer) query.set("customer", params.customer as string);
+      return stripeFetch(context.serviceConnectionId, `/subscriptions?${query.toString()}`);
+    },
+  },
+  {
+    name: "stripe_get_subscription",
+    description: "Get a Stripe subscription by ID",
+    action: "stripe:get_subscription",
+    inputSchema: z.object({ subscriptionId: z.string() }),
+    handler: async (params, context) => {
+      return stripeFetch(context.serviceConnectionId, `/subscriptions/${params.subscriptionId}`);
+    },
+  },
+  {
+    name: "stripe_list_invoices",
+    description: "List Stripe invoices",
+    action: "stripe:list_invoices",
+    inputSchema: z.object({
+      limit: z.number().min(1).max(100).optional().default(10),
+      customer: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({ limit: String(params.limit ?? 10) });
+      if (params.customer) query.set("customer", params.customer as string);
+      return stripeFetch(context.serviceConnectionId, `/invoices?${query.toString()}`);
+    },
+  },
+  {
+    name: "stripe_get_invoice",
+    description: "Get a Stripe invoice by ID",
+    action: "stripe:get_invoice",
+    inputSchema: z.object({ invoiceId: z.string() }),
+    handler: async (params, context) => {
+      return stripeFetch(context.serviceConnectionId, `/invoices/${params.invoiceId}`);
+    },
+  },
+  {
+    name: "stripe_get_balance",
+    description: "Get Stripe account balance",
+    action: "stripe:get_balance",
+    inputSchema: z.object({}),
+    handler: async (_params, context) => {
+      return stripeFetch(context.serviceConnectionId, "/balance");
+    },
+  },
+  {
+    name: "stripe_list_charges",
+    description: "List Stripe charges",
+    action: "stripe:list_charges",
+    inputSchema: z.object({
+      limit: z.number().min(1).max(100).optional().default(10),
+    }),
+    handler: async (params, context) => {
+      return stripeFetch(context.serviceConnectionId, `/charges?limit=${params.limit ?? 10}`);
+    },
+  },
+  {
+    name: "stripe_list_payment_intents",
+    description: "List Stripe payment intents",
+    action: "stripe:list_payment_intents",
+    inputSchema: z.object({
+      limit: z.number().min(1).max(100).optional().default(10),
+    }),
+    handler: async (params, context) => {
+      return stripeFetch(context.serviceConnectionId, `/payment_intents?limit=${params.limit ?? 10}`);
+    },
+  },
+  // =====================
+  // Airtable tools
+  // =====================
+  {
+    name: "airtable_list_bases",
+    description: "List all Airtable bases",
+    action: "airtable:list_bases",
+    inputSchema: z.object({}),
+    handler: async (_params, context) => {
+      return airtableFetch(context.serviceConnectionId, "/meta/bases");
+    },
+  },
+  {
+    name: "airtable_get_base_schema",
+    description: "Get the schema of an Airtable base",
+    action: "airtable:get_base_schema",
+    inputSchema: z.object({ baseId: z.string() }),
+    handler: async (params, context) => {
+      return airtableFetch(context.serviceConnectionId, `/meta/bases/${params.baseId}/tables`);
+    },
+  },
+  {
+    name: "airtable_list_records",
+    description: "List records in an Airtable table",
+    action: "airtable:list_records",
+    inputSchema: z.object({
+      baseId: z.string(),
+      tableIdOrName: z.string(),
+      maxRecords: z.number().min(1).max(100).optional().default(20),
+      view: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({ maxRecords: String(params.maxRecords ?? 20) });
+      if (params.view) query.set("view", params.view as string);
+      return airtableFetch(context.serviceConnectionId, `/${params.baseId}/${params.tableIdOrName}?${query.toString()}`);
+    },
+  },
+  {
+    name: "airtable_get_record",
+    description: "Get a specific Airtable record",
+    action: "airtable:get_record",
+    inputSchema: z.object({
+      baseId: z.string(),
+      tableIdOrName: z.string(),
+      recordId: z.string(),
+    }),
+    handler: async (params, context) => {
+      return airtableFetch(context.serviceConnectionId, `/${params.baseId}/${params.tableIdOrName}/${params.recordId}`);
+    },
+  },
+  {
+    name: "airtable_create_record",
+    description: "Create a new record in an Airtable table",
+    action: "airtable:create_record",
+    inputSchema: z.object({
+      baseId: z.string(),
+      tableIdOrName: z.string(),
+      fields: z.record(z.string(), z.unknown()),
+    }),
+    handler: async (params, context) => {
+      return airtableFetch(context.serviceConnectionId, `/${params.baseId}/${params.tableIdOrName}`, {
+        method: "POST",
+        body: JSON.stringify({ fields: params.fields }),
+      });
+    },
+  },
+  {
+    name: "airtable_update_record",
+    description: "Update an Airtable record",
+    action: "airtable:update_record",
+    inputSchema: z.object({
+      baseId: z.string(),
+      tableIdOrName: z.string(),
+      recordId: z.string(),
+      fields: z.record(z.string(), z.unknown()),
+    }),
+    handler: async (params, context) => {
+      return airtableFetch(context.serviceConnectionId, `/${params.baseId}/${params.tableIdOrName}/${params.recordId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ fields: params.fields }),
+      });
+    },
+  },
+  {
+    name: "airtable_delete_record",
+    description: "Delete an Airtable record",
+    action: "airtable:delete_record",
+    inputSchema: z.object({
+      baseId: z.string(),
+      tableIdOrName: z.string(),
+      recordId: z.string(),
+    }),
+    handler: async (params, context) => {
+      return airtableFetch(context.serviceConnectionId, `/${params.baseId}/${params.tableIdOrName}/${params.recordId}`, {
+        method: "DELETE",
+      });
+    },
+  },
+  // =====================
+  // Calendly tools
+  // =====================
+  {
+    name: "calendly_get_current_user",
+    description: "Get the current Calendly user",
+    action: "calendly:get_current_user",
+    inputSchema: z.object({}),
+    handler: async (_params, context) => {
+      return calendlyFetch(context.serviceConnectionId, "/users/me");
+    },
+  },
+  {
+    name: "calendly_list_event_types",
+    description: "List Calendly event types",
+    action: "calendly:list_event_types",
+    inputSchema: z.object({
+      user: z.string().describe("User URI from /users/me"),
+      count: z.number().min(1).max(100).optional().default(20),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        user: params.user as string,
+        count: String(params.count ?? 20),
+      });
+      return calendlyFetch(context.serviceConnectionId, `/event_types?${query.toString()}`);
+    },
+  },
+  {
+    name: "calendly_list_scheduled_events",
+    description: "List scheduled Calendly events",
+    action: "calendly:list_scheduled_events",
+    inputSchema: z.object({
+      user: z.string().describe("User URI"),
+      count: z.number().min(1).max(100).optional().default(20),
+      status: z.enum(["active", "canceled"]).optional().default("active"),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        user: params.user as string,
+        count: String(params.count ?? 20),
+        status: (params.status as string) || "active",
+      });
+      return calendlyFetch(context.serviceConnectionId, `/scheduled_events?${query.toString()}`);
+    },
+  },
+  {
+    name: "calendly_get_event",
+    description: "Get a specific Calendly event",
+    action: "calendly:get_event",
+    inputSchema: z.object({
+      eventUuid: z.string(),
+    }),
+    handler: async (params, context) => {
+      return calendlyFetch(context.serviceConnectionId, `/scheduled_events/${params.eventUuid}`);
+    },
+  },
+  {
+    name: "calendly_list_invitees",
+    description: "List invitees for a Calendly event",
+    action: "calendly:list_invitees",
+    inputSchema: z.object({
+      eventUuid: z.string(),
+      count: z.number().min(1).max(100).optional().default(20),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({ count: String(params.count ?? 20) });
+      return calendlyFetch(context.serviceConnectionId, `/scheduled_events/${params.eventUuid}/invitees?${query.toString()}`);
+    },
+  },
+  {
+    name: "calendly_cancel_event",
+    description: "Cancel a Calendly event",
+    action: "calendly:cancel_event",
+    inputSchema: z.object({
+      eventUuid: z.string(),
+      reason: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      return calendlyFetch(context.serviceConnectionId, `/scheduled_events/${params.eventUuid}/cancellation`, {
+        method: "POST",
+        body: JSON.stringify({ reason: params.reason }),
+      });
     },
   },
 ];

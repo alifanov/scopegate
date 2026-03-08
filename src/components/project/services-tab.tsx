@@ -28,10 +28,16 @@ import { Plug, Unplug, ArrowLeft, RefreshCw, AlertTriangle, XCircle } from "luci
 import { ServiceIcon } from "@/components/service-icons";
 import { toast } from "sonner";
 
-const API_KEY_PROVIDERS = new Set(["openRouter", "twitter"]);
+const API_KEY_PROVIDERS = new Set(["openRouter", "twitter", "twitterAds", "telegram", "semrush", "ahrefs", "stripe", "airtable", "calendly"]);
 
 const API_KEY_PLACEHOLDERS: Record<string, string> = {
   openRouter: "sk-or-...",
+  stripe: "sk_live_... or sk_test_...",
+  airtable: "pat...",
+  calendly: "eyJ...",
+  telegram: "123456:ABC-DEF...",
+  semrush: "API key",
+  ahrefs: "API key",
 };
 
 const API_KEY_HELP: Record<string, React.ReactNode> = {
@@ -105,13 +111,22 @@ export function ServicesTab({ projectId }: { projectId: string }) {
     }
   }
 
-  const LINKEDIN_OAUTH_PROVIDER = "linkedin";
+  const STANDALONE_OAUTH_PROVIDERS: Record<string, string> = {
+    linkedin: "linkedin",
+    slack: "slack",
+    notion: "notion",
+    hubspot: "hubspot",
+    github: "github",
+    jira: "jira",
+    salesforce: "salesforce",
+    metaAds: "meta",
+  };
 
   function handleConnect(providerKey: string) {
     if (API_KEY_PROVIDERS.has(providerKey)) {
       setApiKeyProvider(providerKey);
-    } else if (providerKey === LINKEDIN_OAUTH_PROVIDER) {
-      window.location.href = `/api/oauth/linkedin?projectId=${projectId}`;
+    } else if (STANDALONE_OAUTH_PROVIDERS[providerKey]) {
+      window.location.href = `/api/oauth/${STANDALONE_OAUTH_PROVIDERS[providerKey]}?projectId=${projectId}`;
     } else {
       window.location.href = `/api/oauth/google?projectId=${projectId}&provider=${providerKey}`;
     }
@@ -123,8 +138,8 @@ export function ServicesTab({ projectId }: { projectId: string }) {
       setApiKeyProvider(service.provider);
       setDialogOpen(true);
       setReconnecting(null);
-    } else if (service.provider === LINKEDIN_OAUTH_PROVIDER) {
-      window.location.href = `/api/oauth/linkedin?projectId=${projectId}`;
+    } else if (STANDALONE_OAUTH_PROVIDERS[service.provider]) {
+      window.location.href = `/api/oauth/${STANDALONE_OAUTH_PROVIDERS[service.provider]}?projectId=${projectId}`;
     } else {
       window.location.href = `/api/oauth/google?projectId=${projectId}&provider=${service.provider}`;
     }
@@ -150,7 +165,7 @@ export function ServicesTab({ projectId }: { projectId: string }) {
     e.preventDefault();
     if (!apiKeyProvider) return;
 
-    const isTwitter = apiKeyProvider === "twitter";
+    const isTwitter = apiKeyProvider === "twitter" || apiKeyProvider === "twitterAds";
     if (isTwitter) {
       if (!twitterApiKey.trim() || !twitterApiSecret.trim() || !twitterAccessToken.trim() || !twitterAccessTokenSecret.trim()) return;
     } else {
@@ -251,7 +266,7 @@ export function ServicesTab({ projectId }: { projectId: string }) {
             </DialogTitle>
             <DialogDescription>
               {apiKeyProvider
-                ? apiKeyProvider === "twitter"
+                ? apiKeyProvider === "twitter" || apiKeyProvider === "twitterAds"
                   ? "Enter your OAuth 1.0a credentials to connect Twitter."
                   : "Enter your API key to connect this service."
                 : "Choose a service to connect to this project."}
@@ -275,7 +290,7 @@ export function ServicesTab({ projectId }: { projectId: string }) {
                 </p>
               )}
 
-              {apiKeyProvider === "twitter" ? (
+              {apiKeyProvider === "twitter" || apiKeyProvider === "twitterAds" ? (
                 <>
                   <div className="space-y-2">
                     <Label htmlFor="twitter-api-key">API Key</Label>
@@ -352,7 +367,7 @@ export function ServicesTab({ projectId }: { projectId: string }) {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={apiKeySubmitting || (apiKeyProvider === "twitter"
+                disabled={apiKeySubmitting || (apiKeyProvider === "twitter" || apiKeyProvider === "twitterAds"
                   ? !twitterApiKey.trim() || !twitterApiSecret.trim() || !twitterAccessToken.trim() || !twitterAccessTokenSecret.trim()
                   : !apiKeyValue.trim())}
               >

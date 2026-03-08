@@ -6,7 +6,7 @@ import OAuth from "oauth-1.0a";
 import crypto from "crypto";
 import type { TwitterOAuthCredentials } from "@/lib/mcp/twitter";
 
-const API_KEY_PROVIDERS = ["openRouter", "twitter"] as const;
+const API_KEY_PROVIDERS = ["openRouter", "twitter", "twitterAds", "telegram", "semrush", "ahrefs", "stripe", "airtable", "calendly"] as const;
 type ApiKeyProvider = (typeof API_KEY_PROVIDERS)[number];
 
 function isApiKeyProvider(value: string): value is ApiKeyProvider {
@@ -52,6 +52,101 @@ async function validateTwitterCredentials(
   return { valid: true, label: data.data?.username ? `@${data.data.username}` : undefined };
 }
 
+async function validateTelegramKey(
+  apiKey: string
+): Promise<{ valid: boolean; label?: string }> {
+  const res = await fetch(`https://api.telegram.org/bot${apiKey}/getMe`);
+  if (!res.ok) return { valid: false };
+  const data = (await res.json()) as {
+    ok: boolean;
+    result?: { username?: string; first_name?: string };
+  };
+  if (!data.ok) return { valid: false };
+  return {
+    valid: true,
+    label: data.result?.username
+      ? `@${data.result.username}`
+      : data.result?.first_name,
+  };
+}
+
+async function validateSemrushKey(
+  apiKey: string
+): Promise<{ valid: boolean; label?: string }> {
+  const res = await fetch(
+    `https://api.semrush.com/?type=domain_ranks&key=${encodeURIComponent(apiKey)}&export_columns=Dn&domain=example.com&database=us`
+  );
+  const text = await res.text();
+  if (text.startsWith("ERROR")) return { valid: false };
+  return { valid: true, label: "SEMrush API" };
+}
+
+async function validateAhrefsKey(
+  apiKey: string
+): Promise<{ valid: boolean; label?: string }> {
+  const res = await fetch("https://api.ahrefs.com/v3/subscription-info", {
+    headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+  });
+  if (!res.ok) return { valid: false };
+  return { valid: true, label: "Ahrefs API" };
+}
+
+async function validateStripeKey(
+  apiKey: string
+): Promise<{ valid: boolean; label?: string }> {
+  const res = await fetch("https://api.stripe.com/v1/balance", {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!res.ok) return { valid: false };
+  return {
+    valid: true,
+    label: apiKey.startsWith("sk_live_") ? "Live" : "Test",
+  };
+}
+
+async function validateAirtableKey(
+  apiKey: string
+): Promise<{ valid: boolean; label?: string }> {
+  const res = await fetch("https://api.airtable.com/v0/meta/whoami", {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!res.ok) return { valid: false };
+  const data = (await res.json()) as { email?: string };
+  return { valid: true, label: data.email };
+}
+
+async function validateCalendlyKey(
+  apiKey: string
+): Promise<{ valid: boolean; label?: string }> {
+  const res = await fetch("https://api.calendly.com/users/me", {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+  });
+  if (!res.ok) return { valid: false };
+  const data = (await res.json()) as {
+    resource?: { name?: string; email?: string };
+  };
+  return {
+    valid: true,
+    label: data.resource?.email || data.resource?.name,
+  };
+}
+
+const SIMPLE_KEY_VALIDATORS: Record<
+  string,
+  (key: string) => Promise<{ valid: boolean; label?: string }>
+> = {
+  openRouter: validateOpenRouterKey,
+  telegram: validateTelegramKey,
+  semrush: validateSemrushKey,
+  ahrefs: validateAhrefsKey,
+  stripe: validateStripeKey,
+  airtable: validateAirtableKey,
+  calendly: validateCalendlyKey,
+};
+
 // POST /api/projects/[projectId]/services/connect-api-key
 export async function POST(
   request: Request,
@@ -96,7 +191,7 @@ export async function POST(
   let validation: { valid: boolean; label?: string };
   let encryptedValue: string;
 
-  if (provider === "twitter") {
+  if (provider === "twitter" || provider === "twitterAds") {
     const { twitterApiKey, twitterApiSecret, twitterAccessToken, twitterAccessTokenSecret } = body;
     if (!twitterApiKey || !twitterApiSecret || !twitterAccessToken || !twitterAccessTokenSecret) {
       return NextResponse.json(
@@ -120,7 +215,16 @@ export async function POST(
         { status: 400 }
       );
     }
-    validation = await validateOpenRouterKey(apiKey);
+
+    const validator = SIMPLE_KEY_VALIDATORS[provider];
+    if (!validator) {
+      return NextResponse.json(
+        { error: "No validator for provider" },
+        { status: 400 }
+      );
+    }
+
+    validation = await validator(apiKey);
     encryptedValue = encrypt(apiKey);
   }
 

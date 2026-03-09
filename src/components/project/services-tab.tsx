@@ -18,6 +18,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -257,7 +265,7 @@ export function ServicesTab({ projectId }: { projectId: string }) {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               {apiKeyProvider
@@ -375,22 +383,46 @@ export function ServicesTab({ projectId }: { projectId: string }) {
               </Button>
             </form>
           ) : (
-            <div className="space-y-2">
-              {providers.map((provider) => (
-                <button
-                  key={provider.key}
-                  onClick={() => handleConnect(provider.key)}
-                  className="flex w-full cursor-pointer items-center gap-4 rounded-lg border p-4 text-left transition-colors hover:bg-muted"
-                >
-                  <ServiceIcon provider={provider.key} className="size-8 shrink-0" />
-                  <div>
-                    <div className="font-medium">{provider.name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {provider.description}
-                    </div>
-                  </div>
-                </button>
-              ))}
+            <div className="max-h-[60vh] overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Service</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Auth</TableHead>
+                    <TableHead className="w-[1%]" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {providers.map((provider) => (
+                    <TableRow
+                      key={provider.key}
+                      className="cursor-pointer"
+                      onClick={() => handleConnect(provider.key)}
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <ServiceIcon provider={provider.key} className="size-5 shrink-0" />
+                          <span className="font-medium">{provider.name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {provider.description}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">
+                          {API_KEY_PROVIDERS.has(provider.key) ? "API Key" : "OAuth"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button size="sm" variant="ghost">
+                          <Plug className="size-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </DialogContent>

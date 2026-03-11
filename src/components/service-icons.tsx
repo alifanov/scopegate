@@ -231,6 +231,15 @@ function AirtableIcon(props: SvgProps) {
   );
 }
 
+function YouTubeIcon(props: SvgProps) {
+  return (
+    <svg viewBox="0 0 48 48" {...props}>
+      <path fill="#FF3D00" d="M43.2 13.6c-.5-1.8-1.9-3.2-3.7-3.7C36.2 9 24 9 24 9s-12.2 0-15.5.9c-1.8.5-3.2 1.9-3.7 3.7C4 16.9 4 24 4 24s0 7.1.8 10.4c.5 1.8 1.9 3.2 3.7 3.7C11.8 39 24 39 24 39s12.2 0 15.5-.9c1.8-.5 3.2-1.9 3.7-3.7C44 31.1 44 24 44 24s0-7.1-.8-10.4z"/>
+      <path fill="#fff" d="M20 30.5V17.5l10 6.5z"/>
+    </svg>
+  );
+}
+
 function CalendlyIcon(props: SvgProps) {
   return (
     <svg viewBox="0 0 48 48" {...props}>
@@ -263,6 +272,7 @@ const ICONS: Record<string, (props: SvgProps) => React.ReactElement> = {
   stripe: StripeIcon,
   airtable: AirtableIcon,
   calendly: CalendlyIcon,
+  youtube: YouTubeIcon,
 };
 
 export function ServiceIcon({

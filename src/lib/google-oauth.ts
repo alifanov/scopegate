@@ -10,6 +10,7 @@ export const GOOGLE_SCOPES: Record<string, string> = {
   drive: "https://www.googleapis.com/auth/drive",
   googleAds: "https://www.googleapis.com/auth/adwords",
   searchConsole: "https://www.googleapis.com/auth/webmasters",
+  youtube: "https://www.googleapis.com/auth/youtube",
 };
 
 export const VALID_PROVIDERS = Object.keys(GOOGLE_SCOPES);

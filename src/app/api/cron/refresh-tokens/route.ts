@@ -10,6 +10,7 @@ const GOOGLE_PROVIDERS = new Set([
   "drive",
   "googleAds",
   "searchConsole",
+  "youtube",
 ]);
 
 export async function POST(request: Request) {

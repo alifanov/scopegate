@@ -4042,7 +4042,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     }),
     handler: async (params, context) => {
       const query = new URLSearchParams({
-        part: "snippet,statistics,contentDetails",
+        part: "snippet",
         type: "video",
         maxResults: String(params.maxResults ?? 10),
         order: (params.order as string) || "date",
@@ -4053,7 +4053,18 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         query.set("forMine", "true");
       }
       if (params.pageToken) query.set("pageToken", params.pageToken as string);
-      return youtubeFetch(context.serviceConnectionId, `/search?${query.toString()}`);
+      // search.list only supports snippet; fetch full details via videos.list
+      const searchResult = await youtubeFetch(context.serviceConnectionId, `/search?${query.toString()}`) as { items?: Array<{ id?: { videoId?: string }; snippet?: unknown }>; [key: string]: unknown };
+      const videoIds = (searchResult.items ?? [])
+        .map((item) => item.id?.videoId)
+        .filter(Boolean)
+        .join(",");
+      if (!videoIds) return searchResult;
+      const detailQuery = new URLSearchParams({
+        part: "snippet,statistics,contentDetails",
+        id: videoIds,
+      });
+      return youtubeFetch(context.serviceConnectionId, `/videos?${detailQuery.toString()}`);
     },
   },
   {

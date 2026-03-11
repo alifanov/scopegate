@@ -20,6 +20,7 @@ import { ahrefsFetch } from "./ahrefs";
 import { stripeFetch } from "./stripe";
 import { airtableFetch } from "./airtable";
 import { calendlyFetch } from "./calendly";
+import { youtubeFetch } from "./youtube";
 
 function buildDateCondition(params: Record<string, unknown>): string {
   if (params.dateRangeStart && params.dateRangeEnd) {
@@ -3995,6 +3996,457 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         method: "POST",
         body: JSON.stringify({ reason: params.reason }),
       });
+    },
+  },
+  // YouTube tools
+  {
+    name: "youtube_list_channels",
+    description: "List YouTube channels for the authenticated user",
+    action: "youtube:list_channels",
+    inputSchema: z.object({
+      maxResults: z.number().optional().default(10),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        part: "snippet,statistics,contentDetails",
+        mine: "true",
+        maxResults: String(params.maxResults ?? 10),
+      });
+      return youtubeFetch(context.serviceConnectionId, `/channels?${query.toString()}`);
+    },
+  },
+  {
+    name: "youtube_get_channel",
+    description: "Get details of a YouTube channel by ID",
+    action: "youtube:get_channel",
+    inputSchema: z.object({
+      channelId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid channel ID format"),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        part: "snippet,statistics,contentDetails,brandingSettings",
+        id: params.channelId as string,
+      });
+      return youtubeFetch(context.serviceConnectionId, `/channels?${query.toString()}`);
+    },
+  },
+  {
+    name: "youtube_list_videos",
+    description: "List videos from a channel or the authenticated user's uploads",
+    action: "youtube:list_videos",
+    inputSchema: z.object({
+      channelId: z.string().optional(),
+      maxResults: z.number().optional().default(10),
+      order: z.enum(["date", "rating", "relevance", "title", "viewCount"]).optional().default("date"),
+      pageToken: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        part: "snippet,statistics,contentDetails",
+        type: "video",
+        maxResults: String(params.maxResults ?? 10),
+        order: (params.order as string) || "date",
+      });
+      if (params.channelId) {
+        query.set("channelId", params.channelId as string);
+      } else {
+        query.set("forMine", "true");
+      }
+      if (params.pageToken) query.set("pageToken", params.pageToken as string);
+      return youtubeFetch(context.serviceConnectionId, `/search?${query.toString()}`);
+    },
+  },
+  {
+    name: "youtube_get_video",
+    description: "Get details of a YouTube video by ID",
+    action: "youtube:get_video",
+    inputSchema: z.object({
+      videoId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid video ID format"),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        part: "snippet,statistics,contentDetails,status",
+        id: params.videoId as string,
+      });
+      return youtubeFetch(context.serviceConnectionId, `/videos?${query.toString()}`);
+    },
+  },
+  {
+    name: "youtube_upload_video",
+    description: "Update metadata for a YouTube video (title, description, tags, privacy). For actual file upload, use the YouTube Studio UI.",
+    action: "youtube:upload_video",
+    inputSchema: z.object({
+      videoId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid video ID format"),
+      title: z.string().optional(),
+      description: z.string().optional(),
+      tags: z.array(z.string()).optional(),
+      privacyStatus: z.enum(["public", "private", "unlisted"]).optional(),
+      categoryId: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      const { videoId, ...fields } = params;
+      const body: Record<string, unknown> = { id: videoId };
+      const snippet: Record<string, unknown> = {};
+      if (fields.title) snippet.title = fields.title;
+      if (fields.description) snippet.description = fields.description;
+      if (fields.tags) snippet.tags = fields.tags;
+      if (fields.categoryId) snippet.categoryId = fields.categoryId;
+      if (Object.keys(snippet).length > 0) body.snippet = snippet;
+      if (fields.privacyStatus) body.status = { privacyStatus: fields.privacyStatus };
+
+      const parts: string[] = [];
+      if (body.snippet) parts.push("snippet");
+      if (body.status) parts.push("status");
+      if (parts.length === 0) throw new Error("At least one field to update is required");
+
+      const query = new URLSearchParams({ part: parts.join(",") });
+      return youtubeFetch(context.serviceConnectionId, `/videos?${query.toString()}`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+      });
+    },
+  },
+  {
+    name: "youtube_update_video",
+    description: "Update metadata for a YouTube video",
+    action: "youtube:update_video",
+    inputSchema: z.object({
+      videoId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid video ID format"),
+      title: z.string().optional(),
+      description: z.string().optional(),
+      tags: z.array(z.string()).optional(),
+      privacyStatus: z.enum(["public", "private", "unlisted"]).optional(),
+      categoryId: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      const { videoId, ...fields } = params;
+      const body: Record<string, unknown> = { id: videoId };
+      const snippet: Record<string, unknown> = {};
+      if (fields.title) snippet.title = fields.title;
+      if (fields.description) snippet.description = fields.description;
+      if (fields.tags) snippet.tags = fields.tags;
+      if (fields.categoryId) snippet.categoryId = fields.categoryId;
+      if (Object.keys(snippet).length > 0) body.snippet = snippet;
+      if (fields.privacyStatus) body.status = { privacyStatus: fields.privacyStatus };
+
+      const parts: string[] = [];
+      if (body.snippet) parts.push("snippet");
+      if (body.status) parts.push("status");
+      if (parts.length === 0) throw new Error("At least one field to update is required");
+
+      const query = new URLSearchParams({ part: parts.join(",") });
+      return youtubeFetch(context.serviceConnectionId, `/videos?${query.toString()}`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+      });
+    },
+  },
+  {
+    name: "youtube_delete_video",
+    description: "Delete a YouTube video",
+    action: "youtube:delete_video",
+    inputSchema: z.object({
+      videoId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid video ID format"),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({ id: params.videoId as string });
+      return youtubeFetch(context.serviceConnectionId, `/videos?${query.toString()}`, {
+        method: "DELETE",
+      });
+    },
+  },
+  {
+    name: "youtube_list_playlists",
+    description: "List playlists for the authenticated user or a channel",
+    action: "youtube:list_playlists",
+    inputSchema: z.object({
+      channelId: z.string().optional(),
+      maxResults: z.number().optional().default(10),
+      pageToken: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        part: "snippet,contentDetails,status",
+        maxResults: String(params.maxResults ?? 10),
+      });
+      if (params.channelId) {
+        query.set("channelId", params.channelId as string);
+      } else {
+        query.set("mine", "true");
+      }
+      if (params.pageToken) query.set("pageToken", params.pageToken as string);
+      return youtubeFetch(context.serviceConnectionId, `/playlists?${query.toString()}`);
+    },
+  },
+  {
+    name: "youtube_get_playlist",
+    description: "Get details of a YouTube playlist by ID",
+    action: "youtube:get_playlist",
+    inputSchema: z.object({
+      playlistId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid playlist ID format"),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        part: "snippet,contentDetails,status",
+        id: params.playlistId as string,
+      });
+      return youtubeFetch(context.serviceConnectionId, `/playlists?${query.toString()}`);
+    },
+  },
+  {
+    name: "youtube_create_playlist",
+    description: "Create a new YouTube playlist",
+    action: "youtube:create_playlist",
+    inputSchema: z.object({
+      title: z.string(),
+      description: z.string().optional(),
+      privacyStatus: z.enum(["public", "private", "unlisted"]).optional().default("private"),
+    }),
+    handler: async (params, context) => {
+      const body = {
+        snippet: {
+          title: params.title,
+          description: params.description || "",
+        },
+        status: {
+          privacyStatus: params.privacyStatus || "private",
+        },
+      };
+      return youtubeFetch(context.serviceConnectionId, "/playlists?part=snippet,status", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+    },
+  },
+  {
+    name: "youtube_update_playlist",
+    description: "Update a YouTube playlist",
+    action: "youtube:update_playlist",
+    inputSchema: z.object({
+      playlistId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid playlist ID format"),
+      title: z.string().optional(),
+      description: z.string().optional(),
+      privacyStatus: z.enum(["public", "private", "unlisted"]).optional(),
+    }),
+    handler: async (params, context) => {
+      const { playlistId, ...fields } = params;
+      const body: Record<string, unknown> = { id: playlistId };
+      const snippet: Record<string, unknown> = {};
+      if (fields.title) snippet.title = fields.title;
+      if (fields.description) snippet.description = fields.description;
+      if (Object.keys(snippet).length > 0) body.snippet = snippet;
+      if (fields.privacyStatus) body.status = { privacyStatus: fields.privacyStatus };
+
+      const parts: string[] = [];
+      if (body.snippet) parts.push("snippet");
+      if (body.status) parts.push("status");
+      if (parts.length === 0) throw new Error("At least one field to update is required");
+
+      const query = new URLSearchParams({ part: parts.join(",") });
+      return youtubeFetch(context.serviceConnectionId, `/playlists?${query.toString()}`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+      });
+    },
+  },
+  {
+    name: "youtube_delete_playlist",
+    description: "Delete a YouTube playlist",
+    action: "youtube:delete_playlist",
+    inputSchema: z.object({
+      playlistId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid playlist ID format"),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({ id: params.playlistId as string });
+      return youtubeFetch(context.serviceConnectionId, `/playlists?${query.toString()}`, {
+        method: "DELETE",
+      });
+    },
+  },
+  {
+    name: "youtube_list_playlist_items",
+    description: "List videos in a YouTube playlist",
+    action: "youtube:list_playlist_items",
+    inputSchema: z.object({
+      playlistId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid playlist ID format"),
+      maxResults: z.number().optional().default(10),
+      pageToken: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        part: "snippet,contentDetails,status",
+        playlistId: params.playlistId as string,
+        maxResults: String(params.maxResults ?? 10),
+      });
+      if (params.pageToken) query.set("pageToken", params.pageToken as string);
+      return youtubeFetch(context.serviceConnectionId, `/playlistItems?${query.toString()}`);
+    },
+  },
+  {
+    name: "youtube_add_playlist_item",
+    description: "Add a video to a YouTube playlist",
+    action: "youtube:add_playlist_item",
+    inputSchema: z.object({
+      playlistId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid playlist ID format"),
+      videoId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid video ID format"),
+      position: z.number().optional(),
+    }),
+    handler: async (params, context) => {
+      const body: Record<string, unknown> = {
+        snippet: {
+          playlistId: params.playlistId,
+          resourceId: {
+            kind: "youtube#video",
+            videoId: params.videoId,
+          },
+        },
+      };
+      if (params.position !== undefined) {
+        (body.snippet as Record<string, unknown>).position = params.position;
+      }
+      return youtubeFetch(context.serviceConnectionId, "/playlistItems?part=snippet", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+    },
+  },
+  {
+    name: "youtube_remove_playlist_item",
+    description: "Remove a video from a YouTube playlist",
+    action: "youtube:remove_playlist_item",
+    inputSchema: z.object({
+      playlistItemId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid playlist item ID format"),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({ id: params.playlistItemId as string });
+      return youtubeFetch(context.serviceConnectionId, `/playlistItems?${query.toString()}`, {
+        method: "DELETE",
+      });
+    },
+  },
+  {
+    name: "youtube_search",
+    description: "Search YouTube for videos, channels, or playlists",
+    action: "youtube:search",
+    inputSchema: z.object({
+      query: z.string(),
+      type: z.enum(["video", "channel", "playlist"]).optional().default("video"),
+      maxResults: z.number().optional().default(10),
+      order: z.enum(["date", "rating", "relevance", "title", "viewCount"]).optional().default("relevance"),
+      pageToken: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        part: "snippet",
+        q: params.query as string,
+        type: (params.type as string) || "video",
+        maxResults: String(params.maxResults ?? 10),
+        order: (params.order as string) || "relevance",
+      });
+      if (params.pageToken) query.set("pageToken", params.pageToken as string);
+      return youtubeFetch(context.serviceConnectionId, `/search?${query.toString()}`);
+    },
+  },
+  {
+    name: "youtube_list_comments",
+    description: "List comments on a YouTube video",
+    action: "youtube:list_comments",
+    inputSchema: z.object({
+      videoId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid video ID format"),
+      maxResults: z.number().optional().default(20),
+      order: z.enum(["time", "relevance"]).optional().default("time"),
+      pageToken: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        part: "snippet,replies",
+        videoId: params.videoId as string,
+        maxResults: String(params.maxResults ?? 20),
+        order: (params.order as string) || "time",
+      });
+      if (params.pageToken) query.set("pageToken", params.pageToken as string);
+      return youtubeFetch(context.serviceConnectionId, `/commentThreads?${query.toString()}`);
+    },
+  },
+  {
+    name: "youtube_add_comment",
+    description: "Add a comment to a YouTube video",
+    action: "youtube:add_comment",
+    inputSchema: z.object({
+      videoId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid video ID format"),
+      text: z.string(),
+    }),
+    handler: async (params, context) => {
+      const body = {
+        snippet: {
+          videoId: params.videoId,
+          topLevelComment: {
+            snippet: {
+              textOriginal: params.text,
+            },
+          },
+        },
+      };
+      return youtubeFetch(context.serviceConnectionId, "/commentThreads?part=snippet", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+    },
+  },
+  {
+    name: "youtube_delete_comment",
+    description: "Delete a YouTube comment",
+    action: "youtube:delete_comment",
+    inputSchema: z.object({
+      commentId: z.string(),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({ id: params.commentId as string });
+      return youtubeFetch(context.serviceConnectionId, `/comments?${query.toString()}`, {
+        method: "DELETE",
+      });
+    },
+  },
+  {
+    name: "youtube_list_subscriptions",
+    description: "List subscriptions for the authenticated user",
+    action: "youtube:list_subscriptions",
+    inputSchema: z.object({
+      maxResults: z.number().optional().default(10),
+      order: z.enum(["alphabetical", "relevance", "unread"]).optional().default("relevance"),
+      pageToken: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        part: "snippet,contentDetails",
+        mine: "true",
+        maxResults: String(params.maxResults ?? 10),
+        order: (params.order as string) || "relevance",
+      });
+      if (params.pageToken) query.set("pageToken", params.pageToken as string);
+      return youtubeFetch(context.serviceConnectionId, `/subscriptions?${query.toString()}`);
+    },
+  },
+  {
+    name: "youtube_get_analytics",
+    description: "Get analytics for the authenticated user's YouTube channel (views, watch time, subscribers)",
+    action: "youtube:get_analytics",
+    inputSchema: z.object({
+      channelId: z.string().optional(),
+      maxResults: z.number().optional().default(10),
+    }),
+    handler: async (params, context) => {
+      // Use the YouTube Data API to get channel statistics (basic analytics)
+      const query = new URLSearchParams({
+        part: "snippet,statistics,contentDetails",
+        maxResults: String(params.maxResults ?? 10),
+      });
+      if (params.channelId) {
+        query.set("id", params.channelId as string);
+      } else {
+        query.set("mine", "true");
+      }
+      return youtubeFetch(context.serviceConnectionId, `/channels?${query.toString()}`);
     },
   },
 ];

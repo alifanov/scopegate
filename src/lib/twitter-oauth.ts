@@ -8,7 +8,6 @@ const TWITTER_CLIENT_SECRET = process.env.TWITTER_CLIENT_SECRET!;
 const TWITTER_SCOPES = [
   "tweet.read",
   "tweet.write",
-  "tweet.moderate",
   "users.read",
   "follows.read",
   "follows.write",
@@ -16,8 +15,6 @@ const TWITTER_SCOPES = [
   "like.write",
   "bookmark.read",
   "bookmark.write",
-  "dm.read",
-  "dm.write",
   "mute.read",
   "mute.write",
   "block.read",

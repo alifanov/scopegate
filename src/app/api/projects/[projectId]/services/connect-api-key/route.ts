@@ -2,11 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-middleware";
 import { encrypt } from "@/lib/crypto";
-import OAuth from "oauth-1.0a";
-import crypto from "crypto";
-import type { TwitterOAuthCredentials } from "@/lib/mcp/twitter";
 
-const API_KEY_PROVIDERS = ["openRouter", "twitter", "twitterAds", "telegram", "semrush", "ahrefs", "stripe", "airtable", "calendly"] as const;
+const API_KEY_PROVIDERS = ["openRouter", "telegram", "semrush", "ahrefs", "stripe", "airtable", "calendly"] as const;
 type ApiKeyProvider = (typeof API_KEY_PROVIDERS)[number];
 
 function isApiKeyProvider(value: string): value is ApiKeyProvider {
@@ -22,34 +19,6 @@ async function validateOpenRouterKey(
   if (!res.ok) return { valid: false };
   const data = (await res.json()) as { data?: { label?: string } };
   return { valid: true, label: data.data?.label };
-}
-
-async function validateTwitterCredentials(
-  credentials: TwitterOAuthCredentials
-): Promise<{ valid: boolean; label?: string }> {
-  const oauth = new OAuth({
-    consumer: { key: credentials.apiKey, secret: credentials.apiSecret },
-    signature_method: "HMAC-SHA1",
-    hash_function(baseString, key) {
-      return crypto.createHmac("sha1", key).update(baseString).digest("base64");
-    },
-  });
-
-  const url = "https://api.x.com/2/users/me";
-  const authorization = oauth.authorize(
-    { url, method: "GET" },
-    { key: credentials.accessToken, secret: credentials.accessTokenSecret }
-  );
-  const authHeader = oauth.toHeader(authorization).Authorization;
-
-  const res = await fetch(url, {
-    headers: { Authorization: authHeader },
-  });
-
-  if (!res.ok) return { valid: false };
-
-  const data = (await res.json()) as { data?: { username?: string } };
-  return { valid: true, label: data.data?.username ? `@${data.data.username}` : undefined };
 }
 
 async function validateTelegramKey(
@@ -188,45 +157,24 @@ export async function POST(
     );
   }
 
-  let validation: { valid: boolean; label?: string };
-  let encryptedValue: string;
-
-  if (provider === "twitter" || provider === "twitterAds") {
-    const { twitterApiKey, twitterApiSecret, twitterAccessToken, twitterAccessTokenSecret } = body;
-    if (!twitterApiKey || !twitterApiSecret || !twitterAccessToken || !twitterAccessTokenSecret) {
-      return NextResponse.json(
-        { error: "Missing Twitter OAuth credentials" },
-        { status: 400 }
-      );
-    }
-    const credentials: TwitterOAuthCredentials = {
-      apiKey: twitterApiKey,
-      apiSecret: twitterApiSecret,
-      accessToken: twitterAccessToken,
-      accessTokenSecret: twitterAccessTokenSecret,
-    };
-    validation = await validateTwitterCredentials(credentials);
-    encryptedValue = encrypt(JSON.stringify(credentials));
-  } else {
-    const { apiKey } = body;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "Missing apiKey" },
-        { status: 400 }
-      );
-    }
-
-    const validator = SIMPLE_KEY_VALIDATORS[provider];
-    if (!validator) {
-      return NextResponse.json(
-        { error: "No validator for provider" },
-        { status: 400 }
-      );
-    }
-
-    validation = await validator(apiKey);
-    encryptedValue = encrypt(apiKey);
+  const { apiKey } = body;
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: "Missing apiKey" },
+      { status: 400 }
+    );
   }
+
+  const validator = SIMPLE_KEY_VALIDATORS[provider];
+  if (!validator) {
+    return NextResponse.json(
+      { error: "No validator for provider" },
+      { status: 400 }
+    );
+  }
+
+  const validation = await validator(apiKey);
+  const encryptedValue = encrypt(apiKey);
 
   if (!validation.valid) {
     return NextResponse.json(

@@ -36,7 +36,7 @@ import { Plug, Unplug, ArrowLeft, RefreshCw, AlertTriangle, XCircle } from "luci
 import { ServiceIcon } from "@/components/service-icons";
 import { toast } from "sonner";
 
-const API_KEY_PROVIDERS = new Set(["openRouter", "twitter", "twitterAds", "telegram", "semrush", "ahrefs", "stripe", "airtable", "calendly"]);
+const API_KEY_PROVIDERS = new Set(["openRouter", "telegram", "semrush", "ahrefs", "stripe", "airtable", "calendly"]);
 
 const API_KEY_PLACEHOLDERS: Record<string, string> = {
   openRouter: "sk-or-...",
@@ -48,17 +48,7 @@ const API_KEY_PLACEHOLDERS: Record<string, string> = {
   ahrefs: "API key",
 };
 
-const API_KEY_HELP: Record<string, React.ReactNode> = {
-  twitter: (
-    <>
-      Go to{" "}
-      <a href="https://developer.x.com" target="_blank" rel="noopener noreferrer" className="underline text-foreground hover:text-foreground/80">
-        developer.x.com
-      </a>
-      , create a project &amp; app, then go to the &quot;Keys and Tokens&quot; tab. You need all 4 values: the API Key &amp; Secret (under Consumer Keys) and the Access Token &amp; Secret (under Authentication Tokens). Make sure your app has Read and Write permissions.
-    </>
-  ),
-};
+const API_KEY_HELP: Record<string, React.ReactNode> = {};
 
 interface Service {
   id: string;
@@ -88,11 +78,6 @@ export function ServicesTab({ projectId }: { projectId: string }) {
   const [apiKeyLabel, setApiKeyLabel] = useState("");
   const [apiKeySubmitting, setApiKeySubmitting] = useState(false);
 
-  // Twitter OAuth 1.0a fields
-  const [twitterApiKey, setTwitterApiKey] = useState("");
-  const [twitterApiSecret, setTwitterApiSecret] = useState("");
-  const [twitterAccessToken, setTwitterAccessToken] = useState("");
-  const [twitterAccessTokenSecret, setTwitterAccessTokenSecret] = useState("");
 
   useEffect(() => {
     if (searchParams.get("error") === "oauth_failed") {
@@ -120,6 +105,8 @@ export function ServicesTab({ projectId }: { projectId: string }) {
   }
 
   const STANDALONE_OAUTH_PROVIDERS: Record<string, string> = {
+    twitter: "twitter",
+    twitterAds: "twitter",
     linkedin: "linkedin",
     slack: "slack",
     notion: "notion",
@@ -134,7 +121,9 @@ export function ServicesTab({ projectId }: { projectId: string }) {
     if (API_KEY_PROVIDERS.has(providerKey)) {
       setApiKeyProvider(providerKey);
     } else if (STANDALONE_OAUTH_PROVIDERS[providerKey]) {
-      window.location.href = `/api/oauth/${STANDALONE_OAUTH_PROVIDERS[providerKey]}?projectId=${projectId}`;
+      const oauthRoute = STANDALONE_OAUTH_PROVIDERS[providerKey];
+      const url = `/api/oauth/${oauthRoute}?projectId=${projectId}${oauthRoute === "twitter" ? `&provider=${providerKey}` : ""}`;
+      window.location.href = url;
     } else {
       window.location.href = `/api/oauth/google?projectId=${projectId}&provider=${providerKey}`;
     }
@@ -147,7 +136,9 @@ export function ServicesTab({ projectId }: { projectId: string }) {
       setDialogOpen(true);
       setReconnecting(null);
     } else if (STANDALONE_OAUTH_PROVIDERS[service.provider]) {
-      window.location.href = `/api/oauth/${STANDALONE_OAUTH_PROVIDERS[service.provider]}?projectId=${projectId}`;
+      const oauthRoute = STANDALONE_OAUTH_PROVIDERS[service.provider];
+      const url = `/api/oauth/${oauthRoute}?projectId=${projectId}${oauthRoute === "twitter" ? `&provider=${service.provider}` : ""}`;
+      window.location.href = url;
     } else {
       window.location.href = `/api/oauth/google?projectId=${projectId}&provider=${service.provider}`;
     }
@@ -158,10 +149,6 @@ export function ServicesTab({ projectId }: { projectId: string }) {
     setApiKeyValue("");
     setApiKeyLabel("");
     setApiKeySubmitting(false);
-    setTwitterApiKey("");
-    setTwitterApiSecret("");
-    setTwitterAccessToken("");
-    setTwitterAccessTokenSecret("");
   }
 
   function handleDialogClose(open: boolean) {
@@ -172,30 +159,15 @@ export function ServicesTab({ projectId }: { projectId: string }) {
   async function handleApiKeySubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!apiKeyProvider) return;
-
-    const isTwitter = apiKeyProvider === "twitter" || apiKeyProvider === "twitterAds";
-    if (isTwitter) {
-      if (!twitterApiKey.trim() || !twitterApiSecret.trim() || !twitterAccessToken.trim() || !twitterAccessTokenSecret.trim()) return;
-    } else {
-      if (!apiKeyValue.trim()) return;
-    }
+    if (!apiKeyValue.trim()) return;
 
     setApiKeySubmitting(true);
     try {
-      const payload = isTwitter
-        ? {
-            provider: apiKeyProvider,
-            twitterApiKey: twitterApiKey.trim(),
-            twitterApiSecret: twitterApiSecret.trim(),
-            twitterAccessToken: twitterAccessToken.trim(),
-            twitterAccessTokenSecret: twitterAccessTokenSecret.trim(),
-            label: apiKeyLabel.trim() || undefined,
-          }
-        : {
-            provider: apiKeyProvider,
-            apiKey: apiKeyValue.trim(),
-            label: apiKeyLabel.trim() || undefined,
-          };
+      const payload = {
+        provider: apiKeyProvider,
+        apiKey: apiKeyValue.trim(),
+        label: apiKeyLabel.trim() || undefined,
+      };
 
       const res = await fetch(
         `/api/projects/${projectId}/services/connect-api-key`,
@@ -274,9 +246,7 @@ export function ServicesTab({ projectId }: { projectId: string }) {
             </DialogTitle>
             <DialogDescription>
               {apiKeyProvider
-                ? apiKeyProvider === "twitter" || apiKeyProvider === "twitterAds"
-                  ? "Enter your OAuth 1.0a credentials to connect Twitter."
-                  : "Enter your API key to connect this service."
+                ? "Enter your API key to connect this service."
                 : "Choose a service to connect to this project."}
             </DialogDescription>
           </DialogHeader>
@@ -298,68 +268,18 @@ export function ServicesTab({ projectId }: { projectId: string }) {
                 </p>
               )}
 
-              {apiKeyProvider === "twitter" || apiKeyProvider === "twitterAds" ? (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="twitter-api-key">API Key</Label>
-                    <Input
-                      id="twitter-api-key"
-                      type="password"
-                      placeholder="Consumer API Key"
-                      value={twitterApiKey}
-                      onChange={(e) => setTwitterApiKey(e.target.value)}
-                      required
-                      autoFocus
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="twitter-api-secret">API Key Secret</Label>
-                    <Input
-                      id="twitter-api-secret"
-                      type="password"
-                      placeholder="Consumer API Key Secret"
-                      value={twitterApiSecret}
-                      onChange={(e) => setTwitterApiSecret(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="twitter-access-token">Access Token</Label>
-                    <Input
-                      id="twitter-access-token"
-                      type="password"
-                      placeholder="OAuth 1.0a Access Token"
-                      value={twitterAccessToken}
-                      onChange={(e) => setTwitterAccessToken(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="twitter-access-token-secret">Access Token Secret</Label>
-                    <Input
-                      id="twitter-access-token-secret"
-                      type="password"
-                      placeholder="OAuth 1.0a Access Token Secret"
-                      value={twitterAccessTokenSecret}
-                      onChange={(e) => setTwitterAccessTokenSecret(e.target.value)}
-                      required
-                    />
-                  </div>
-                </>
-              ) : (
-                <div className="space-y-2">
-                  <Label htmlFor="api-key">API Key</Label>
-                  <Input
-                    id="api-key"
-                    type="password"
-                    placeholder={apiKeyProvider ? (API_KEY_PLACEHOLDERS[apiKeyProvider] ?? "API key") : "API key"}
-                    value={apiKeyValue}
-                    onChange={(e) => setApiKeyValue(e.target.value)}
-                    required
-                    autoFocus
-                  />
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label htmlFor="api-key">API Key</Label>
+                <Input
+                  id="api-key"
+                  type="password"
+                  placeholder={apiKeyProvider ? (API_KEY_PLACEHOLDERS[apiKeyProvider] ?? "API key") : "API key"}
+                  value={apiKeyValue}
+                  onChange={(e) => setApiKeyValue(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="api-key-label">Label (optional)</Label>
@@ -375,9 +295,7 @@ export function ServicesTab({ projectId }: { projectId: string }) {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={apiKeySubmitting || (apiKeyProvider === "twitter" || apiKeyProvider === "twitterAds"
-                  ? !twitterApiKey.trim() || !twitterApiSecret.trim() || !twitterAccessToken.trim() || !twitterAccessTokenSecret.trim()
-                  : !apiKeyValue.trim())}
+                disabled={apiKeySubmitting || !apiKeyValue.trim()}
               >
                 {apiKeySubmitting ? "Validating..." : "Connect"}
               </Button>

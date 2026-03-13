@@ -18,7 +18,7 @@ export function buildMetaAuthUrl(
   const params = new URLSearchParams({
     client_id: META_APP_ID,
     redirect_uri: getRedirectUri(),
-    scope: "ads_read,ads_management,read_insights,business_management",
+    scope: "ads_read,ads_management",
     response_type: "code",
     state,
   });

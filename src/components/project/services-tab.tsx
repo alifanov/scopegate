@@ -115,6 +115,7 @@ export function ServicesTab({ projectId }: { projectId: string }) {
     jira: "jira",
     salesforce: "salesforce",
     metaAds: "meta",
+    threads: "threads",
   };
 
   function handleConnect(providerKey: string) {

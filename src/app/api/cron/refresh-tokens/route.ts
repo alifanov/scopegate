@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { refreshAccessToken } from "@/lib/google-oauth";
 import { refreshLinkedInAccessToken } from "@/lib/linkedin-oauth";
+import { getValidThreadsAccessToken } from "@/lib/threads-oauth";
 import { encrypt, decrypt } from "@/lib/crypto";
 
 const GOOGLE_PROVIDERS = new Set([
@@ -112,10 +113,44 @@ export async function POST(request: Request) {
     }
   }
 
+  // Also refresh Threads tokens (no refresh token — refreshes via access token)
+  const threadsConnections = await db.serviceConnection.findMany({
+    where: {
+      provider: "threads",
+      expiresAt: { not: null, lt: threshold },
+      status: { not: "error" },
+    },
+  });
+
+  for (const connection of threadsConnections) {
+    try {
+      // getValidThreadsAccessToken handles the refresh internally
+      await getValidThreadsAccessToken(connection.id);
+      refreshed++;
+    } catch (err) {
+      failed++;
+      const message =
+        err instanceof Error ? err.message : "Unknown error";
+      errors.push({
+        id: connection.id,
+        provider: connection.provider,
+        error: message,
+      });
+
+      await db.serviceConnection.update({
+        where: { id: connection.id },
+        data: {
+          status: "error",
+          lastError: message,
+        },
+      });
+    }
+  }
+
   return NextResponse.json({
     refreshed,
     failed,
-    total: connections.length,
+    total: connections.length + threadsConnections.length,
     errors: errors.length > 0 ? errors : undefined,
   });
 }

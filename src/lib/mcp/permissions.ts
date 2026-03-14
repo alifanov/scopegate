@@ -427,6 +427,25 @@ export const PERMISSION_GROUPS: Record<string, PermissionGroup> = {
       "calendly:cancel_event",
     ],
   },
+  threads: {
+    name: "Threads",
+    description: "Access to Threads (by Meta) operations",
+    actions: [
+      "threads:get_profile",
+      "threads:get_threads",
+      "threads:get_thread",
+      "threads:publish_thread",
+      "threads:delete_thread",
+      "threads:get_replies",
+      "threads:get_conversation",
+      "threads:reply_to_thread",
+      "threads:repost_thread",
+      "threads:get_thread_insights",
+      "threads:get_user_insights",
+      "threads:get_publishing_limit",
+      "threads:lookup_profile",
+    ],
+  },
 };
 
 export const ALL_ACTIONS = Object.values(PERMISSION_GROUPS).flatMap(

@@ -4116,7 +4116,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       if (Object.keys(snippet).length > 0) {
         // YouTube requires categoryId when updating snippet — fetch current value if not provided
         if (!snippet.categoryId) {
-          const q = new URLSearchParams({ part: "snippet", id: videoId });
+          const q = new URLSearchParams({ part: "snippet", id: String(videoId) });
           const current = await youtubeFetch(context.serviceConnectionId, `/videos?${q.toString()}`);
           const currentData = typeof current === "string" ? JSON.parse(current) : current;
           snippet.categoryId = currentData?.items?.[0]?.snippet?.categoryId ?? "22";
@@ -4160,7 +4160,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       if (Object.keys(snippet).length > 0) {
         // YouTube requires categoryId when updating snippet — fetch current value if not provided
         if (!snippet.categoryId) {
-          const q = new URLSearchParams({ part: "snippet", id: videoId });
+          const q = new URLSearchParams({ part: "snippet", id: String(videoId) });
           const current = await youtubeFetch(context.serviceConnectionId, `/videos?${q.toString()}`);
           const currentData = typeof current === "string" ? JSON.parse(current) : current;
           snippet.categoryId = currentData?.items?.[0]?.snippet?.categoryId ?? "22";

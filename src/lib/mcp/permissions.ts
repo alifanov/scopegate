@@ -469,6 +469,21 @@ export const PERMISSION_GROUPS: Record<string, PermissionGroup> = {
       "threads:lookup_profile",
     ],
   },
+  email: {
+    name: "Email (IMAP/SMTP)",
+    description: "Access to email via IMAP/SMTP",
+    actions: [
+      "email:list_mailboxes",
+      "email:list_messages",
+      "email:read_message",
+      "email:search_messages",
+      "email:send_message",
+      "email:reply_message",
+      "email:move_message",
+      "email:delete_message",
+      "email:mark_read",
+    ],
+  },
 };
 
 export const ALL_ACTIONS = Object.values(PERMISSION_GROUPS).flatMap(

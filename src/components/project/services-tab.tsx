@@ -37,6 +37,7 @@ import { ServiceIcon } from "@/components/service-icons";
 import { toast } from "sonner";
 
 const API_KEY_PROVIDERS = new Set(["openRouter", "telegram", "semrush", "ahrefs", "stripe", "airtable", "calendly"]);
+const EMAIL_PROVIDER = "email";
 
 const API_KEY_PLACEHOLDERS: Record<string, string> = {
   openRouter: "sk-or-...",
@@ -77,6 +78,18 @@ export function ServicesTab({ projectId }: { projectId: string }) {
   const [apiKeyValue, setApiKeyValue] = useState("");
   const [apiKeyLabel, setApiKeyLabel] = useState("");
   const [apiKeySubmitting, setApiKeySubmitting] = useState(false);
+
+  // Email form state
+  const [emailFormOpen, setEmailFormOpen] = useState(false);
+  const [emailForm, setEmailForm] = useState({
+    email: "",
+    password: "",
+    imapHost: "",
+    imapPort: "993",
+    smtpHost: "",
+    smtpPort: "465",
+  });
+  const [emailSubmitting, setEmailSubmitting] = useState(false);
 
 
   useEffect(() => {
@@ -119,7 +132,9 @@ export function ServicesTab({ projectId }: { projectId: string }) {
   };
 
   function handleConnect(providerKey: string) {
-    if (API_KEY_PROVIDERS.has(providerKey)) {
+    if (providerKey === EMAIL_PROVIDER) {
+      setEmailFormOpen(true);
+    } else if (API_KEY_PROVIDERS.has(providerKey)) {
       setApiKeyProvider(providerKey);
     } else if (STANDALONE_OAUTH_PROVIDERS[providerKey]) {
       const oauthRoute = STANDALONE_OAUTH_PROVIDERS[providerKey];
@@ -130,9 +145,57 @@ export function ServicesTab({ projectId }: { projectId: string }) {
     }
   }
 
+  function resetEmailForm() {
+    setEmailFormOpen(false);
+    setEmailForm({ email: "", password: "", imapHost: "", imapPort: "993", smtpHost: "", smtpPort: "465" });
+    setEmailSubmitting(false);
+  }
+
+  async function handleEmailSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!emailForm.email || !emailForm.password || !emailForm.imapHost || !emailForm.smtpHost) return;
+
+    setEmailSubmitting(true);
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/services/connect-email`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: emailForm.email.trim(),
+            password: emailForm.password,
+            imapHost: emailForm.imapHost.trim(),
+            imapPort: parseInt(emailForm.imapPort) || 993,
+            smtpHost: emailForm.smtpHost.trim(),
+            smtpPort: parseInt(emailForm.smtpPort) || 465,
+          }),
+        }
+      );
+
+      if (res.ok) {
+        toast.success("Email connected successfully.");
+        setDialogOpen(false);
+        resetEmailForm();
+        loadServices();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Failed to connect email.");
+      }
+    } catch {
+      toast.error("Failed to connect email.");
+    } finally {
+      setEmailSubmitting(false);
+    }
+  }
+
   function handleReconnect(service: Service) {
     setReconnecting(service.id);
-    if (API_KEY_PROVIDERS.has(service.provider)) {
+    if (service.provider === EMAIL_PROVIDER) {
+      setEmailFormOpen(true);
+      setDialogOpen(true);
+      setReconnecting(null);
+    } else if (API_KEY_PROVIDERS.has(service.provider)) {
       setApiKeyProvider(service.provider);
       setDialogOpen(true);
       setReconnecting(null);
@@ -154,7 +217,10 @@ export function ServicesTab({ projectId }: { projectId: string }) {
 
   function handleDialogClose(open: boolean) {
     setDialogOpen(open);
-    if (!open) resetApiKeyForm();
+    if (!open) {
+      resetApiKeyForm();
+      resetEmailForm();
+    }
   }
 
   async function handleApiKeySubmit(e: React.FormEvent) {
@@ -241,18 +307,114 @@ export function ServicesTab({ projectId }: { projectId: string }) {
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {apiKeyProvider
-                ? `Connect ${getProviderDisplayName(apiKeyProvider)}`
-                : "Connect a Service"}
+              {emailFormOpen
+                ? "Connect Email (IMAP/SMTP)"
+                : apiKeyProvider
+                  ? `Connect ${getProviderDisplayName(apiKeyProvider)}`
+                  : "Connect a Service"}
             </DialogTitle>
             <DialogDescription>
-              {apiKeyProvider
-                ? "Enter your API key to connect this service."
-                : "Choose a service to connect to this project."}
+              {emailFormOpen
+                ? "Enter your email server credentials to connect."
+                : apiKeyProvider
+                  ? "Enter your API key to connect this service."
+                  : "Choose a service to connect to this project."}
             </DialogDescription>
           </DialogHeader>
 
-          {apiKeyProvider ? (
+          {emailFormOpen ? (
+            <form onSubmit={handleEmailSubmit} className="space-y-4">
+              <button
+                type="button"
+                onClick={resetEmailForm}
+                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ArrowLeft className="size-3" />
+                Back to services
+              </button>
+
+              <div className="space-y-2">
+                <Label htmlFor="email-address">Email Address</Label>
+                <Input
+                  id="email-address"
+                  type="email"
+                  placeholder="you@yourdomain.com"
+                  value={emailForm.email}
+                  onChange={(e) => setEmailForm((f) => ({ ...f, email: e.target.value }))}
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email-password">Password</Label>
+                <Input
+                  id="email-password"
+                  type="password"
+                  placeholder="Email password or app password"
+                  value={emailForm.password}
+                  onChange={(e) => setEmailForm((f) => ({ ...f, password: e.target.value }))}
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="imap-host">IMAP Host</Label>
+                  <Input
+                    id="imap-host"
+                    type="text"
+                    placeholder="imap.yourdomain.com"
+                    value={emailForm.imapHost}
+                    onChange={(e) => setEmailForm((f) => ({ ...f, imapHost: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="imap-port">IMAP Port</Label>
+                  <Input
+                    id="imap-port"
+                    type="number"
+                    placeholder="993"
+                    value={emailForm.imapPort}
+                    onChange={(e) => setEmailForm((f) => ({ ...f, imapPort: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="smtp-host">SMTP Host</Label>
+                  <Input
+                    id="smtp-host"
+                    type="text"
+                    placeholder="smtp.yourdomain.com"
+                    value={emailForm.smtpHost}
+                    onChange={(e) => setEmailForm((f) => ({ ...f, smtpHost: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="smtp-port">SMTP Port</Label>
+                  <Input
+                    id="smtp-port"
+                    type="number"
+                    placeholder="465"
+                    value={emailForm.smtpPort}
+                    onChange={(e) => setEmailForm((f) => ({ ...f, smtpPort: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={emailSubmitting || !emailForm.email || !emailForm.password || !emailForm.imapHost || !emailForm.smtpHost}
+              >
+                {emailSubmitting ? "Connecting..." : "Connect"}
+              </Button>
+            </form>
+          ) : apiKeyProvider ? (
             <form onSubmit={handleApiKeySubmit} className="space-y-4">
               <button
                 type="button"
@@ -330,7 +492,7 @@ export function ServicesTab({ projectId }: { projectId: string }) {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">
-                          {API_KEY_PROVIDERS.has(provider.key) ? "API Key" : "OAuth"}
+                          {provider.key === EMAIL_PROVIDER ? "IMAP/SMTP" : API_KEY_PROVIDERS.has(provider.key) ? "API Key" : "OAuth"}
                         </Badge>
                       </TableCell>
                       <TableCell>

@@ -261,6 +261,28 @@ function ThreadsIcon(props: SvgProps) {
   );
 }
 
+function EmailIcon(props: SvgProps) {
+  return (
+    <svg viewBox="0 0 48 48" {...props}>
+      <rect width="48" height="48" rx="10" fill="#0EA5E9" />
+      <path
+        d="M10 16c0-1.1.9-2 2-2h24c1.1 0 2 .9 2 2v16c0 1.1-.9 2-2 2H12c-1.1 0-2-.9-2-2V16z"
+        fill="none"
+        stroke="#fff"
+        strokeWidth="2"
+      />
+      <path
+        d="M10 16l14 10 14-10"
+        fill="none"
+        stroke="#fff"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 const ICONS: Record<string, (props: SvgProps) => React.ReactElement> = {
   gmail: GmailIcon,
   calendar: CalendarIcon,
@@ -286,6 +308,7 @@ const ICONS: Record<string, (props: SvgProps) => React.ReactElement> = {
   calendly: CalendlyIcon,
   youtube: YouTubeIcon,
   threads: ThreadsIcon,
+  email: EmailIcon,
 };
 
 export function ServiceIcon({

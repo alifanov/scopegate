@@ -116,33 +116,45 @@ export async function getValidThreadsAccessToken(
 
   // Refresh long-lived token
   const currentToken = decrypt(connection.accessToken);
-  try {
-    const params = new URLSearchParams({
-      grant_type: "th_refresh_token",
-      access_token: currentToken,
-    });
-    const res = await fetch(
-      `https://graph.threads.net/refresh_access_token?${params.toString()}`
+  const params = new URLSearchParams({
+    grant_type: "th_refresh_token",
+    access_token: currentToken,
+  });
+  const res = await fetch(
+    `https://graph.threads.net/refresh_access_token?${params.toString()}`
+  );
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error(
+      `[ScopeGate] Threads token refresh failed (${res.status}):`,
+      errorText
     );
-    if (res.ok) {
-      const data = (await res.json()) as {
-        access_token: string;
-        expires_in: number;
-      };
-      const expiresAt = new Date(Date.now() + data.expires_in * 1000);
-      await db.serviceConnection.update({
-        where: { id: serviceConnectionId },
-        data: {
-          accessToken: encrypt(data.access_token),
-          expiresAt,
-          status: "active",
-          lastError: null,
-        },
-      });
-      return data.access_token;
-    }
-  } catch {
-    // Refresh failed, return current token
+    await db.serviceConnection.update({
+      where: { id: serviceConnectionId },
+      data: {
+        status: "error",
+        lastError: `Token refresh failed (${res.status}): ${errorText}`,
+      },
+    });
+    throw new Error(
+      `Token refresh failed (${res.status}): ${errorText}`
+    );
   }
-  return currentToken;
+
+  const data = (await res.json()) as {
+    access_token: string;
+    expires_in: number;
+  };
+  const expiresAt = new Date(Date.now() + data.expires_in * 1000);
+  await db.serviceConnection.update({
+    where: { id: serviceConnectionId },
+    data: {
+      accessToken: encrypt(data.access_token),
+      expiresAt,
+      status: "active",
+      lastError: null,
+    },
+  });
+  return data.access_token;
 }

@@ -4462,6 +4462,463 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     },
   },
 
+  // ─── YouTube additional tools ──────────────────────────────────────────
+  {
+    name: "youtube_update_channel",
+    description: "Update YouTube channel branding settings (title, description, keywords, country)",
+    action: "youtube:update_channel",
+    inputSchema: z.object({
+      channelId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid channel ID format"),
+      title: z.string().optional(),
+      description: z.string().optional(),
+      keywords: z.string().optional().describe("Space-separated keywords"),
+      country: z.string().optional().describe("ISO 3166-1 alpha-2 country code"),
+      defaultLanguage: z.string().optional().describe("BCP-47 language code"),
+      madeForKids: z.boolean().optional(),
+    }),
+    handler: async (params, context) => {
+      const { channelId, madeForKids, ...fields } = params;
+      const body: Record<string, unknown> = { id: channelId };
+      const channel: Record<string, unknown> = {};
+      if (fields.title) channel.title = fields.title;
+      if (fields.description) channel.description = fields.description;
+      if (fields.keywords) channel.keywords = fields.keywords;
+      if (fields.country) channel.country = fields.country;
+      if (fields.defaultLanguage) channel.defaultLanguage = fields.defaultLanguage;
+
+      const parts: string[] = [];
+      if (Object.keys(channel).length > 0) {
+        body.brandingSettings = { channel };
+        parts.push("brandingSettings");
+      }
+      if (madeForKids !== undefined) {
+        body.status = { selfDeclaredMadeForKids: madeForKids };
+        parts.push("status");
+      }
+      if (parts.length === 0) throw new Error("At least one field to update is required");
+
+      const query = new URLSearchParams({ part: parts.join(",") });
+      return youtubeFetch(context.serviceConnectionId, `/channels?${query.toString()}`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+      });
+    },
+  },
+  {
+    name: "youtube_list_captions",
+    description: "List caption tracks for a YouTube video",
+    action: "youtube:list_captions",
+    inputSchema: z.object({
+      videoId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid video ID format"),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        part: "snippet",
+        videoId: params.videoId as string,
+      });
+      return youtubeFetch(context.serviceConnectionId, `/captions?${query.toString()}`);
+    },
+  },
+  {
+    name: "youtube_download_caption",
+    description: "Download caption track content for a YouTube video",
+    action: "youtube:download_caption",
+    inputSchema: z.object({
+      captionId: z.string(),
+      tfmt: z.enum(["sbv", "scc", "srt", "ttml", "vtt"]).optional().default("srt").describe("Caption format"),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams();
+      if (params.tfmt) query.set("tfmt", params.tfmt as string);
+      const qs = query.toString();
+      return youtubeFetch(
+        context.serviceConnectionId,
+        `/captions/${params.captionId}${qs ? `?${qs}` : ""}`,
+        undefined,
+        { responseType: "text" },
+      );
+    },
+  },
+  {
+    name: "youtube_delete_caption",
+    description: "Delete a caption track from a YouTube video",
+    action: "youtube:delete_caption",
+    inputSchema: z.object({
+      captionId: z.string(),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({ id: params.captionId as string });
+      return youtubeFetch(context.serviceConnectionId, `/captions?${query.toString()}`, {
+        method: "DELETE",
+      });
+    },
+  },
+  {
+    name: "youtube_list_channel_sections",
+    description: "List sections of a YouTube channel",
+    action: "youtube:list_channel_sections",
+    inputSchema: z.object({
+      channelId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid channel ID format").optional(),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        part: "snippet,contentDetails",
+      });
+      if (params.channelId) {
+        query.set("channelId", params.channelId as string);
+      } else {
+        query.set("mine", "true");
+      }
+      return youtubeFetch(context.serviceConnectionId, `/channelSections?${query.toString()}`);
+    },
+  },
+  {
+    name: "youtube_create_channel_section",
+    description: "Create a section on a YouTube channel",
+    action: "youtube:create_channel_section",
+    inputSchema: z.object({
+      type: z.enum(["singlePlaylist", "multiplePlaylists", "popularUploads", "recentUploads", "likes", "allPlaylists", "recentActivity", "recentPosts"]),
+      title: z.string().optional(),
+      position: z.number().optional(),
+      playlistIds: z.array(z.string()).optional(),
+    }),
+    handler: async (params, context) => {
+      const snippet: Record<string, unknown> = { type: params.type };
+      if (params.title) snippet.title = params.title;
+      if (params.position !== undefined) snippet.position = params.position;
+
+      const body: Record<string, unknown> = { snippet };
+      const parts = ["snippet"];
+      if ((params.playlistIds as string[] | undefined)?.length) {
+        body.contentDetails = { playlists: params.playlistIds };
+        parts.push("contentDetails");
+      }
+      return youtubeFetch(context.serviceConnectionId, `/channelSections?part=${parts.join(",")}`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+    },
+  },
+  {
+    name: "youtube_update_channel_section",
+    description: "Update a section on a YouTube channel",
+    action: "youtube:update_channel_section",
+    inputSchema: z.object({
+      sectionId: z.string(),
+      title: z.string().optional(),
+      position: z.number().optional(),
+      playlistIds: z.array(z.string()).optional(),
+    }),
+    handler: async (params, context) => {
+      const { sectionId, ...fields } = params;
+      const body: Record<string, unknown> = { id: sectionId };
+      const snippet: Record<string, unknown> = {};
+      if (fields.title) snippet.title = fields.title;
+      if (fields.position !== undefined) snippet.position = fields.position;
+      if (Object.keys(snippet).length > 0) body.snippet = snippet;
+      if ((fields.playlistIds as string[] | undefined)?.length) body.contentDetails = { playlists: fields.playlistIds };
+
+      const parts: string[] = [];
+      if (body.snippet) parts.push("snippet");
+      if (body.contentDetails) parts.push("contentDetails");
+      if (parts.length === 0) throw new Error("At least one field to update is required");
+
+      const query = new URLSearchParams({ part: parts.join(",") });
+      return youtubeFetch(context.serviceConnectionId, `/channelSections?${query.toString()}`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+      });
+    },
+  },
+  {
+    name: "youtube_delete_channel_section",
+    description: "Delete a section from a YouTube channel",
+    action: "youtube:delete_channel_section",
+    inputSchema: z.object({
+      sectionId: z.string(),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({ id: params.sectionId as string });
+      return youtubeFetch(context.serviceConnectionId, `/channelSections?${query.toString()}`, {
+        method: "DELETE",
+      });
+    },
+  },
+  {
+    name: "youtube_list_comment_replies",
+    description: "List replies to a YouTube comment",
+    action: "youtube:list_comment_replies",
+    inputSchema: z.object({
+      parentId: z.string().describe("The comment ID to get replies for"),
+      maxResults: z.number().optional().default(20),
+      pageToken: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        part: "snippet",
+        parentId: params.parentId as string,
+        maxResults: String(params.maxResults ?? 20),
+      });
+      if (params.pageToken) query.set("pageToken", params.pageToken as string);
+      return youtubeFetch(context.serviceConnectionId, `/comments?${query.toString()}`);
+    },
+  },
+  {
+    name: "youtube_reply_to_comment",
+    description: "Reply to an existing YouTube comment",
+    action: "youtube:reply_to_comment",
+    inputSchema: z.object({
+      parentId: z.string().describe("The comment ID to reply to"),
+      text: z.string(),
+    }),
+    handler: async (params, context) => {
+      const body = {
+        snippet: {
+          parentId: params.parentId,
+          textOriginal: params.text,
+        },
+      };
+      return youtubeFetch(context.serviceConnectionId, "/comments?part=snippet", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+    },
+  },
+  {
+    name: "youtube_update_comment",
+    description: "Edit a YouTube comment",
+    action: "youtube:update_comment",
+    inputSchema: z.object({
+      commentId: z.string(),
+      text: z.string(),
+    }),
+    handler: async (params, context) => {
+      const body = {
+        id: params.commentId,
+        snippet: {
+          textOriginal: params.text,
+        },
+      };
+      return youtubeFetch(context.serviceConnectionId, "/comments?part=snippet", {
+        method: "PUT",
+        body: JSON.stringify(body),
+      });
+    },
+  },
+  {
+    name: "youtube_set_comment_moderation",
+    description: "Set moderation status for YouTube comments (held for review, published, or rejected)",
+    action: "youtube:set_comment_moderation",
+    inputSchema: z.object({
+      commentId: z.string(),
+      moderationStatus: z.enum(["heldForReview", "published", "rejected"]),
+      banAuthor: z.boolean().optional().default(false),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        id: params.commentId as string,
+        moderationStatus: params.moderationStatus as string,
+        banAuthor: String(params.banAuthor ?? false),
+      });
+      return youtubeFetch(context.serviceConnectionId, `/comments/setModerationStatus?${query.toString()}`, {
+        method: "POST",
+      });
+    },
+  },
+  {
+    name: "youtube_list_languages",
+    description: "List content languages supported by YouTube",
+    action: "youtube:list_languages",
+    inputSchema: z.object({
+      hl: z.string().optional().describe("Host language for response localization (BCP-47 code)"),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({ part: "snippet" });
+      if (params.hl) query.set("hl", params.hl as string);
+      return youtubeFetch(context.serviceConnectionId, `/i18nLanguages?${query.toString()}`);
+    },
+  },
+  {
+    name: "youtube_list_regions",
+    description: "List content regions supported by YouTube",
+    action: "youtube:list_regions",
+    inputSchema: z.object({
+      hl: z.string().optional().describe("Host language for response localization (BCP-47 code)"),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({ part: "snippet" });
+      if (params.hl) query.set("hl", params.hl as string);
+      return youtubeFetch(context.serviceConnectionId, `/i18nRegions?${query.toString()}`);
+    },
+  },
+  {
+    name: "youtube_list_members",
+    description: "List members of the authenticated user's YouTube channel (requires channel memberships)",
+    action: "youtube:list_members",
+    inputSchema: z.object({
+      mode: z.enum(["list_members", "updates"]).optional().default("list_members"),
+      maxResults: z.number().optional().default(10),
+      pageToken: z.string().optional(),
+      filterByMemberChannelId: z.string().optional().describe("Filter by specific member channel ID"),
+      hasAccessToLevel: z.string().optional().describe("Filter by membership level ID"),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        part: "snippet",
+        mode: (params.mode as string) || "list_members",
+        maxResults: String(params.maxResults ?? 10),
+      });
+      if (params.pageToken) query.set("pageToken", params.pageToken as string);
+      if (params.filterByMemberChannelId) query.set("filterByMemberChannelId", params.filterByMemberChannelId as string);
+      if (params.hasAccessToLevel) query.set("hasAccessToLevel", params.hasAccessToLevel as string);
+      return youtubeFetch(context.serviceConnectionId, `/members?${query.toString()}`);
+    },
+  },
+  {
+    name: "youtube_list_membership_levels",
+    description: "List membership levels for the authenticated user's YouTube channel",
+    action: "youtube:list_membership_levels",
+    inputSchema: z.object({}),
+    handler: async (_params, context) => {
+      return youtubeFetch(context.serviceConnectionId, "/membershipsLevels?part=snippet");
+    },
+  },
+  {
+    name: "youtube_update_playlist_item",
+    description: "Update position or video note for a playlist item",
+    action: "youtube:update_playlist_item",
+    inputSchema: z.object({
+      playlistItemId: z.string(),
+      playlistId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid playlist ID format"),
+      videoId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid video ID format"),
+      position: z.number().optional(),
+      note: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      const body: Record<string, unknown> = {
+        id: params.playlistItemId,
+        snippet: {
+          playlistId: params.playlistId,
+          resourceId: {
+            kind: "youtube#video",
+            videoId: params.videoId,
+          },
+        },
+      };
+      if (params.position !== undefined) {
+        (body.snippet as Record<string, unknown>).position = params.position;
+      }
+      if (params.note) {
+        body.contentDetails = { note: params.note };
+      }
+      const parts = ["snippet"];
+      if (body.contentDetails) parts.push("contentDetails");
+      return youtubeFetch(context.serviceConnectionId, `/playlistItems?part=${parts.join(",")}`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+      });
+    },
+  },
+  {
+    name: "youtube_subscribe",
+    description: "Subscribe to a YouTube channel",
+    action: "youtube:subscribe",
+    inputSchema: z.object({
+      channelId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid channel ID format"),
+    }),
+    handler: async (params, context) => {
+      const body = {
+        snippet: {
+          resourceId: {
+            kind: "youtube#channel",
+            channelId: params.channelId,
+          },
+        },
+      };
+      return youtubeFetch(context.serviceConnectionId, "/subscriptions?part=snippet", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+    },
+  },
+  {
+    name: "youtube_unsubscribe",
+    description: "Unsubscribe from a YouTube channel",
+    action: "youtube:unsubscribe",
+    inputSchema: z.object({
+      subscriptionId: z.string().describe("The subscription ID (not the channel ID)"),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({ id: params.subscriptionId as string });
+      return youtubeFetch(context.serviceConnectionId, `/subscriptions?${query.toString()}`, {
+        method: "DELETE",
+      });
+    },
+  },
+  {
+    name: "youtube_list_categories",
+    description: "List YouTube video categories for a region",
+    action: "youtube:list_categories",
+    inputSchema: z.object({
+      regionCode: z.string().optional().default("US").describe("ISO 3166-1 alpha-2 country code"),
+      hl: z.string().optional().default("en").describe("Language for category titles"),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        part: "snippet",
+        regionCode: (params.regionCode as string) || "US",
+        hl: (params.hl as string) || "en",
+      });
+      return youtubeFetch(context.serviceConnectionId, `/videoCategories?${query.toString()}`);
+    },
+  },
+  {
+    name: "youtube_rate_video",
+    description: "Rate a YouTube video (like, dislike, or remove rating)",
+    action: "youtube:rate_video",
+    inputSchema: z.object({
+      videoId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid video ID format"),
+      rating: z.enum(["like", "dislike", "none"]),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        id: params.videoId as string,
+        rating: params.rating as string,
+      });
+      return youtubeFetch(context.serviceConnectionId, `/videos/rate?${query.toString()}`, {
+        method: "POST",
+      });
+    },
+  },
+  {
+    name: "youtube_get_rating",
+    description: "Get the authenticated user's rating for YouTube videos",
+    action: "youtube:get_rating",
+    inputSchema: z.object({
+      videoIds: z.array(z.string()).describe("Video IDs to check ratings for (max 50)"),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({
+        id: (params.videoIds as string[]).join(","),
+      });
+      return youtubeFetch(context.serviceConnectionId, `/videos/getRating?${query.toString()}`);
+    },
+  },
+  {
+    name: "youtube_unset_watermark",
+    description: "Remove the watermark image from a YouTube channel",
+    action: "youtube:unset_watermark",
+    inputSchema: z.object({
+      channelId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid channel ID format"),
+    }),
+    handler: async (params, context) => {
+      const query = new URLSearchParams({ channelId: params.channelId as string });
+      return youtubeFetch(context.serviceConnectionId, `/watermarks/unset?${query.toString()}`, {
+        method: "POST",
+      });
+    },
+  },
+
   // ─── Threads tools ────────────────────────────────────────────────────
   {
     name: "threads_get_profile",

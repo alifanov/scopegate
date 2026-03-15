@@ -5,7 +5,8 @@ const YOUTUBE_BASE_URL = "https://www.googleapis.com/youtube/v3";
 export async function youtubeFetch(
   serviceConnectionId: string,
   path: string,
-  init?: RequestInit
+  init?: RequestInit,
+  options?: { responseType?: "text" }
 ): Promise<unknown> {
   const accessToken = await getValidAccessToken(serviceConnectionId);
 
@@ -26,6 +27,10 @@ export async function youtubeFetch(
 
   if (res.status === 204) {
     return { success: true };
+  }
+
+  if (options?.responseType === "text") {
+    return { content: await res.text() };
   }
 
   return res.json();

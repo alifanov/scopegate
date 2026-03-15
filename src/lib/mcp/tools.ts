@@ -4113,7 +4113,16 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       if (fields.description) snippet.description = fields.description;
       if (fields.tags) snippet.tags = fields.tags;
       if (fields.categoryId) snippet.categoryId = fields.categoryId;
-      if (Object.keys(snippet).length > 0) body.snippet = snippet;
+      if (Object.keys(snippet).length > 0) {
+        // YouTube requires categoryId when updating snippet — fetch current value if not provided
+        if (!snippet.categoryId) {
+          const q = new URLSearchParams({ part: "snippet", id: videoId });
+          const current = await youtubeFetch(context.serviceConnectionId, `/videos?${q.toString()}`);
+          const currentData = typeof current === "string" ? JSON.parse(current) : current;
+          snippet.categoryId = currentData?.items?.[0]?.snippet?.categoryId ?? "22";
+        }
+        body.snippet = snippet;
+      }
       if (fields.privacyStatus) body.status = { privacyStatus: fields.privacyStatus };
 
       const parts: string[] = [];
@@ -4148,7 +4157,16 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       if (fields.description) snippet.description = fields.description;
       if (fields.tags) snippet.tags = fields.tags;
       if (fields.categoryId) snippet.categoryId = fields.categoryId;
-      if (Object.keys(snippet).length > 0) body.snippet = snippet;
+      if (Object.keys(snippet).length > 0) {
+        // YouTube requires categoryId when updating snippet — fetch current value if not provided
+        if (!snippet.categoryId) {
+          const q = new URLSearchParams({ part: "snippet", id: videoId });
+          const current = await youtubeFetch(context.serviceConnectionId, `/videos?${q.toString()}`);
+          const currentData = typeof current === "string" ? JSON.parse(current) : current;
+          snippet.categoryId = currentData?.items?.[0]?.snippet?.categoryId ?? "22";
+        }
+        body.snippet = snippet;
+      }
       if (fields.privacyStatus) body.status = { privacyStatus: fields.privacyStatus };
 
       const parts: string[] = [];

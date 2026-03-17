@@ -20,7 +20,7 @@ import { ahrefsFetch } from "./ahrefs";
 import { stripeFetch } from "./stripe";
 import { airtableFetch } from "./airtable";
 import { calendlyFetch } from "./calendly";
-import { youtubeFetch } from "./youtube";
+import { youtubeFetch, youtubeUploadVideo } from "./youtube";
 import { threadsFetch } from "./threads";
 import {
   emailListMailboxes,
@@ -4095,45 +4095,23 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     name: "youtube_upload_video",
-    description: "Update metadata for a YouTube video (title, description, tags, privacy). For actual file upload, use the YouTube Studio UI.",
+    description: "Upload a video to YouTube from a URL. Downloads the video from the provided URL and uploads it via the YouTube resumable upload API. Returns the created video resource including video ID.",
     action: "youtube:upload_video",
     inputSchema: z.object({
-      videoId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid video ID format"),
-      title: z.string().optional(),
-      description: z.string().optional(),
+      videoUrl: z.string().url("Must be a valid URL to the video file"),
+      title: z.string().min(1).max(100),
+      description: z.string().max(5000).optional(),
       tags: z.array(z.string()).optional(),
-      privacyStatus: z.enum(["public", "private", "unlisted"]).optional(),
-      categoryId: z.string().optional(),
+      categoryId: z.string().optional().describe("YouTube video category ID (default: 22 - People & Blogs)"),
+      privacyStatus: z.enum(["public", "private", "unlisted"]).optional().describe("Video privacy status (default: private)"),
     }),
     handler: async (params, context) => {
-      const { videoId, ...fields } = params;
-      const body: Record<string, unknown> = { id: videoId };
-      const snippet: Record<string, unknown> = {};
-      if (fields.title) snippet.title = fields.title;
-      if (fields.description) snippet.description = fields.description;
-      if (fields.tags) snippet.tags = fields.tags;
-      if (fields.categoryId) snippet.categoryId = fields.categoryId;
-      if (Object.keys(snippet).length > 0) {
-        // YouTube requires categoryId when updating snippet — fetch current value if not provided
-        if (!snippet.categoryId) {
-          const q = new URLSearchParams({ part: "snippet", id: String(videoId) });
-          const current = await youtubeFetch(context.serviceConnectionId, `/videos?${q.toString()}`);
-          const currentData = typeof current === "string" ? JSON.parse(current) : current;
-          snippet.categoryId = currentData?.items?.[0]?.snippet?.categoryId ?? "22";
-        }
-        body.snippet = snippet;
-      }
-      if (fields.privacyStatus) body.status = { privacyStatus: fields.privacyStatus };
-
-      const parts: string[] = [];
-      if (body.snippet) parts.push("snippet");
-      if (body.status) parts.push("status");
-      if (parts.length === 0) throw new Error("At least one field to update is required");
-
-      const query = new URLSearchParams({ part: parts.join(",") });
-      return youtubeFetch(context.serviceConnectionId, `/videos?${query.toString()}`, {
-        method: "PUT",
-        body: JSON.stringify(body),
+      return youtubeUploadVideo(context.serviceConnectionId, params.videoUrl as string, {
+        title: params.title as string,
+        description: params.description as string | undefined,
+        tags: params.tags as string[] | undefined,
+        categoryId: params.categoryId as string | undefined,
+        privacyStatus: params.privacyStatus as "public" | "private" | "unlisted" | undefined,
       });
     },
   },

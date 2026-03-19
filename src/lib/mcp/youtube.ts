@@ -1,3 +1,5 @@
+import { readFile } from "fs/promises";
+import { lookup } from "mime-types";
 import { getValidAccessToken } from "@/lib/google-oauth";
 
 const YOUTUBE_BASE_URL = "https://www.googleapis.com/youtube/v3";

@@ -68,21 +68,42 @@ export default function EndpointDetailPage() {
   const [permDialogOpen, setPermDialogOpen] = useState(false);
 
   useEffect(() => {
-    loadEndpoint();
-    // Load project context if not set
-    if (!projectCtx) {
-      fetch(`/api/projects/${projectId}`)
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data?.project) {
-            setProjectName(data.project.name);
-            setProject({
-              projectId: data.project.id,
-              projectName: data.project.name,
-            });
-          }
-        });
+    async function init() {
+      try {
+        const fetches: Promise<void>[] = [
+          fetch(`/api/projects/${projectId}/endpoints/${endpointId}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data) => {
+              if (data?.endpoint) {
+                setEndpoint(data.endpoint);
+                setEditName(data.endpoint.name);
+              }
+            })
+            .catch(() => {
+              toast.error("Failed to load endpoint");
+            }),
+        ];
+        if (!projectCtx) {
+          fetches.push(
+            fetch(`/api/projects/${projectId}`)
+              .then((r) => (r.ok ? r.json() : null))
+              .then((data) => {
+                if (data?.project) {
+                  setProjectName(data.project.name);
+                  setProject({
+                    projectId: data.project.id,
+                    projectName: data.project.name,
+                  });
+                }
+              })
+          );
+        }
+        await Promise.all(fetches);
+      } finally {
+        setLoading(false);
+      }
     }
+    init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, endpointId]);
 
@@ -98,8 +119,6 @@ export default function EndpointDetailPage() {
       }
     } catch {
       toast.error("Failed to load endpoint");
-    } finally {
-      setLoading(false);
     }
   }
 

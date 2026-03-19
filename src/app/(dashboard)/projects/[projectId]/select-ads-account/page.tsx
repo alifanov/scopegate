@@ -147,7 +147,7 @@ export default function SelectAdsAccountPage() {
       <Breadcrumbs
         items={[
           { label: "Projects", href: "/projects" },
-          { label: projectName, href: `/projects/${projectId}` },
+          { label: projectName || "Project", href: `/projects/${projectId}` },
           { label: "Select Google Ads Account" },
         ]}
       />

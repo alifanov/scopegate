@@ -70,7 +70,7 @@ export default function EndpointDetailPage() {
   useEffect(() => {
     async function init() {
       try {
-        const fetches: Promise<void>[] = [
+        await Promise.all([
           fetch(`/api/projects/${projectId}/endpoints/${endpointId}`)
             .then((r) => (r.ok ? r.json() : null))
             .then((data) => {
@@ -82,23 +82,18 @@ export default function EndpointDetailPage() {
             .catch(() => {
               toast.error("Failed to load endpoint");
             }),
-        ];
-        if (!projectCtx) {
-          fetches.push(
-            fetch(`/api/projects/${projectId}`)
-              .then((r) => (r.ok ? r.json() : null))
-              .then((data) => {
-                if (data?.project) {
-                  setProjectName(data.project.name);
-                  setProject({
-                    projectId: data.project.id,
-                    projectName: data.project.name,
-                  });
-                }
-              })
-          );
-        }
-        await Promise.all(fetches);
+          fetch(`/api/projects/${projectId}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data) => {
+              if (data?.project) {
+                setProjectName(data.project.name);
+                setProject({
+                  projectId: data.project.id,
+                  projectName: data.project.name,
+                });
+              }
+            }),
+        ]);
       } finally {
         setLoading(false);
       }

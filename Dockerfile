@@ -11,13 +11,16 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-ARG DATABASE_URL
 ARG BETTER_AUTH_SECRET
 ARG BETTER_AUTH_URL
 ARG ADMIN_EMAIL
 ARG ADMIN_PASSWORD
 
-RUN pnpm run build
+# Generate Prisma client and build Next.js; migrations run at container startup
+RUN pnpm exec prisma generate && pnpm exec next build
+
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 3000
-CMD ["pnpm", "run", "start"]
+CMD ["/docker-entrypoint.sh"]

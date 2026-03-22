@@ -283,12 +283,30 @@ function EmailIcon(props: SvgProps) {
   );
 }
 
+function GoogleTagManagerIcon(props: SvgProps) {
+  return (
+    <svg viewBox="0 0 48 48" {...props}>
+      <rect width="48" height="48" rx="4" fill="#4285F4" />
+      <path
+        fill="#fff"
+        d="M24 8L10 28h8v12l14-20h-8z"
+      />
+      <path
+        fill="#fff"
+        fillOpacity="0.7"
+        d="M32 8h-8L10 28h8z"
+      />
+    </svg>
+  );
+}
+
 const ICONS: Record<string, (props: SvgProps) => React.ReactElement> = {
   gmail: GmailIcon,
   calendar: CalendarIcon,
   drive: DriveIcon,
   googleAds: GoogleAdsIcon,
   searchConsole: SearchConsoleIcon,
+  googleTagManager: GoogleTagManagerIcon,
   linkedin: LinkedInIcon,
   openRouter: OpenRouterIcon,
   twitter: TwitterIcon,

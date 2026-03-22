@@ -12,6 +12,7 @@ const GOOGLE_PROVIDERS = new Set([
   "googleAds",
   "searchConsole",
   "youtube",
+  "googleTagManager",
 ]);
 
 export async function POST(request: Request) {

@@ -11,6 +11,7 @@ export const GOOGLE_SCOPES: Record<string, string> = {
   googleAds: "https://www.googleapis.com/auth/adwords",
   searchConsole: "https://www.googleapis.com/auth/webmasters",
   youtube: "https://www.googleapis.com/auth/youtube https://www.googleapis.com/auth/youtube.channel-memberships.creator",
+  googleTagManager: "https://www.googleapis.com/auth/tagmanager.readonly https://www.googleapis.com/auth/tagmanager.edit.containers https://www.googleapis.com/auth/tagmanager.delete.containers https://www.googleapis.com/auth/tagmanager.edit.containerversions https://www.googleapis.com/auth/tagmanager.publish https://www.googleapis.com/auth/tagmanager.manage.users https://www.googleapis.com/auth/tagmanager.manage.accounts",
 };
 
 export const VALID_PROVIDERS = Object.keys(GOOGLE_SCOPES);

@@ -60,16 +60,16 @@ export async function twitterUploadMedia(
 ): Promise<string> {
   const accessToken = await getValidTwitterAccessToken(serviceConnectionId);
 
-  const formData = new FormData();
-  formData.append("media_data", imageBuffer.toString("base64"));
-  formData.append("media_category", "tweet_image");
+  const body = new URLSearchParams();
+  body.append("media_data", imageBuffer.toString("base64"));
 
   const res = await fetch(TWITTER_UPLOAD_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: formData,
+    body: body.toString(),
   });
 
   if (!res.ok) {

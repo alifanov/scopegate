@@ -109,6 +109,12 @@ export const PERMISSION_GROUPS: Record<string, PermissionGroup> = {
       // Write - Labels
       "googleAds:create_label",
       "googleAds:assign_label",
+      // Write - Extensions
+      "googleAds:create_sitelink",
+      "googleAds:create_callout",
+      "googleAds:update_sitelink",
+      "googleAds:update_callout",
+      "googleAds:remove_extension",
     ],
   },
   searchConsole: {

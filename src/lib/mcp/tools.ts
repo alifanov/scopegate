@@ -1278,6 +1278,153 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       ]);
     },
   },
+  // Google Ads tools — Write: Extensions (Sitelinks & Callouts)
+  {
+    name: "googleAds_create_sitelink",
+    description: "Create a sitelink extension and link it to a campaign or account",
+    action: "googleAds:create_sitelink",
+    inputSchema: z.object({
+      linkText: z.string().describe("Sitelink link text (max 25 chars)"),
+      finalUrl: z.string().describe("Destination URL"),
+      description1: z.string().optional().describe("First description line (max 35 chars)"),
+      description2: z.string().optional().describe("Second description line (max 35 chars)"),
+      campaignId: z.string().optional().describe("Link to this campaign. If omitted, links to account level."),
+      name: z.string().optional().describe("Internal asset name for reference"),
+    }),
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      const sitelinkAsset: Record<string, unknown> = { linkText: params.linkText };
+      if (params.description1) sitelinkAsset.description1 = params.description1;
+      if (params.description2) sitelinkAsset.description2 = params.description2;
+      const createResult = await googleAdsMutate(context.serviceConnectionId, "assets", [
+        {
+          create: {
+            name: params.name ?? params.linkText,
+            type: "SITELINK",
+            finalUrls: [params.finalUrl],
+            sitelinkAsset,
+          },
+        },
+      ]) as { results?: Array<{ resourceName: string }> };
+      const assetResourceName = createResult.results?.[0]?.resourceName;
+      if (!assetResourceName) throw new Error("Failed to create sitelink asset");
+      if (params.campaignId) {
+        await googleAdsMutate(context.serviceConnectionId, "campaignAssets", [
+          { create: { campaign: `customers/${cid}/campaigns/${params.campaignId}`, asset: assetResourceName, fieldType: "SITELINK" } },
+        ]);
+      } else {
+        await googleAdsMutate(context.serviceConnectionId, "customerAssets", [
+          { create: { asset: assetResourceName, fieldType: "SITELINK" } },
+        ]);
+      }
+      return { assetResourceName, message: "Sitelink created and linked successfully" };
+    },
+  },
+  {
+    name: "googleAds_create_callout",
+    description: "Create a callout extension and link it to a campaign or account",
+    action: "googleAds:create_callout",
+    inputSchema: z.object({
+      calloutText: z.string().describe("Callout text (max 25 chars)"),
+      campaignId: z.string().optional().describe("Link to this campaign. If omitted, links to account level."),
+      name: z.string().optional().describe("Internal asset name for reference"),
+    }),
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      const createResult = await googleAdsMutate(context.serviceConnectionId, "assets", [
+        {
+          create: {
+            name: params.name ?? params.calloutText,
+            type: "CALLOUT",
+            calloutAsset: { calloutText: params.calloutText },
+          },
+        },
+      ]) as { results?: Array<{ resourceName: string }> };
+      const assetResourceName = createResult.results?.[0]?.resourceName;
+      if (!assetResourceName) throw new Error("Failed to create callout asset");
+      if (params.campaignId) {
+        await googleAdsMutate(context.serviceConnectionId, "campaignAssets", [
+          { create: { campaign: `customers/${cid}/campaigns/${params.campaignId}`, asset: assetResourceName, fieldType: "CALLOUT" } },
+        ]);
+      } else {
+        await googleAdsMutate(context.serviceConnectionId, "customerAssets", [
+          { create: { asset: assetResourceName, fieldType: "CALLOUT" } },
+        ]);
+      }
+      return { assetResourceName, message: "Callout created and linked successfully" };
+    },
+  },
+  {
+    name: "googleAds_update_sitelink",
+    description: "Update a sitelink asset's text, descriptions, or URL",
+    action: "googleAds:update_sitelink",
+    inputSchema: z.object({
+      assetId: z.string(),
+      linkText: z.string().optional(),
+      description1: z.string().optional(),
+      description2: z.string().optional(),
+      finalUrl: z.string().optional(),
+    }),
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      const sitelinkAsset: Record<string, unknown> = {};
+      const maskFields: string[] = [];
+      if (params.linkText !== undefined) { sitelinkAsset.linkText = params.linkText; maskFields.push("sitelink_asset.link_text"); }
+      if (params.description1 !== undefined) { sitelinkAsset.description1 = params.description1; maskFields.push("sitelink_asset.description1"); }
+      if (params.description2 !== undefined) { sitelinkAsset.description2 = params.description2; maskFields.push("sitelink_asset.description2"); }
+      const updateObj: Record<string, unknown> = {
+        resourceName: `customers/${cid}/assets/${params.assetId}`,
+        sitelinkAsset,
+      };
+      if (params.finalUrl !== undefined) { updateObj.finalUrls = [params.finalUrl]; maskFields.push("final_urls"); }
+      if (maskFields.length === 0) throw new Error("At least one field to update is required");
+      return googleAdsMutate(context.serviceConnectionId, "assets", [
+        { update: updateObj, updateMask: maskFields.join(",") },
+      ]);
+    },
+  },
+  {
+    name: "googleAds_update_callout",
+    description: "Update a callout asset's text",
+    action: "googleAds:update_callout",
+    inputSchema: z.object({
+      assetId: z.string(),
+      calloutText: z.string(),
+    }),
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      return googleAdsMutate(context.serviceConnectionId, "assets", [
+        {
+          update: {
+            resourceName: `customers/${cid}/assets/${params.assetId}`,
+            calloutAsset: { calloutText: params.calloutText },
+          },
+          updateMask: "callout_asset.callout_text",
+        },
+      ]);
+    },
+  },
+  {
+    name: "googleAds_remove_extension",
+    description: "Remove (unlink) a sitelink or callout extension from a campaign or account",
+    action: "googleAds:remove_extension",
+    inputSchema: z.object({
+      assetId: z.string(),
+      fieldType: z.enum(["SITELINK", "CALLOUT"]),
+      campaignId: z.string().optional().describe("Remove from this campaign. If omitted, removes from account level."),
+    }),
+    handler: async (params, context) => {
+      const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      if (params.campaignId) {
+        return googleAdsMutate(context.serviceConnectionId, "campaignAssets", [
+          { remove: `customers/${cid}/campaignAssets/${params.campaignId}~${params.assetId}~${params.fieldType}` },
+        ]);
+      }
+      return googleAdsMutate(context.serviceConnectionId, "customerAssets", [
+        { remove: `customers/${cid}/customerAssets/${params.assetId}~${params.fieldType}` },
+      ]);
+    },
+  },
   // Google Search Console tools
   {
     name: "searchConsole_list_sites",

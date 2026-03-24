@@ -1,7 +1,7 @@
 import { getValidTwitterAccessToken } from "@/lib/twitter-oauth";
 
 const TWITTER_BASE_URL = "https://api.x.com/2";
-const TWITTER_UPLOAD_URL = "https://upload.twitter.com/1.1/media/upload.json";
+const TWITTER_UPLOAD_URL = "https://api.x.com/2/media/upload";
 
 // Cache authenticated user IDs per service connection
 const userIdCache = new Map<string, string>();
@@ -60,16 +60,16 @@ export async function twitterUploadMedia(
 ): Promise<string> {
   const accessToken = await getValidTwitterAccessToken(serviceConnectionId);
 
-  const body = new URLSearchParams();
-  body.append("media_data", imageBuffer.toString("base64"));
+  const formData = new FormData();
+  formData.append("media", new Blob([imageBuffer.buffer as ArrayBuffer], { type: mimeType }));
+  formData.append("media_category", mimeType.startsWith("image/gif") ? "tweet_gif" : "tweet_image");
 
   const res = await fetch(TWITTER_UPLOAD_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: body.toString(),
+    body: formData,
   });
 
   if (!res.ok) {
@@ -78,10 +78,11 @@ export async function twitterUploadMedia(
     throw new Error(`Twitter media upload failed (${res.status}): ${text}`);
   }
 
-  const data = (await res.json()) as { media_id_string?: string };
-  if (!data.media_id_string) {
-    throw new Error("Twitter media upload did not return media_id_string");
+  const data = (await res.json()) as { data?: { id?: string } };
+  const mediaId = data?.data?.id;
+  if (!mediaId) {
+    throw new Error("Twitter media upload did not return media id");
   }
 
-  return data.media_id_string;
+  return mediaId;
 }

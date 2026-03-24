@@ -9,6 +9,7 @@ const TWITTER_SCOPES = [
   "tweet.read",
   "tweet.write",
   "users.read",
+  "media.write",
   "follows.read",
   "follows.write",
   "like.read",

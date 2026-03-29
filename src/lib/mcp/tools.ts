@@ -521,9 +521,11 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       datePreset: z.string().optional(),
     }),
     handler: async (params, context) => {
-      let query = `SELECT conversion_action.id, conversion_action.name, metrics.conversions, metrics.conversions_value, metrics.cost_per_conversion, segments.date FROM conversion_action`;
+      // conversion metrics must be queried from campaign/customer resource, not conversion_action
+      const fromResource = params.campaignId ? "campaign" : "customer";
+      let query = `SELECT segments.conversion_action, segments.conversion_action_name, metrics.conversions, metrics.conversions_value, metrics.cost_per_conversion, segments.date FROM ${fromResource}`;
       const conditions: string[] = [];
-      if (params.conversionActionId) conditions.push(`conversion_action.id = ${params.conversionActionId}`);
+      if (params.conversionActionId) conditions.push(`segments.conversion_action = 'customers/{cid}/conversionActions/${params.conversionActionId}'`);
       if (params.campaignId) conditions.push(`campaign.id = ${params.campaignId}`);
       if (params.dateRangeStart && params.dateRangeEnd) {
         conditions.push(`segments.date BETWEEN '${params.dateRangeStart}' AND '${params.dateRangeEnd}'`);

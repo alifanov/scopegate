@@ -1203,8 +1203,12 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     }),
     handler: async (params, context) => {
       const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      const recId = params.recommendationId as string;
+      const resourceName = recId.startsWith("customers/")
+        ? recId
+        : `customers/${cid}/recommendations/${recId}`;
       return googleAdsApplyRecommendation(context.serviceConnectionId, [
-        { resourceName: `customers/${cid}/recommendations/${params.recommendationId}` },
+        { resourceName },
       ]);
     },
   },
@@ -1217,8 +1221,12 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     }),
     handler: async (params, context) => {
       const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+      const recId = params.recommendationId as string;
+      const resourceName = recId.startsWith("customers/")
+        ? recId
+        : `customers/${cid}/recommendations/${recId}`;
       return googleAdsDismissRecommendation(context.serviceConnectionId, [
-        { resourceName: `customers/${cid}/recommendations/${params.recommendationId}` },
+        { resourceName },
       ]);
     },
   },

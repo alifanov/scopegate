@@ -1,8 +1,9 @@
 "use client";
 
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Menu } from "lucide-react";
+import { Menu, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -19,6 +20,27 @@ export function Header() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
   const { setOpen } = useSidebar();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const res = await fetch("/api/notifications?countOnly=true");
+      if (res.ok) {
+        const data = await res.json();
+        setUnreadCount(data.unreadCount);
+      }
+    } catch {
+      // silently ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    if (session?.user) {
+      fetchUnreadCount();
+      const interval = setInterval(fetchUnreadCount, 60_000);
+      return () => clearInterval(interval);
+    }
+  }, [session?.user, fetchUnreadCount]);
 
   async function handleLogout() {
     await authClient.signOut();
@@ -36,24 +58,36 @@ export function Header() {
         <Menu className="size-5" />
       </button>
       <div className="hidden md:block" />
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm">
-            {isPending ? (
-              <Skeleton className="h-4 w-32" />
-            ) : (
-              session?.user?.email || "Account"
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" asChild className="relative">
+          <Link href="/notifications">
+            <Bell className="size-5" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex size-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
             )}
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem asChild>
-            <Link href="/settings">Settings</Link>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleLogout}>Sign out</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+          </Link>
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm">
+              {isPending ? (
+                <Skeleton className="h-4 w-32" />
+              ) : (
+                session?.user?.email || "Account"
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link href="/settings">Settings</Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout}>Sign out</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </header>
   );
 }

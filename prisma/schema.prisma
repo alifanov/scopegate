@@ -18,6 +18,7 @@ model User {
   sessions      Session[]
   accounts      Account[]
   teamMembers   TeamMember[]
+  notifications Notification[]
 
   @@map("user")
 }
@@ -140,4 +141,17 @@ model AuditLog {
   error      String?
   duration   Int?
   createdAt  DateTime    @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   @default("error")
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
 }

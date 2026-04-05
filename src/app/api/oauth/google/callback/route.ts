@@ -18,10 +18,12 @@ export async function GET(request: Request) {
 
   // Google returned an error (e.g. user denied consent)
   if (error) {
+    console.error("[ScopeGate] Google OAuth error:", error, searchParams.get("error_description"));
     return NextResponse.redirect(`${baseUrl}/projects?error=oauth_failed`);
   }
 
   if (!code || !stateParam) {
+    console.error("[ScopeGate] OAuth callback missing params — code:", !!code, "state:", !!stateParam);
     return NextResponse.redirect(`${baseUrl}/projects?error=oauth_failed`);
   }
 
@@ -29,17 +31,20 @@ export async function GET(request: Request) {
   let state: { projectId: string; provider: string; csrfToken: string };
   try {
     state = JSON.parse(atob(stateParam));
-  } catch {
+  } catch (err) {
+    console.error("[ScopeGate] Failed to decode OAuth state:", err);
     return NextResponse.redirect(`${baseUrl}/projects?error=oauth_failed`);
   }
 
   const { projectId, provider, csrfToken } = state;
 
   if (!projectId || !provider || !csrfToken) {
+    console.error("[ScopeGate] Incomplete OAuth state — projectId:", !!projectId, "provider:", !!provider, "csrfToken:", !!csrfToken);
     return NextResponse.redirect(`${baseUrl}/projects?error=oauth_failed`);
   }
 
   if (!VALID_PROVIDERS.includes(provider)) {
+    console.error("[ScopeGate] Invalid OAuth provider:", provider);
     return NextResponse.redirect(
       `${baseUrl}/projects/${projectId}?tab=services&error=oauth_failed`
     );
@@ -54,6 +59,7 @@ export async function GET(request: Request) {
   const csrfValue = csrfCookie?.split("=")[1];
 
   if (!csrfValue || csrfValue !== csrfToken) {
+    console.error("[ScopeGate] CSRF mismatch — cookie present:", !!csrfValue, "match:", csrfValue === csrfToken);
     return NextResponse.redirect(
       `${baseUrl}/projects/${projectId}?tab=services&error=oauth_failed`
     );
@@ -62,6 +68,7 @@ export async function GET(request: Request) {
   // Auth check
   const user = await getCurrentUser();
   if (!user) {
+    console.error("[ScopeGate] OAuth callback — user not authenticated");
     return NextResponse.redirect(`${baseUrl}/login`);
   }
 
@@ -72,6 +79,7 @@ export async function GET(request: Request) {
     },
   });
   if (!member) {
+    console.error("[ScopeGate] OAuth callback — user not a member of project:", projectId);
     return NextResponse.redirect(
       `${baseUrl}/projects/${projectId}?tab=services&error=oauth_failed`
     );

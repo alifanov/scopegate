@@ -37,7 +37,7 @@ importers:
         version: 3.0.3
       better-auth:
         specifier: ~1.4.18
-        version: 1.4.22(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(mysql2@3.15.3)(next@16.1.7(@babel/core@7.29.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(pg@8.18.0)(prisma@7.4.2(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@4.0.18(@types/node@20.19.37)(jiti@2.6.1)(lightningcss@1.32.0)(msw@2.12.10(@types/node@20.19.37)(typescript@5.9.3)))
+        version: 1.4.22(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(mysql2@3.15.3)(next@16.1.7(@babel/core@7.29.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(pg@8.18.0)(prisma@7.4.2(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@4.0.18(@types/node@20.19.39)(jiti@2.6.1)(lightningcss@1.32.0)(msw@2.12.10(@types/node@20.19.39)(typescript@5.9.3)))
       class-variance-authority:
         specifier: ~0.7.1
         version: 0.7.1
@@ -49,7 +49,7 @@ importers:
         version: 17.3.1
       imapflow:
         specifier: ~1.2.13
-        version: 1.2.16
+        version: 1.2.18
       lucide-react:
         specifier: ~0.564.0
         version: 0.564.0(react@19.2.3)
@@ -63,8 +63,8 @@ importers:
         specifier: ~0.4.6
         version: 0.4.6(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       nodemailer:
-        specifier: ~8.0.2
-        version: 8.0.3
+        specifier: ~8.0.5
+        version: 8.0.5
       oauth-1.0a:
         specifier: ~2.2.6
         version: 2.2.6
@@ -88,7 +88,7 @@ importers:
         version: 7.71.2(react@19.2.3)
       shadcn:
         specifier: ~3.8.4
-        version: 3.8.5(@types/node@20.19.37)(typescript@5.9.3)
+        version: 3.8.5(@types/node@20.19.39)(typescript@5.9.3)
       sonner:
         specifier: ~2.0.7
         version: 2.0.7(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -110,7 +110,7 @@ importers:
         version: 3.0.1
       '@types/node':
         specifier: ^20
-        version: 20.19.37
+        version: 20.19.39
       '@types/nodemailer':
         specifier: ~7.0.11
         version: 7.0.11
@@ -134,7 +134,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ~4.0.18
-        version: 4.0.18(@types/node@20.19.37)(jiti@2.6.1)(lightningcss@1.32.0)(msw@2.12.10(@types/node@20.19.37)(typescript@5.9.3))
+        version: 4.0.18(@types/node@20.19.39)(jiti@2.6.1)(lightningcss@1.32.0)(msw@2.12.10(@types/node@20.19.39)(typescript@5.9.3))
 
 packages:
 
@@ -1900,8 +1900,8 @@ packages:
   '@types/mime-types@3.0.1':
     resolution: {integrity: sha512-xRMsfuQbnRq1Ef+C+RKaENOxXX87Ygl38W1vDfPHRku02TgQr+Qd8iivLtAMcR0KF5/29xlnFihkTlbqFrGOVQ==}
 
-  '@types/node@20.19.37':
-    resolution: {integrity: sha512-8kzdPJ3FsNsVIurqBs7oodNnCEVbni9yUEkaHbgptDACOPW04jimGagZ51E6+lXUwJjgnBw+hyko/lkFWCldqw==}
+  '@types/node@20.19.39':
+    resolution: {integrity: sha512-orrrD74MBUyK8jOAD/r0+lfa1I2MO6I+vAkmAWzMYbCcgrN4lCrmK52gRFQq/JRxfYPfonkr4b0jcY7Olqdqbw==}
 
   '@types/nodemailer@7.0.11':
     resolution: {integrity: sha512-E+U4RzR2dKrx+u3N4DlsmLaDC6mMZOM/TPROxA0UAPiTgI0y4CEFBmZE+coGWTjakDriRsXG368lNk1u9Q0a2g==}
@@ -3145,8 +3145,8 @@ packages:
     resolution: {integrity: sha512-Hs59xBNfUIunMFgWAbGX5cq6893IbWg4KnrjbYwX3tx0ztorVgTDA6B2sxf8ejHJ4wz8BqGUMYlnzNBer5NvGg==}
     engines: {node: '>= 4'}
 
-  imapflow@1.2.16:
-    resolution: {integrity: sha512-EiGoljjpzL+3DarmqmShN/p/n9ArWgXoy9VnUXZx8tDT2mS51oDs8hNV5UfsbUEMdxtI+QgVyTaqdjtkccrPuw==}
+  imapflow@1.2.18:
+    resolution: {integrity: sha512-zxYvcG9ckj/UcTRs+ZDT+wJzW8DqkjgWZwc1z4Q28R/4C/1YvJieVETOuR/9ztCXcycURC50PJShMimITvz5wQ==}
 
   import-fresh@3.3.1:
     resolution: {integrity: sha512-TR3KfrTZTYLPB6jUjfx6MF9WcWrHL9su5TObK4ZkYgBdWKPOFoSoQIdEuTuR82pmtxH2spWG9h6etwfr1pLBqQ==}
@@ -3690,8 +3690,12 @@ packages:
   node-releases@2.0.27:
     resolution: {integrity: sha512-nmh3lCkYZ3grZvqcCH+fjmQ7X+H0OeZgP40OierEaAptX4XofMh5kwNbWh7lBduUzCcV/8kZ+NDLCwm2iorIlA==}
 
-  nodemailer@8.0.3:
-    resolution: {integrity: sha512-JQNBqvK+bj3NMhUFR3wmCl3SYcOeMotDiwDBvIoCuQdF0PvlIY0BH+FJ2CG7u4cXKPChplE78oowlH/Otsc4ZQ==}
+  nodemailer@8.0.4:
+    resolution: {integrity: sha512-k+jf6N8PfQJ0Fe8ZhJlgqU5qJU44Lpvp2yvidH3vp1lPnVQMgi4yEEMPXg5eJS1gFIJTVq1NHBk7Ia9ARdSBdQ==}
+    engines: {node: '>=6.0.0'}
+
+  nodemailer@8.0.5:
+    resolution: {integrity: sha512-0PF8Yb1yZuQfQbq+5/pZJrtF6WQcjTd5/S4JOHs9PGFxuTqoB/icwuB44pOdURHJbRKX1PPoJZtY7R4VUoCC8w==}
     engines: {node: '>=6.0.0'}
 
   npm-run-path@4.0.1:
@@ -5316,31 +5320,31 @@ snapshots:
 
   '@inquirer/ansi@1.0.2': {}
 
-  '@inquirer/confirm@5.1.21(@types/node@20.19.37)':
+  '@inquirer/confirm@5.1.21(@types/node@20.19.39)':
     dependencies:
-      '@inquirer/core': 10.3.2(@types/node@20.19.37)
-      '@inquirer/type': 3.0.10(@types/node@20.19.37)
+      '@inquirer/core': 10.3.2(@types/node@20.19.39)
+      '@inquirer/type': 3.0.10(@types/node@20.19.39)
     optionalDependencies:
-      '@types/node': 20.19.37
+      '@types/node': 20.19.39
 
-  '@inquirer/core@10.3.2(@types/node@20.19.37)':
+  '@inquirer/core@10.3.2(@types/node@20.19.39)':
     dependencies:
       '@inquirer/ansi': 1.0.2
       '@inquirer/figures': 1.0.15
-      '@inquirer/type': 3.0.10(@types/node@20.19.37)
+      '@inquirer/type': 3.0.10(@types/node@20.19.39)
       cli-width: 4.1.0
       mute-stream: 2.0.0
       signal-exit: 4.1.0
       wrap-ansi: 6.2.0
       yoctocolors-cjs: 2.1.3
     optionalDependencies:
-      '@types/node': 20.19.37
+      '@types/node': 20.19.39
 
   '@inquirer/figures@1.0.15': {}
 
-  '@inquirer/type@3.0.10(@types/node@20.19.37)':
+  '@inquirer/type@3.0.10(@types/node@20.19.39)':
     optionalDependencies:
-      '@types/node': 20.19.37
+      '@types/node': 20.19.39
 
   '@isaacs/cliui@9.0.0': {}
 
@@ -6519,13 +6523,13 @@ snapshots:
 
   '@types/mime-types@3.0.1': {}
 
-  '@types/node@20.19.37':
+  '@types/node@20.19.39':
     dependencies:
       undici-types: 6.21.0
 
   '@types/nodemailer@7.0.11':
     dependencies:
-      '@types/node': 20.19.37
+      '@types/node': 20.19.39
 
   '@types/react-dom@19.2.3(@types/react@19.2.14)':
     dependencies:
@@ -6698,14 +6702,14 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.0.3
 
-  '@vitest/mocker@4.0.18(msw@2.12.10(@types/node@20.19.37)(typescript@5.9.3))(vite@7.3.1(@types/node@20.19.37)(jiti@2.6.1)(lightningcss@1.32.0))':
+  '@vitest/mocker@4.0.18(msw@2.12.10(@types/node@20.19.39)(typescript@5.9.3))(vite@7.3.1(@types/node@20.19.39)(jiti@2.6.1)(lightningcss@1.32.0))':
     dependencies:
       '@vitest/spy': 4.0.18
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      msw: 2.12.10(@types/node@20.19.37)(typescript@5.9.3)
-      vite: 7.3.1(@types/node@20.19.37)(jiti@2.6.1)(lightningcss@1.32.0)
+      msw: 2.12.10(@types/node@20.19.39)(typescript@5.9.3)
+      vite: 7.3.1(@types/node@20.19.39)(jiti@2.6.1)(lightningcss@1.32.0)
 
   '@vitest/pretty-format@4.0.18':
     dependencies:
@@ -6874,7 +6878,7 @@ snapshots:
 
   bcryptjs@3.0.3: {}
 
-  better-auth@1.4.22(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(mysql2@3.15.3)(next@16.1.7(@babel/core@7.29.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(pg@8.18.0)(prisma@7.4.2(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@4.0.18(@types/node@20.19.37)(jiti@2.6.1)(lightningcss@1.32.0)(msw@2.12.10(@types/node@20.19.37)(typescript@5.9.3))):
+  better-auth@1.4.22(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(mysql2@3.15.3)(next@16.1.7(@babel/core@7.29.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(pg@8.18.0)(prisma@7.4.2(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@4.0.18(@types/node@20.19.39)(jiti@2.6.1)(lightningcss@1.32.0)(msw@2.12.10(@types/node@20.19.39)(typescript@5.9.3))):
     dependencies:
       '@better-auth/core': 1.4.22(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.8(zod@4.3.6))(jose@6.1.3)(kysely@0.28.11)(nanostores@1.1.0)
       '@better-auth/telemetry': 1.4.22(@better-auth/core@1.4.22(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.8(zod@4.3.6))(jose@6.1.3)(kysely@0.28.11)(nanostores@1.1.0))
@@ -6896,7 +6900,7 @@ snapshots:
       prisma: 7.4.2(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
-      vitest: 4.0.18(@types/node@20.19.37)(jiti@2.6.1)(lightningcss@1.32.0)(msw@2.12.10(@types/node@20.19.37)(typescript@5.9.3))
+      vitest: 4.0.18(@types/node@20.19.39)(jiti@2.6.1)(lightningcss@1.32.0)(msw@2.12.10(@types/node@20.19.39)(typescript@5.9.3))
 
   better-call@1.1.8(zod@4.3.6):
     dependencies:
@@ -7906,7 +7910,7 @@ snapshots:
 
   ignore@7.0.5: {}
 
-  imapflow@1.2.16:
+  imapflow@1.2.18:
     dependencies:
       '@zone-eu/mailsplit': 5.4.8
       encoding-japanese: 2.2.0
@@ -7914,7 +7918,7 @@ snapshots:
       libbase64: 1.3.0
       libmime: 5.3.7
       libqp: 2.1.1
-      nodemailer: 8.0.3
+      nodemailer: 8.0.4
       pino: 10.3.1
       socks: 2.8.7
 
@@ -8298,9 +8302,9 @@ snapshots:
 
   ms@2.1.3: {}
 
-  msw@2.12.10(@types/node@20.19.37)(typescript@5.9.3):
+  msw@2.12.10(@types/node@20.19.39)(typescript@5.9.3):
     dependencies:
-      '@inquirer/confirm': 5.1.21(@types/node@20.19.37)
+      '@inquirer/confirm': 5.1.21(@types/node@20.19.39)
       '@mswjs/interceptors': 0.41.3
       '@open-draft/deferred-promise': 2.2.0
       '@types/statuses': 2.0.6
@@ -8392,7 +8396,9 @@ snapshots:
 
   node-releases@2.0.27: {}
 
-  nodemailer@8.0.3: {}
+  nodemailer@8.0.4: {}
+
+  nodemailer@8.0.5: {}
 
   npm-run-path@4.0.1:
     dependencies:
@@ -9039,7 +9045,7 @@ snapshots:
 
   setprototypeof@1.2.0: {}
 
-  shadcn@3.8.5(@types/node@20.19.37)(typescript@5.9.3):
+  shadcn@3.8.5(@types/node@20.19.39)(typescript@5.9.3):
     dependencies:
       '@antfu/ni': 25.0.0
       '@babel/core': 7.29.0
@@ -9061,7 +9067,7 @@ snapshots:
       fuzzysort: 3.1.0
       https-proxy-agent: 7.0.6
       kleur: 4.1.5
-      msw: 2.12.10(@types/node@20.19.37)(typescript@5.9.3)
+      msw: 2.12.10(@types/node@20.19.39)(typescript@5.9.3)
       node-fetch: 3.3.2
       open: 11.0.0
       ora: 8.2.0
@@ -9500,7 +9506,7 @@ snapshots:
 
   vary@1.1.2: {}
 
-  vite@7.3.1(@types/node@20.19.37)(jiti@2.6.1)(lightningcss@1.32.0):
+  vite@7.3.1(@types/node@20.19.39)(jiti@2.6.1)(lightningcss@1.32.0):
     dependencies:
       esbuild: 0.27.3
       fdir: 6.5.0(picomatch@4.0.3)
@@ -9509,15 +9515,15 @@ snapshots:
       rollup: 4.59.0
       tinyglobby: 0.2.15
     optionalDependencies:
-      '@types/node': 20.19.37
+      '@types/node': 20.19.39
       fsevents: 2.3.3
       jiti: 2.6.1
       lightningcss: 1.32.0
 
-  vitest@4.0.18(@types/node@20.19.37)(jiti@2.6.1)(lightningcss@1.32.0)(msw@2.12.10(@types/node@20.19.37)(typescript@5.9.3)):
+  vitest@4.0.18(@types/node@20.19.39)(jiti@2.6.1)(lightningcss@1.32.0)(msw@2.12.10(@types/node@20.19.39)(typescript@5.9.3)):
     dependencies:
       '@vitest/expect': 4.0.18
-      '@vitest/mocker': 4.0.18(msw@2.12.10(@types/node@20.19.37)(typescript@5.9.3))(vite@7.3.1(@types/node@20.19.37)(jiti@2.6.1)(lightningcss@1.32.0))
+      '@vitest/mocker': 4.0.18(msw@2.12.10(@types/node@20.19.39)(typescript@5.9.3))(vite@7.3.1(@types/node@20.19.39)(jiti@2.6.1)(lightningcss@1.32.0))
       '@vitest/pretty-format': 4.0.18
       '@vitest/runner': 4.0.18
       '@vitest/snapshot': 4.0.18
@@ -9534,10 +9540,10 @@ snapshots:
       tinyexec: 1.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.0.3
-      vite: 7.3.1(@types/node@20.19.37)(jiti@2.6.1)(lightningcss@1.32.0)
+      vite: 7.3.1(@types/node@20.19.39)(jiti@2.6.1)(lightningcss@1.32.0)
       why-is-node-running: 2.3.0
     optionalDependencies:
-      '@types/node': 20.19.37
+      '@types/node': 20.19.39
     transitivePeerDependencies:
       - jiti
       - less

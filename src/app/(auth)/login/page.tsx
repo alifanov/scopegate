@@ -95,7 +95,7 @@ export default function LoginPage() {
               />
             </div>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="pt-2">
             <Button type="submit" className="w-full" disabled={loading}>
               <LogIn className="size-4" />
               {loading ? "Signing in..." : "Sign In"}

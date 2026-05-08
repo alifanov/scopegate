@@ -15,9 +15,11 @@ import {
   X,
   PanelLeftClose,
   PanelLeftOpen,
+  ShieldCheck,
+  Users,
 } from "lucide-react";
 
-export function Sidebar() {
+export function Sidebar({ isAdmin }: { isAdmin?: boolean }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { project } = useProject();
@@ -163,6 +165,42 @@ export function Sidebar() {
             <Settings className="size-4 shrink-0" />
             {!collapsed && "Settings"}
           </Link>
+
+          {isAdmin && (
+            <>
+              {!collapsed && (
+                <div className="px-3 pt-4 pb-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <ShieldCheck className="size-3" />
+                    Admin
+                  </p>
+                </div>
+              )}
+              {collapsed && <div className="pt-3" />}
+              {[
+                { label: "Users", href: "/admin/users", icon: Users },
+                { label: "Projects", href: "/admin/projects", icon: FolderKanban },
+              ].map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={closeMobile}
+                  title={item.label}
+                  className={cn(
+                    "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    !collapsed && "ml-2",
+                    collapsed && "justify-center px-0",
+                    pathname === item.href
+                      ? "bg-accent text-accent-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  )}
+                >
+                  <item.icon className="size-4 shrink-0" />
+                  {!collapsed && item.label}
+                </Link>
+              ))}
+            </>
+          )}
 
         </nav>
 

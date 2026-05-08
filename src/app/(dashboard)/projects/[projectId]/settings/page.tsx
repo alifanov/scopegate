@@ -13,11 +13,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { TabContentSkeleton } from "@/components/skeletons";
 import { useProject } from "@/components/project/project-context";
+import { ManageMembers } from "@/components/project/manage-members";
 import { Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -147,28 +147,21 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>Team Members</CardTitle>
           <CardDescription>
-            People with access to this project
+            Add or remove people with access to this project
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {project.teamMembers.map((member) => (
-              <div
-                key={member.id}
-                className="flex items-center justify-between rounded-md border p-3"
-              >
-                <div>
-                  <p className="font-medium">
-                    {member.user.name || member.user.email}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {member.user.email}
-                  </p>
-                </div>
-                <Badge variant="secondary">{member.role}</Badge>
-              </div>
-            ))}
-          </div>
+          <ManageMembers
+            projectId={projectId}
+            members={project.teamMembers}
+            onChanged={async () => {
+              const res = await fetch(`/api/projects/${projectId}`);
+              if (res.ok) {
+                const data = await res.json();
+                setProjectLocal(data.project);
+              }
+            }}
+          />
         </CardContent>
       </Card>
 

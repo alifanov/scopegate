@@ -3,18 +3,23 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { ProjectProvider } from "@/components/project/project-context";
 import { SidebarProvider } from "@/components/layout/sidebar-context";
+import { getCurrentUser } from "@/lib/auth-middleware";
+import { isAdmin } from "@/lib/admin";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const user = await getCurrentUser();
+  const adminAccess = user ? isAdmin(user.email) : false;
+
   return (
     <ProjectProvider>
       <SidebarProvider>
         <div className="flex h-screen">
           <Suspense>
-            <Sidebar />
+            <Sidebar isAdmin={adminAccess} />
           </Suspense>
           <div className="flex flex-1 flex-col overflow-hidden">
             <Header />

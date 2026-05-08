@@ -155,3 +155,14 @@ model Notification {
 
   @@index([userId, isRead])
 }
+
+model InviteToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  email     String?
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@map("invite_token")
+}

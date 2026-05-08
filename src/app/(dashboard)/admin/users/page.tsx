@@ -13,7 +13,8 @@ import {
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { TableSkeleton } from "@/components/skeletons";
 import { CreateUserDialog } from "@/components/admin/create-user-dialog";
-import { UserPlus } from "lucide-react";
+import { GenerateInviteDialog } from "@/components/admin/generate-invite-dialog";
+import { UserPlus, Link2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface User {
@@ -27,6 +28,7 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -54,13 +56,23 @@ export default function AdminUsersPage() {
 
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Users</h1>
-        <Button onClick={() => setDialogOpen(true)}><UserPlus className="size-4" />Create User</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setInviteDialogOpen(true)} className="cursor-pointer">
+            <Link2 className="size-4" />Invite Link
+          </Button>
+          <Button onClick={() => setDialogOpen(true)} className="cursor-pointer"><UserPlus className="size-4" />Create User</Button>
+        </div>
       </div>
 
       <CreateUserDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onCreated={fetchUsers}
+      />
+
+      <GenerateInviteDialog
+        open={inviteDialogOpen}
+        onOpenChange={setInviteDialogOpen}
       />
 
       {loading ? (

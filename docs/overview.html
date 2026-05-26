@@ -14,7 +14,8 @@
     { "timestamp": "2026-05-26T08:00:00Z", "routine": "coolify-logs", "summary": "Оба приложения работают (scopegate.chatindex.app, scopegate.dev), ошибок деплоя нет; в логах ожидаемые invalid_grant OAuth и transient Next.js Server Action cache errors" },
     { "timestamp": "2026-05-26T09:45:00Z", "routine": "fix-issues", "summary": "Закрыт #28: добавлена OTel-инструментация (instrumentation.node.ts + OTLP → SigNoz), коммит 0cf7360 запушен в master" },
     { "timestamp": "2026-05-26T10:30:00Z", "routine": "fix-issues", "summary": "Закрыт #29: next@16.1.7 уже удовлетворяет ≥15.5.18 — 14 уязвимостей (SSRF/bypass/XSS/DoS) устранены, изменений кода не потребовалось" },
-    { "timestamp": "2026-05-26T11:00:00Z", "routine": "fix-issues", "summary": "Закрыт #30: kysely обновлён с 0.28.11 до 0.28.17 — 3 SQL-инъекции (GHSA-pv5w/8cpq/wmrf) устранены, коммит e1fc8a7" }
+    { "timestamp": "2026-05-26T11:00:00Z", "routine": "fix-issues", "summary": "Закрыт #30: kysely обновлён с 0.28.11 до 0.28.17 — 3 SQL-инъекции (GHSA-pv5w/8cpq/wmrf) устранены, коммит e1fc8a7" },
+    { "timestamp": "2026-05-26T11:30:00Z", "routine": "fix-issues", "summary": "Закрыт #31: vite обновлён до 8.0.14 — произвольное чтение файлов, обход fs.deny, path traversal (GHSA-p9ff/v2wj/4w7w) устранены, коммит 3f93d38" }
   ]
 }
   </script>

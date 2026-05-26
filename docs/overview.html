@@ -11,7 +11,8 @@
 {
   "logs": [
     { "timestamp": "2026-05-26T00:00:00Z", "routine": "observability-check", "summary": "Нет телеметрических данных в SigNoz (0 запросов за 7 дней) — OTel-инструментация не настроена → issue #28 открыт" },
-    { "timestamp": "2026-05-26T08:00:00Z", "routine": "coolify-logs", "summary": "Оба приложения работают (scopegate.chatindex.app, scopegate.dev), ошибок деплоя нет; в логах ожидаемые invalid_grant OAuth и transient Next.js Server Action cache errors" }
+    { "timestamp": "2026-05-26T08:00:00Z", "routine": "coolify-logs", "summary": "Оба приложения работают (scopegate.chatindex.app, scopegate.dev), ошибок деплоя нет; в логах ожидаемые invalid_grant OAuth и transient Next.js Server Action cache errors" },
+    { "timestamp": "2026-05-26T09:45:00Z", "routine": "fix-issues", "summary": "Закрыт #28: добавлена OTel-инструментация (instrumentation.node.ts + OTLP → SigNoz), коммит 0cf7360 запушен в master" }
   ]
 }
   </script>

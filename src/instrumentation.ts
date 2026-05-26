@@ -4,6 +4,7 @@ export async function onRequestError() {
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    await import("./instrumentation.node");
     const { ensureAdminUser } = await import("./lib/bootstrap");
     try {
       await ensureAdminUser();

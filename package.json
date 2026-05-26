@@ -30,6 +30,11 @@
   "dependencies": {
     "@hookform/resolvers": "~5.2.2",
     "@modelcontextprotocol/sdk": "~1.26.0",
+    "@opentelemetry/auto-instrumentations-node": "~0.76.0",
+    "@opentelemetry/exporter-trace-otlp-http": "~0.218.0",
+    "@opentelemetry/resources": "~2.7.1",
+    "@opentelemetry/sdk-node": "~0.218.0",
+    "@opentelemetry/semantic-conventions": "~1.41.1",
     "@paralleldrive/cuid2": "~3.3.0",
     "@prisma/adapter-pg": "~7.4.0",
     "@prisma/client": "~7.4.0",
@@ -70,8 +75,8 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
     "@types/mime-types": "~3.0.1",
+    "@types/node": "^20",
     "@types/nodemailer": "~7.0.11",
     "@types/react": "^19",
     "@types/react-dom": "^19",

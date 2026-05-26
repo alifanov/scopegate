@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "google-ads": {
+      "type": "http",
+      "url": "https://scopegate.chatindex.app/api/mcp/cmm6phdel00020jpg5bjkj19d",
+      "headers": {
+        "Authorization": "Bearer cmm6phdel00020jpg5bjkj19d"
+      }
+    }
+  }
+}

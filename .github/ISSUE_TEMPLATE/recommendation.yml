@@ -1,0 +1,63 @@
+name: Recommendation
+description: Рекомендация из аналитического снимка или ревью — для тriage агентом и человеком
+labels:
+  - "status:proposed"
+body:
+  - type: dropdown
+    id: source
+    attributes:
+      label: Источник
+      description: Откуда пришла рекомендация
+      options:
+        - source:posthog
+        - source:gsc
+        - source:ads
+        - source:signoz
+        - source:security-review
+        - source:ux-audit
+        - source:user-feedback
+        - source:manual
+    validations:
+      required: true
+
+  - type: input
+    id: snapshot-link
+    attributes:
+      label: Ссылка на снимок
+      description: Путь к файлу в docs/insights/ (например, docs/insights/analytics/2026-05-17.md)
+      placeholder: docs/insights/analytics/YYYY-MM-DD.md
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - "priority:p0 — бьёт по revenue / выключает фичу сейчас"
+        - "priority:p1 — на этой неделе"
+        - "priority:p2 — в этом месяце"
+        - "priority:p3 — когда-нибудь / nice-to-have"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Контекст
+      description: Что наблюдается и почему это важно. Метрика-основание и её значение.
+      placeholder: |
+        paywall_shown не трекается → conversion rate = 0% несмотря на 11 завершённых сканов за 7 дней.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: Конкретные измеримые критерии готовности
+      value: |
+        - [ ]
+        - [ ]
+    validations:
+      required: true

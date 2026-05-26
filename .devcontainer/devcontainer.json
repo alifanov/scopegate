@@ -1,0 +1,30 @@
+{
+  "name": "scopegate",
+  "build": {
+    "context": "/Users/vampire/.config/claude-devcontainer",
+    "dockerfile": "Dockerfile",
+    "args": {
+      "TZ": "${localEnv:TZ:Europe/Moscow}"
+    }
+  },
+  "remoteUser": "node",
+  "mounts": [
+    "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
+    "source=${localEnv:HOME}/.claude,target=/home/node/.claude,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.ssh,target=/home/node/.ssh,type=bind,consistency=cached,readonly",
+    "source=${localEnv:HOME}/.gitconfig,target=/home/node/.gitconfig,type=bind,consistency=cached,readonly",
+    "source=/run/host-services/ssh-auth.sock,target=/ssh-agent.sock,type=bind",
+    "source=scopegate-pnpm-store-${devcontainerId},target=/workspace/.pnpm-store,type=volume",
+    "source=scopegate-node-modules-${devcontainerId},target=/workspace/node_modules,type=volume"
+  ],
+  "containerEnv": {
+    "NODE_OPTIONS": "--max-old-space-size=4096",
+    "CLAUDE_CONFIG_DIR": "/home/node/.claude",
+    "POWERLEVEL9K_DISABLE_GITSTATUS": "true",
+    "SSH_AUTH_SOCK": "/ssh-agent.sock",
+    "GIT_SSH_COMMAND": "ssh -F /home/node/.ssh_config_linux"
+  },
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
+  "workspaceFolder": "/workspace",
+  "postCreateCommand": "corepack enable && corepack prepare pnpm@latest --activate && pnpm install"
+}

@@ -1,0 +1,51 @@
+Update Dark Flow to the latest version.
+
+## Step 1 — Run the installer
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/alifanov/darkflow/main/install.sh) --force --yes
+```
+
+The installer is fully non-interactive: `--yes` skips all prompts, `--force` overwrites locally-modified templates. It will update `.darkflow.d/darkflow-run.sh`, slash commands, and the version in `.darkflow`.
+
+## Step 2 — Detect PostHog project ID (if missing)
+
+Read `.darkflow`. If `posthog_project_id=` is missing or empty, and the PostHog MCP is available:
+
+1. List all available PostHog projects.
+2. Find the one whose name best matches `name=` from `.darkflow` (case-insensitive, partial match).
+3. Write the ID to `.darkflow`:
+
+```bash
+# macOS
+grep -q "^posthog_project_id=" .darkflow \
+  && sed -i '' "s/^posthog_project_id=.*/posthog_project_id=<ID>/" .darkflow \
+  || echo "posthog_project_id=<ID>" >> .darkflow
+# Linux
+grep -q "^posthog_project_id=" .darkflow \
+  && sed -i "s/^posthog_project_id=.*/posthog_project_id=<ID>/" .darkflow \
+  || echo "posthog_project_id=<ID>" >> .darkflow
+```
+
+If PostHog MCP is not available or no match found — skip silently.
+
+## Step 3 — Verify
+
+After the installer exits, confirm the update succeeded:
+
+```bash
+grep '^version=' .darkflow
+```
+
+Compare the installed version against the latest release:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/alifanov/darkflow/main/VERSION
+```
+
+## Step 4 — Report
+
+Print a single summary line:
+- On success: `Dark Flow updated to vX.Y.Z`
+- If already up to date: `Dark Flow already up to date (vX.Y.Z)`
+- On failure: print the error output and exit non-zero

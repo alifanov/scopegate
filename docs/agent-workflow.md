@@ -1,0 +1,94 @@
+# Agent Workflow — working with `docs/`
+
+Rules for AI agents (Claude Code et al.): when to read and when to write in each documentation layer. Complete layer map and update frequencies — in [`docs/README.md`](./README.md).
+
+## GitHub Issues — recommendation cycle
+
+Full label spec and agent loop — in [`github-issues.md`](./github-issues.md).
+
+**Before each session** check the approved task queue:
+```bash
+gh issue list --label "status:approved" --state open --json number,title,labels,body --limit 20
+```
+If there are approved issues matching the current context — take them first. Before starting: `status:approved` → `status:in-progress` + comment with branch link.
+
+**After analyzing an `insights/*` snapshot** — turn each recommendation into an issue:
+```bash
+gh issue create --title "..." \
+  --label "status:proposed,source:<...>,priority:<...>" \
+  --body "<context + link to snapshot + acceptance criteria>"
+```
+The snapshot entry remains the source of truth; the issue = the work artifact.
+
+**If an issue is closed with `status:rejected`** — do not recreate the same recommendation without new data. In the next snapshot: "Not recreating — rejected in #N".
+
+---
+
+## When to read (before a task)
+
+- **Any UI / copywriting task** → `design/voice-and-tone.md` + `design/tokens.md` + `design/patterns.md` + `design/components.md`
+- **Changing a user flow** → `spec/flows/` (checkout, auth, onboarding, etc.)
+- **Product / marketing decisions** → `product/positioning.md` + `product/audience.md` + `product/pricing.md`
+- **Working with analytics events / metrics** → `product/metrics.md` (not guessing event names)
+- **Before a major architectural change** → `decisions/` (check it doesn't contradict existing ADRs)
+- **Context on "what's working / broken right now"** → last 2–3 files from `insights/analytics/`
+
+## When to write (after a task)
+
+- **Changed a user flow** (auth, checkout, onboarding) → update corresponding `spec/flows/*.md`
+- **Added / removed a screen** → update `spec/screens/inventory.md`
+- **Changed the data model** → update summary in `spec/data-model.md`
+- **Changed pricing / billing** → update `product/pricing.md`
+- **Added a new UI component or pattern** → update `design/components.md` / `design/patterns.md`
+- **Made a non-trivial architectural / product decision** → add entry to `decisions/` in ADR format: context → decision → consequences
+- **Analytics observations by day** → `insights/analytics/YYYY-MM-DD.md` (don't multiply files — update today's file if already created)
+
+## After checking data — MANDATORY
+
+Any data analysis run must leave an artifact in the repository. Without a record, knowledge is lost between sessions; the next run starts from zero.
+
+Rule is universal — only the folder changes by data source:
+
+| Data source | Where to write snapshot | Triggers |
+|---|---|---|
+| Analytics, funnels, retention, metric investigation | `insights/analytics/YYYY-MM-DD.md` | Any HogQL queries, PostHog MCP, funnel analysis |
+| Google Search Console — positions, CTR, impressions, indexing | `insights/search-console/YYYY-MM-DD.md` | Any GSC data review, position checks, indexing audit |
+| Paid ads — campaigns, keywords, spend, CPA, ROAS | `insights/ads/YYYY-MM-DD.md` | Any ads account check, campaign optimization |
+| Interviews, feedback, session recordings | `insights/qualitative/YYYY-MM-DD-{topic}.md` | Session recording review, email/chat feedback analysis |
+
+### Snapshot format (any source)
+
+Minimum a file must contain:
+
+- Title + **data source** (what exactly was checked — GSC property, Ads account ID, PostHog project) + **period**
+- **Key Metrics** — table "metric / value / vs previous snapshot"
+- Breakdowns that were requested (queries / pages / campaigns / keywords / funnels — as applicable)
+- Anomalies and errors
+- **Recurring issues** — what's been dragging from previous snapshots (how many snapshots in a row)
+- **Recommendations** — each with metric-basis, specific action, and expected impact
+
+**When to write**: before returning recommendations to the user. The file is the source of truth, the chat response is the summary.
+
+**When to append, not create**: if today's file for this source already exists — append a section to the existing file.
+
+### Retention policy for `insights/*/`
+
+- **Older than 4 weeks** → consolidate into `insights/{source}/weekly/YYYY-Www.md` (one summary per ISO week: key metric shifts, what shipped, what was confirmed/refuted). Delete daily files for that week.
+- **Older than 3 months** → consolidate weekly into `insights/{source}/monthly/YYYY-MM.md` (only trends and key events for the month). Delete weekly files for that month.
+- **Exception**: snapshots referenced by ADRs in `decisions/` — do not delete, they are part of the decision's historical context.
+
+### What to update in other layers
+
+- **New event / metric in code** (new analytics event, new KPI) → `product/metrics.md`. This is about **definitions**, not values.
+- **New targeting segments, new landing pages for campaigns, budget/strategy change** → `product/marketing.md` / `product/gtm.md`.
+- **New SEO targets (keywords, pages), sitemap strategy change** → `product/marketing.md` or a new entry in `decisions/`.
+- **Decision made based on data** (launch an experiment, turn off a campaign, reprioritize roadmap) → ADR in `decisions/`: what we saw → what we decided → how we'll verify.
+
+`insights/` = observations over time (snapshots). `product/` = current definitions. `decisions/` = what we did about it. Don't mix layers.
+
+## What NOT to do
+
+- Don't create new top-level folders in `docs/` — the structure is fixed in `README.md`
+- Don't duplicate content between layers (product vs spec vs design) — each has its own update cadence
+- Don't write `*.md` files in the repo root for documentation — everything goes in `docs/`
+- Don't edit `insights/analytics/*` retroactively (these are time-stamped snapshots) — for corrections add a new file

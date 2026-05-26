@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Bash(rtk:*)",
+      "Glob",
+      "Grep",
+      "Bash(pnpm:*)"
+    ]
+  }
+}

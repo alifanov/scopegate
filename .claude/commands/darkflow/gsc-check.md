@@ -9,7 +9,16 @@ If `.darkflow` is missing, continue with the default.
 
 ## Step 2 — Do the work
 
-Check Google Search Console data for the last week. Analyse positions, CTR, impressions, and indexing issues. Suggest what to do to improve them.
+**IMPORTANT: Never use the browser to access Google Search Console. All GSC data must be fetched exclusively via the Google Search Console MCP tools. If the GSC MCP is not connected or its tools are unavailable, stop immediately and output an error:**
+
+```
+ERROR: Google Search Console MCP is not connected.
+Connect the GSC MCP in your project's .claude/settings.json and retry.
+```
+
+Do not fall back to browser automation or any other method.
+
+Check Google Search Console data for the last week using MCP tools. Analyse positions, CTR, impressions, and indexing issues. Suggest what to do to improve them.
 
 Add all recommendations as GitHub Issues to the remote GitHub repository of this project. Use labels: `status:proposed`, `source:gsc`, `area:landing`, `priority:*`, `effort:*`.
 

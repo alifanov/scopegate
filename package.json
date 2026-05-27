@@ -74,7 +74,8 @@
       "minimatch": ">=10.2.4",
       "ajv": ">=8.18.0",
       "defu": "6.1.7",
-      "flatted": ">=3.4.2"
+      "flatted": ">=3.4.2",
+      "path-to-regexp@^8": ">=8.4.0"
     }
   },
   "devDependencies": {

@@ -92,8 +92,8 @@ importers:
         specifier: ~0.4.6
         version: 0.4.6(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       nodemailer:
-        specifier: ~8.0.2
-        version: 8.0.3
+        specifier: ~8.0.9
+        version: 8.0.9
       oauth-1.0a:
         specifier: ~2.2.6
         version: 2.2.6
@@ -4463,6 +4463,10 @@ packages:
 
   nodemailer@8.0.3:
     resolution: {integrity: sha512-JQNBqvK+bj3NMhUFR3wmCl3SYcOeMotDiwDBvIoCuQdF0PvlIY0BH+FJ2CG7u4cXKPChplE78oowlH/Otsc4ZQ==}
+    engines: {node: '>=6.0.0'}
+
+  nodemailer@8.0.9:
+    resolution: {integrity: sha512-5ofa7BUN8+C+Hckh5V2GjeeOGRQBx0CJQA6KxrvuZfC8iU4/q7sLn8XrtEEhJkjV6HdyIiQs7Bba6bTao8JhkA==}
     engines: {node: '>=6.0.0'}
 
   npm-run-path@4.0.1:
@@ -10147,6 +10151,8 @@ snapshots:
   node-releases@2.0.27: {}
 
   nodemailer@8.0.3: {}
+
+  nodemailer@8.0.9: {}
 
   npm-run-path@4.0.1:
     dependencies:

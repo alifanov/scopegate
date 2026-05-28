@@ -83,13 +83,23 @@ darkflow_val() {
 }
 
 # ── GitHub token bootstrap ────────────────────────────────────────────────────
-# Priority: gh_token in .darkflow > GH_TOKEN env var > gh auth token
+# Priority: gh_token in .darkflow > webapp global token > gh auth token
 if [[ -z "${GH_TOKEN:-}" ]]; then
   _cfg_tok=$(darkflow_val "gh_token" "")
   if [[ -n "$_cfg_tok" ]]; then
     export GH_TOKEN="$_cfg_tok"
-  elif command -v gh &>/dev/null; then
-    _tok=$(gh auth token 2>/dev/null) && export GH_TOKEN="$_tok" || true
+  else
+    # Try fetching token from the webapp (no auth needed, just curl)
+    _webapp_url=$(darkflow_val "webapp_url" "")
+    if [[ -n "$_webapp_url" ]] && command -v curl &>/dev/null; then
+      _webapp_tok=$(curl -fsS -m 5 "${_webapp_url}/api/settings/gh-token" 2>/dev/null \
+        | grep -o '"ghToken":"[^"]*"' | cut -d'"' -f4 || true)
+      [[ -n "$_webapp_tok" && "$_webapp_tok" != "null" ]] && export GH_TOKEN="$_webapp_tok"
+    fi
+    # Fall back to gh CLI
+    if [[ -z "${GH_TOKEN:-}" ]] && command -v gh &>/dev/null; then
+      _tok=$(gh auth token 2>/dev/null) && export GH_TOKEN="$_tok" || true
+    fi
   fi
 fi
 

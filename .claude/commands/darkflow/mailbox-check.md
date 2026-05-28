@@ -123,16 +123,4 @@ python3 .darkflow.d/mailbox/fetch.py --mark-seen <uid>
 
 If `gh issue create` fails for a message — do NOT mark it as Seen (it will be re-fetched next run). Log the error and continue.
 
-## Step 5 — Routine log
-
-Append a routine-log entry to `docs/overview.html`:
-
-1. Read `docs/overview.html`
-2. In the JSON inside `<script id="overview-data">`, append to the `logs` array:
-   ```json
-   { "timestamp": "<current UTC ISO 8601>", "routine": "mailbox-check", "summary": "<e.g. '3 new emails → 3 issues opened, 1 reply sent'>" }
-   ```
-3. Cap the array at the 50 most recent entries (drop older ones if it exceeds 50)
-4. Write `docs/overview.html` — change nothing else in the JSON
-
 Language for all GitHub issues, comments, and reply emails: the `language=` value from `.darkflow`.

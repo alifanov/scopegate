@@ -84,15 +84,3 @@ Open a pull request targeting the `branch=` value from `.darkflow` with `Closes 
 Commit and push directly to the `branch=` value from `.darkflow`. Leave a comment on the issue confirming completion. Close the issue.
 
 Language for GitHub comments and output: the `language=` value from `.darkflow`.
-
-## Step 4 — After completing
-
-Only if the run actually did work (not a "no approved issues" skip), append a routine-log entry to `docs/overview.html`:
-
-1. Read `docs/overview.html`
-2. In the JSON inside `<script id="overview-data">`, append to the `logs` array:
-   ```json
-   { "timestamp": "<current UTC ISO 8601>", "routine": "fix-issues", "summary": "<one-line summary, e.g. 'Closed #42: fixed N+1 in /api/orders, PR #44 merged'>" }
-   ```
-3. Cap the array at the 50 most recent entries (drop older ones if it exceeds 50)
-4. Write `docs/overview.html` — change nothing else in the JSON

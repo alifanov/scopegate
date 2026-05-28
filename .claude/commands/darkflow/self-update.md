@@ -8,7 +8,15 @@ bash <(curl -fsSL https://raw.githubusercontent.com/alifanov/darkflow/main/insta
 
 The installer is fully non-interactive: `--yes` skips all prompts, `--force` overwrites locally-modified templates. It will update `.darkflow.d/darkflow-run.sh`, slash commands, and the version in `.darkflow`.
 
-## Step 2 — Detect PostHog project ID (if missing)
+## Step 2 — Ensure `.darkflow` is in `.gitignore`
+
+Check if `.darkflow` is already ignored. If not, add it:
+
+```bash
+grep -qxF '.darkflow' .gitignore 2>/dev/null || echo '.darkflow' >> .gitignore
+```
+
+## Step 3 — Detect PostHog project ID (if missing)
 
 Read `.darkflow`. If `posthog_project_id=` is missing or empty, and the PostHog MCP is available:
 
@@ -29,7 +37,7 @@ grep -q "^posthog_project_id=" .darkflow \
 
 If PostHog MCP is not available or no match found — skip silently.
 
-## Step 3 — Verify
+## Step 4 — Verify
 
 After the installer exits, confirm the update succeeded:
 
@@ -43,7 +51,7 @@ Compare the installed version against the latest release:
 curl -fsSL https://raw.githubusercontent.com/alifanov/darkflow/main/VERSION
 ```
 
-## Step 4 — Commit and push the update
+## Step 5 — Commit and push the update
 
 After a successful update, commit and push any changes left by the installer:
 
@@ -55,7 +63,7 @@ git push
 
 Replace `vX.Y.Z` with the actual installed version. If there were no changes (already up to date), skip the commit step.
 
-## Step 5 — Report
+## Step 6 — Report
 
 Print a single summary line:
 - On success: `Dark Flow updated to vX.Y.Z`

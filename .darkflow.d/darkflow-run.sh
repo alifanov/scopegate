@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# DF_VERSION: 2.27.0
+# DF_VERSION: 2.29.0
 # Dark Flow routine dispatcher
 # Lives at .darkflow.d/darkflow-run.sh — run from anywhere in the project.
 #
@@ -29,6 +29,10 @@ GLOBAL_SLOTS_DIR="/tmp/darkflow-slots"
 
 # Accumulated routine log entries for this dispatch cycle (JSON lines)
 PENDING_LOGS=()
+
+# Cached log prefix "[vX.Y.Z] [ProjectName]" — built lazily on first log() call
+_LOG_PREFIX=""
+_LOG_PREFIX_READY=false
 
 cd "$PROJECT_ROOT"
 
@@ -60,7 +64,8 @@ now_epoch() { date +%s; }
 # ── Logging ───────────────────────────────────────────────────────────────────
 
 log() {
-  local line="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
+  _init_log_prefix
+  local line="[$(date '+%Y-%m-%d %H:%M:%S')]${_LOG_PREFIX} $*"
   echo "$line" >> "$LOG" 2>/dev/null || true
   echo "$line"
 }
@@ -80,6 +85,19 @@ darkflow_val() {
     if [[ -n "$val" ]]; then echo "$val"; return; fi
   fi
   echo "$default"
+}
+
+# Lazily builds the log prefix "[vX.Y.Z] [ProjectName]" and caches it.
+# Called on every log() invocation; only reads .darkflow on the first call.
+_init_log_prefix() {
+  $_LOG_PREFIX_READY && return 0
+  _LOG_PREFIX_READY=true
+  local ver name
+  ver=$(darkflow_val "version" "")
+  name=$(darkflow_val "name" "$(basename "$PROJECT_ROOT")")
+  _LOG_PREFIX=""
+  [[ -n "$ver" ]]  && _LOG_PREFIX=" [v${ver}]"
+  [[ -n "$name" ]] && _LOG_PREFIX+=" [${name}]"
 }
 
 # ── GitHub token bootstrap ────────────────────────────────────────────────────
@@ -1053,7 +1071,7 @@ mode_watch() {
   local tick=0
   local consecutive_skips=0
 
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Dark Flow started (tick every ${interval}s). Ctrl-C to stop."
+  log "Dark Flow started (tick every ${interval}s). Ctrl-C to stop."
   trap 'echo ""; log "WATCH  stopped (signal)"; stop_heartbeat_loop; exit 0' INT TERM
 
   # Check for update at startup; exec self if a new version was installed.

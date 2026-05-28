@@ -62,3 +62,4 @@ CLAUDE.md
 # local database
 prisma/dev.db
 prisma/dev.db-journal
+.darkflow

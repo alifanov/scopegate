@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# DF_VERSION: 2.29.0
+# DF_VERSION: 2.30.1
 # Dark Flow routine dispatcher
 # Lives at .darkflow.d/darkflow-run.sh — run from anywhere in the project.
 #
@@ -541,11 +541,16 @@ STATUS_LABELS_ALL=(status:proposed status:approved status:rejected status:needs-
 # ── GitHub auth guard ─────────────────────────────────────────────────────────
 # Returns 0 if gh is authenticated, 1 otherwise (with a log entry).
 check_gh_auth() {
-  local err
-  err=$(gh auth status 2>&1) || {
+  local err status
+  err=$(gh auth status 2>&1)
+  status=$?
+  if [ $status -ne 0 ]; then
+    # gh auth status can exit non-zero when GH_TOKEN has issues but a local
+    # account is still active — treat "Active account: true" as authenticated.
+    echo "$err" | grep -q "Active account: true" && return 0
     log "GH_AUTH gh not authenticated — run 'gh auth login'. Details: $(echo "$err" | head -3 | tr '\n' ' ')"
     return 1
-  }
+  fi
   return 0
 }
 

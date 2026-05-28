@@ -63,6 +63,12 @@ Detect the project's tech stack and run all available checks. Stop at the first 
 | Go | `go vet ./...` → `go test ./...` → `go build ./...` |
 | Other | Check for `Makefile` targets `lint`, `test`, `build` and run those that exist |
 
+**If the fix requires human intervention** (examples: missing environment variable, external credentials, third-party service setup, infrastructure change, secret rotation, manual config change that the agent cannot perform):
+- Do NOT attempt the fix
+- Leave a comment on the issue explaining exactly what human action is needed
+- Label the issue `needs-human`
+- Stop the run
+
 **If any check fails:**
 - Do NOT merge or push
 - Leave a comment on the issue: what failed and the relevant error output (truncated to ~20 lines)

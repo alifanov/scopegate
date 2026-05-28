@@ -28,3 +28,4 @@ Check the Dark Flow workflow status for this project and help the user manage it
 
 - `/darkflow:add-issue [title]` — create a GitHub issue for a manually identified task
 - `/darkflow:install` — re-run the Dark Flow installer
+- `/darkflow:update-config [lang=...] [branch=...]` — update language and/or main branch settings

@@ -43,7 +43,19 @@ Compare the installed version against the latest release:
 curl -fsSL https://raw.githubusercontent.com/alifanov/darkflow/main/VERSION
 ```
 
-## Step 4 — Report
+## Step 4 — Commit and push the update
+
+After a successful update, commit and push any changes left by the installer:
+
+```bash
+git add -A
+git diff --cached --quiet || git commit -m "chore: update Dark Flow to vX.Y.Z"
+git push
+```
+
+Replace `vX.Y.Z` with the actual installed version. If there were no changes (already up to date), skip the commit step.
+
+## Step 5 — Report
 
 Print a single summary line:
 - On success: `Dark Flow updated to vX.Y.Z`

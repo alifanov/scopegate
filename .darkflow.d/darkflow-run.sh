@@ -448,7 +448,7 @@ format_claude_stream() {
     elif .type == "user" then
       (.message.content // [])[] | (
         if .type == "tool_result" then
-          "\n**Result" + (if (.is_error // false) then " (error)" else "" end) + ":**\n\n```\n"
+          "\n**Result" + (if (.is_error // false) then " (error)" else "" end) + ":**\n\n```text\n"
             + (if (.content | type) == "string" then .content
                else (.content // [] | map(.text // "") | join("\n")) end)
             + "\n```\n"

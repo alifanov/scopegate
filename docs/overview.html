@@ -40,7 +40,8 @@
     { "timestamp": "2026-05-28T17:30:00Z", "routine": "observability-check", "summary": "scopegate не передаёт трейсы в SigNoz (0 spans за 7 дней), соседние сервисы работают нормально — issue #50 открыт (OTel env-переменные не задан в Coolify)" },
     { "timestamp": "2026-05-28T18:00:00Z", "routine": "fix-issues", "summary": "#46 снова заблокирован (needs-human): OBSERVABILITY_API_KEY не задан в Coolify — код instrumentation.node.ts корректен, комментарий оставлен, ожидание ручного действия" },
     { "timestamp": "2026-05-28T18:30:00Z", "routine": "coolify-logs", "summary": "scopegate-app (chatindex.app): деплой da95f35 in_progress, логи без ошибок (Ready in 152ms); scopegate.dev: работает, в логах шумовые ошибки Server Action 'x' — ожидаемое поведение после деплоя" },
-    { "timestamp": "2026-05-28T18:50:00Z", "routine": "fix-issues", "summary": "#50 (OTel → SigNoz): добавлен instrumentationHook: true в next.config.ts, диагностические логи OTel, OBSERVABILITY_URL/KEY в .env.example (коммит 7f0b0ec); needs-human — OBSERVABILITY_API_KEY нужно задать в Coolify" }
+    { "timestamp": "2026-05-28T18:50:00Z", "routine": "fix-issues", "summary": "#50 (OTel → SigNoz): добавлен instrumentationHook: true в next.config.ts, диагностические логи OTel, OBSERVABILITY_URL/KEY в .env.example (коммит 7f0b0ec); needs-human — OBSERVABILITY_API_KEY нужно задать в Coolify" },
+    { "timestamp": "2026-05-28T19:10:00Z", "routine": "fix-issues", "summary": "Закрыт #42: brace-expansion обновлён до >=5.0.6 через pnpm override (GHSA-jxxr-4gwj-5jf2 и GHSA-f886-m6hf-6m8v DoS), коммит 075155a" }
   ]
 }
   </script>

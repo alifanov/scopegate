@@ -4,29 +4,26 @@ import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
 
-const obsUrl = process.env.OBSERVABILITY_URL ?? "https://signoz.chatindex.app";
-const apiKey = process.env.OBSERVABILITY_API_KEY ?? "";
+const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
 
-if (!apiKey) {
-  console.warn("[OTel] OBSERVABILITY_API_KEY is not set — traces will not be ingested by SigNoz");
-}
-console.log(`[OTel] Starting SDK, exporting to ${obsUrl}/v1/traces`);
+if (!endpoint) {
+  console.warn("[OTel] OTEL_EXPORTER_OTLP_ENDPOINT is not set — tracing disabled");
+} else {
+  console.log(`[OTel] Starting SDK, exporting to ${endpoint}/v1/traces`);
 
-const sdk = new NodeSDK({
-  resource: resourceFromAttributes({
-    [ATTR_SERVICE_NAME]: "scopegate",
-  }),
-  traceExporter: new OTLPTraceExporter({
-    url: `${obsUrl}/v1/traces`,
-    headers: {
-      "signoz-ingestion-key": apiKey,
-    },
-  }),
-  instrumentations: [
-    getNodeAutoInstrumentations({
-      "@opentelemetry/instrumentation-fs": { enabled: false },
+  const sdk = new NodeSDK({
+    resource: resourceFromAttributes({
+      [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME ?? "scopegate",
     }),
-  ],
-});
+    traceExporter: new OTLPTraceExporter({
+      url: `${endpoint}/v1/traces`,
+    }),
+    instrumentations: [
+      getNodeAutoInstrumentations({
+        "@opentelemetry/instrumentation-fs": { enabled: false },
+      }),
+    ],
+  });
 
-sdk.start();
+  sdk.start();
+}

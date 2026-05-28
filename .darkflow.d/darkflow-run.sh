@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# DF_VERSION: 2.30.1
+# DF_VERSION: 2.30.3
 # Dark Flow routine dispatcher
 # Lives at .darkflow.d/darkflow-run.sh — run from anywhere in the project.
 #
@@ -25,7 +25,10 @@ LOG="${DARKFLOW_D}/darkflow-run.log"
 METRICS_DIR="${DARKFLOW_D}/state/metrics"
 DARKFLOW_CFG="${PROJECT_ROOT}/.darkflow"
 DARKFLOW_REPO="https://raw.githubusercontent.com/alifanov/darkflow/main"
-GLOBAL_SLOTS_DIR="/tmp/darkflow-slots"
+GLOBAL_SLOTS_DIR="${TMPDIR:-/tmp}/darkflow-slots"
+
+# Temp files registered here are removed by the EXIT trap even on signals.
+_CLEANUP_FILES=()
 
 # Accumulated routine log entries for this dispatch cycle (JSON lines)
 PENDING_LOGS=()
@@ -244,9 +247,11 @@ read_state() {
 }
 
 write_state() {
-  local name="$1" ep="$2"
+  local name="$1" ep="$2" tmp
   mkdir -p "$STATE_DIR"
-  echo "$ep" > "${STATE_DIR}/${name}.last"
+  tmp=$(mktemp "${STATE_DIR}/.state_tmp.XXXXXX")
+  echo "$ep" > "$tmp"
+  mv "$tmp" "${STATE_DIR}/${name}.last"
 }
 
 # ── YAML helpers ──────────────────────────────────────────────────────────────
@@ -285,6 +290,12 @@ preflight() {
     echo "darkflow-run: python3 not found." >&2
     echo "  macOS:  brew install python3" >&2
     echo "  Linux:  apt install python3 / dnf install python3" >&2
+    ok=false
+  fi
+  if ! command -v jq &>/dev/null; then
+    echo "darkflow-run: jq not found." >&2
+    echo "  macOS:  brew install jq" >&2
+    echo "  Linux:  apt install jq / dnf install jq" >&2
     ok=false
   fi
   if [[ ! -f "$YAML" ]]; then
@@ -382,11 +393,17 @@ semaphore_release() {
   fi
 }
 
+_do_exit_cleanup() {
+  [[ ${#_CLEANUP_FILES[@]} -gt 0 ]] && rm -f "${_CLEANUP_FILES[@]}" 2>/dev/null || true
+  release_lock
+  stop_heartbeat_loop
+}
+
 acquire_lock() {
   if ! try_acquire_lock; then
     exit 0
   fi
-  trap 'release_lock; stop_heartbeat_loop' EXIT
+  trap '_do_exit_cleanup' EXIT
 }
 
 # ── Process group isolation ───────────────────────────────────────────────────
@@ -396,13 +413,13 @@ acquire_lock() {
 _pgid_ret=""
 
 run_in_pgid() {
-  local _tmpout _bgpid
+  local _tmpout _bgpid _watchdog _rc=0
   _tmpout=$(mktemp)
+  _CLEANUP_FILES+=("$_tmpout")
   _pgid_ret=""
 
   if ! command -v python3 &>/dev/null; then
     echo "darkflow-run: python3 not found — required for process group isolation" >&2
-    rm -f "$_tmpout"
     return 1
   fi
 
@@ -410,8 +427,14 @@ run_in_pgid() {
   _bgpid=$!
   _pgid_ret=$_bgpid
 
-  wait "$_bgpid" 2>/dev/null || true
-  local _rc=$?
+  # Watchdog: kill the subprocess if it runs longer than 2 hours
+  (sleep 7200 && kill -TERM "$_bgpid" 2>/dev/null || true) &
+  _watchdog=$!
+
+  wait "$_bgpid" 2>/dev/null || _rc=$?
+
+  kill "$_watchdog" 2>/dev/null || true
+  wait "$_watchdog" 2>/dev/null || true
 
   # Kill any survivors in the process group (stray dev servers, file watchers, etc.)
   if [[ -n "$_pgid_ret" ]] && pgrep -g "$_pgid_ret" &>/dev/null 2>/dev/null; then
@@ -423,6 +446,7 @@ run_in_pgid() {
 
   cat "$_tmpout"
   rm -f "$_tmpout"
+  _CLEANUP_FILES=("${_CLEANUP_FILES[@]/$_tmpout}")
   return $_rc
 }
 
@@ -432,7 +456,7 @@ run_in_pgid() {
 # Skips thinking blocks, system init, and duplicate final result events.
 
 format_claude_stream() {
-  jq -r '
+  local _jq_filter='
     if .type == "assistant" then
       (.message.content // [])[] | (
         if .type == "text" and (.text | length) > 0 then
@@ -456,6 +480,12 @@ format_claude_stream() {
       )
     else empty end
   '
+  # Process line-by-line so a single malformed event (e.g. NaN/Infinity in
+  # usage stats) does not abort the whole stream with a jq parse error.
+  while IFS= read -r _line; do
+    [[ -z "$_line" ]] && continue
+    printf '%s\n' "$_line" | jq -r "$_jq_filter" 2>/dev/null || true
+  done
 }
 
 # ── Routine execution ─────────────────────────────────────────────────────────
@@ -508,10 +538,12 @@ run_routine() {
 
   local claude_output _stream_file
   _stream_file=$(mktemp)
+  _CLEANUP_FILES+=("$_stream_file")
   run_in_pgid claude -p "/darkflow:${name}" --model "${model}" "${perm_args[@]}" \
     --output-format stream-json --verbose > "$_stream_file" || exit_code=$?
-  claude_output=$(format_claude_stream < "$_stream_file")
+  claude_output=$(format_claude_stream < "$_stream_file") || claude_output=""
   rm -f "$_stream_file"
+  _CLEANUP_FILES=("${_CLEANUP_FILES[@]/$_stream_file}")
   semaphore_release
 
   stop_heartbeat_loop
@@ -947,10 +979,12 @@ check_for_update() {
   if [[ -f ".claude/commands/darkflow/self-update.md" ]]; then
     local _su_stream
     _su_stream=$(mktemp)
+    _CLEANUP_FILES+=("$_su_stream")
     run_in_pgid claude -p "/darkflow:self-update" --model sonnet --permission-mode bypassPermissions \
       --output-format stream-json --verbose > "$_su_stream" || exit_code=$?
-    claude_output=$(format_claude_stream < "$_su_stream")
+    claude_output=$(format_claude_stream < "$_su_stream") || claude_output=""
     rm -f "$_su_stream"
+    _CLEANUP_FILES=("${_CLEANUP_FILES[@]/$_su_stream}")
   else
     log "UPDATE self-update.md not found, running installer directly"
     claude_output=$(bash <(curl -fsSL -m 30 "${DARKFLOW_REPO}/install.sh") --force --yes 2>&1) || exit_code=$?

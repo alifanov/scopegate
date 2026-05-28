@@ -41,3 +41,24 @@ Create a GitHub issue for each significant finding. Use labels: `status:proposed
   ```
 
 Language for all GitHub issues and output: the `language=` value from `.darkflow`.
+
+## Step 3 — After completing
+
+Save an observability snapshot so the Dark Flow worker can forward it to the web UI.
+
+Run `gh issue list --state open --json number,labels --limit 200`, then:
+- Count issues with label `source:signoz` (or the relevant observability tool) → `openIssues`
+- Count those with `priority:p0` or `priority:p1` → `criticalOpen`
+- Derive `status`: `"critical"` if criticalOpen > 0, `"warning"` if openIssues > 5, `"ok"` otherwise
+
+Write `.darkflow.d/state/metrics/observability.json` (create parent directories if needed):
+
+```json
+{
+  "openIssues":   <integer>,
+  "criticalOpen": <integer>,
+  "status":       "ok" | "warning" | "critical"
+}
+```
+
+The worker will pick up this file on its next sync. You do not need to update any HTML files.

@@ -41,3 +41,22 @@ Add all recommendations as GitHub Issues to the remote GitHub repository of this
 Write a GSC snapshot to `docs/insights/search-console/YYYY-MM-DD.md` before posting recommendations.
 
 Language for all GitHub issues and output: the `language=` value from `.darkflow`.
+
+## Step 3 — After completing
+
+Save a GSC snapshot so the Dark Flow worker can forward it to the web UI.
+
+Run `gh issue list --state open --json number,labels --limit 200`, then:
+- Count issues with label `source:gsc` → `openIssues`
+- Derive `status`: `"warning"` if openIssues > 5, `"ok"` otherwise
+
+Write `.darkflow.d/state/metrics/gsc.json` (create parent directories if needed):
+
+```json
+{
+  "openIssues": <integer>,
+  "status":     "ok" | "warning"
+}
+```
+
+The worker will pick up this file on its next sync. You do not need to update any HTML files.

@@ -19,7 +19,7 @@ A deployment has just failed. Do the following:
 5. Wait for the new deployment to complete
 6. Check application logs to confirm the fix worked
 
-**Hard stop:** If the root cause is unclear or the fix requires more than a small targeted change, do NOT guess — open a GitHub issue with label `priority:p0`, `source:signoz`, `area:infra` and leave a comment describing what you found. Then stop.
+**Hard stop:** If the root cause is unclear or the fix requires more than a small targeted change, do NOT guess — open a GitHub issue with label `priority:p0`, `source:manual`, `area:infra` and leave a comment describing what you found. Then stop.
 
 **Safety guardrail:** Do not modify database migrations, environment variables, or infrastructure config without explicit approval — create a `priority:p0` issue instead.
 

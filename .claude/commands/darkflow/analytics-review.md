@@ -10,6 +10,8 @@ If `.darkflow` is missing, continue with the defaults.
 
 **If `posthog_project_id` is set:** switch the PostHog MCP to that project now — before any queries — using the `switch-project` tool.
 
+<!-- Note: the detection block below (name-match → write ID) is mirrored in self-update.md Step 3. Keep both in sync when modifying. -->
+
 **If `posthog_project_id` is NOT set:** use the PostHog MCP to list all available projects. Find the one whose name best matches the `name=` value from `.darkflow` (case-insensitive, partial match is fine). Switch to that project. Then persist the discovered ID back into `.darkflow`:
 
 ```bash

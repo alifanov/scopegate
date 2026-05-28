@@ -18,6 +18,8 @@ grep -qxF '.darkflow' .gitignore 2>/dev/null || echo '.darkflow' >> .gitignore
 
 ## Step 3 — Detect PostHog project ID (if missing)
 
+<!-- Note: the detection logic below (name-match → write ID) is mirrored in analytics-review.md Step 1. Keep both in sync when modifying. -->
+
 Read `.darkflow`. If `posthog_project_id=` is missing or empty, and the PostHog MCP is available:
 
 1. List all available PostHog projects.

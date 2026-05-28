@@ -28,6 +28,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@hono/node-server": "~2.0.4",
     "@hookform/resolvers": "~5.2.2",
     "@modelcontextprotocol/sdk": "~1.26.0",
     "@opentelemetry/auto-instrumentations-node": "~0.76.0",

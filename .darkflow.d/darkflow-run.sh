@@ -490,6 +490,20 @@ format_claude_stream() {
 
 # ── Routine execution ─────────────────────────────────────────────────────────
 
+# Validates the active GH token by hitting a lightweight endpoint.
+# Returns 0 if valid, 1 if expired/invalid (sets _GH_TOKEN_ERROR to the reason).
+_GH_TOKEN_ERROR=""
+validate_gh_token() {
+  _GH_TOKEN_ERROR=""
+  local out
+  out=$(gh api rate_limit --jq '.rate.limit' 2>&1)
+  if [[ $? -ne 0 ]]; then
+    _GH_TOKEN_ERROR=$(echo "$out" | head -2 | tr '\n' ' ')
+    return 1
+  fi
+  return 0
+}
+
 run_routine() {
   local name="$1" model="$2" permission_mode="$3"
   local now exit_code=0
@@ -508,6 +522,20 @@ run_routine() {
   esac
 
   if [[ "$name" == "fix-issues" ]] && command -v gh &>/dev/null; then
+    # Guard: validate GH token before launching Claude. A stale token causes
+    # every gh call inside the session to fail silently with 403, producing a
+    # "ran ok" summary that hides the real problem.
+    if ! validate_gh_token; then
+      local webapp_hint; webapp_hint=$(darkflow_val "webapp_url" "")
+      local fix_hint="add gh_token= to .darkflow"
+      [[ -n "$webapp_hint" ]] && fix_hint+=" or update it at ${webapp_hint}"
+      log "SKIP   ${name} — GitHub token invalid or expired (${_GH_TOKEN_ERROR:-unknown}). Fix: ${fix_hint}"
+      local skip_ts; skip_ts=$(date -u +%FT%TZ)
+      write_state "$name" "$(( $(now_epoch) - $(now_epoch) % 60 ))"
+      PENDING_LOGS+=("{\"routine\":\"${name}\",\"summary\":\"skipped ${name} — GitHub token invalid or expired\",\"timestamp\":\"${skip_ts}\"}")
+      return 0
+    fi
+
     # Flush any webapp-approved issues to GitHub labels before checking the count,
     # otherwise issues approved via the web UI won't have the label yet and get skipped.
     apply_pending_statuses

@@ -1,3 +1,5 @@
+import * as fs from "fs";
+import * as path from "path";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
@@ -21,6 +23,53 @@ const OAUTH_TOKEN_URL_PATTERNS = [
   "graph.threads.net/refresh_access_token",
 ];
 
+// Build route pattern matchers from Next.js App Router file structure at startup.
+// Maps actual URL paths (e.g. /api/mcp/abc123) → route patterns (e.g. /api/mcp/[apiKey]).
+// Falls back gracefully if source files are absent (e.g. production containers).
+function buildRouteMatchers(appDir: string): Array<[RegExp, string]> {
+  const patterns: Array<[RegExp, string]> = [];
+
+  function walk(dir: string) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath);
+      } else if (entry.name === "route.ts" || entry.name === "route.js") {
+        const routePattern = fullPath
+          .replace(appDir, "")
+          .replace(/\/route\.(ts|js)$/, "")
+          .replace(/\\/g, "/");
+
+        const regexStr = routePattern
+          .replace(/\[\.\.\.[^\]]+\]/g, "(?:.+)") // [...catchAll] segments
+          .replace(/\[[^\]]+\]/g, "(?:[^/]+)"); // [param] segments
+
+        patterns.push([new RegExp(`^${regexStr}(?:\\?.*)?$`), routePattern]);
+      }
+    }
+  }
+
+  try {
+    walk(appDir);
+    // Sort descending by segment depth so more-specific routes match first
+    patterns.sort((a, b) => b[1].split("/").length - a[1].split("/").length);
+  } catch {
+    // src/app not present — pattern normalization disabled, raw paths used
+  }
+
+  return patterns;
+}
+
+const routeMatchers = buildRouteMatchers(path.join(process.cwd(), "src", "app"));
+
+function normalizeRoute(rawUrl: string): string {
+  const urlPath = rawUrl.split("?")[0];
+  for (const [regex, pattern] of routeMatchers) {
+    if (regex.test(urlPath)) return pattern;
+  }
+  return urlPath;
+}
+
 const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
 
 if (!endpoint) {
@@ -38,6 +87,16 @@ if (!endpoint) {
     instrumentations: [
       getNodeAutoInstrumentations({
         "@opentelemetry/instrumentation-fs": { enabled: false },
+        "@opentelemetry/instrumentation-http": {
+          requestHook: (span, request) => {
+            // IncomingMessage (server requests) has `url`; ClientRequest does not.
+            // Set http.route on incoming server spans so SigNoz can filter by route.
+            const incomingUrl = (request as { url?: string }).url;
+            if (typeof incomingUrl === "string" && incomingUrl) {
+              span.setAttribute("http.route", normalizeRoute(incomingUrl));
+            }
+          },
+        },
         "@opentelemetry/instrumentation-undici": {
           ignoreRequestHook: (request) => {
             const fullUrl = `${request.origin}${request.path}`;

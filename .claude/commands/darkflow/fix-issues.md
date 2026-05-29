@@ -46,7 +46,17 @@ fi
 
 If `$n` is empty after all levels, stop — skip the run.
 
-## Step 3 — Do the work
+## Step 3 — Read the issue
+
+Fetch the full issue content before touching any code:
+
+```bash
+gh issue view $n --json title,body,comments,labels
+```
+
+Read the title, body, and all comments carefully. If the issue references other issues or PRs, read those too.
+
+## Step 4 — Do the work
 
 Implement all the changes needed for it.
 

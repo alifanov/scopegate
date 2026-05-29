@@ -16,6 +16,8 @@ body:
         - source:security-review
         - source:ux-audit
         - source:user-feedback
+        - source:vulnerability-report
+        - source:infra
         - source:manual
     validations:
       required: true

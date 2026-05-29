@@ -34,7 +34,35 @@ After the review is complete, create a GitHub issue for each significant finding
 
 Language for all GitHub issues and output: the `language=` value from `.darkflow`.
 
-## Step 3 — After completing
+## Step 3 — Write docs snapshot
+
+Write `docs/insights/ux-audit/YYYY-MM-DD.md` (use today's date; append a new section if today's file already exists):
+
+```markdown
+# UX Audit — YYYY-MM-DD
+
+**Period:** <date range reviewed>
+
+## Findings
+
+| Page / Component | Problem | Severity | Screenshot / Recording |
+|---|---|---|---|
+| | | p1 broken / p2 friction / p3 polish | |
+
+## Recurring Issues
+
+<issues appearing in 2+ consecutive audits — note how many audits in a row>
+
+## Hypotheses
+
+<pre-threshold signals that aren't yet ready for a GitHub issue — see agent-workflow.md>
+
+## Recommendations
+
+<each with: specific page/component → what to fix → acceptance criterion>
+```
+
+## Step 4 — After completing
 
 Save a UX snapshot so the Dark Flow worker can forward it to the web UI.
 

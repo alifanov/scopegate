@@ -42,7 +42,43 @@ Create a GitHub issue for each significant finding. Use labels: `status:proposed
 
 Language for all GitHub issues and output: the `language=` value from `.darkflow`.
 
-## Step 3 — After completing
+## Step 3 — Write docs snapshot
+
+Write `docs/insights/observability/YYYY-MM-DD.md` (use today's date; append a new section if today's file already exists):
+
+```markdown
+# Observability Review — YYYY-MM-DD
+
+**Tool:** <SigNoz / Datadog / Grafana / other>
+**Period:** last 24h
+
+## Key Metrics
+
+| Metric | Value | vs yesterday |
+|---|---|---|
+| Error rate | | |
+| p95 latency (slowest endpoint) | | |
+| Slow queries (> 100ms) | | |
+| Request volume | | |
+
+## Findings
+
+<list significant findings — group by: errors / latency / DB / integrations>
+
+## Recurring Issues
+
+<issues appearing in 2+ consecutive snapshots — note how many snapshots in a row>
+
+## Hypotheses
+
+<pre-threshold signals that aren't yet ready for a GitHub issue — see agent-workflow.md>
+
+## Recommendations
+
+<each with: metric-basis → specific fix → expected outcome>
+```
+
+## Step 4 — After completing
 
 Save an observability snapshot so the Dark Flow worker can forward it to the web UI.
 

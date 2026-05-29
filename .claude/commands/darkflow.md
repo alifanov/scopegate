@@ -4,7 +4,7 @@ Check the Dark Flow workflow status for this project and help the user manage it
 
 1. **Check docs/ structure** — verify all expected folders exist (`docs/product/`, `docs/spec/`, `docs/design/`, `docs/insights/`, `docs/decisions/`). List any that are missing.
 
-2. **Check GitHub labels** — run `gh label list | grep "status:"` to verify the label taxonomy is set up. If missing, offer to run `/darkflow:update` (which re-runs label setup as its first step).
+2. **Check GitHub labels** — run `gh label list | grep "status:"` to verify the label taxonomy is set up. If missing, offer to run `/darkflow:install` (which re-runs label setup as its first step).
 
 3. **Show approved task queue** — run:
    ```bash

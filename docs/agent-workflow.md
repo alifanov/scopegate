@@ -54,6 +54,9 @@ Rule is universal — only the folder changes by data source:
 | Analytics, funnels, retention, metric investigation | `insights/analytics/YYYY-MM-DD.md` | Any HogQL queries, PostHog MCP, funnel analysis |
 | Google Search Console — positions, CTR, impressions, indexing | `insights/search-console/YYYY-MM-DD.md` | Any GSC data review, position checks, indexing audit |
 | Paid ads — campaigns, keywords, spend, CPA, ROAS | `insights/ads/YYYY-MM-DD.md` | Any ads account check, campaign optimization |
+| Observability — errors, latency, DB performance | `insights/observability/YYYY-MM-DD.md` | SigNoz/Datadog checks, latency alerts |
+| Security audit — vulnerabilities, code scanning | `insights/security/YYYY-MM-DD.md` | `/darkflow:security-audit`, Dependabot alerts |
+| UX audit — layout, accessibility, component review | `insights/ux-audit/YYYY-MM-DD.md` | `/darkflow:ux-audit`, session recording review |
 | Interviews, feedback, session recordings | `insights/qualitative/YYYY-MM-DD-{topic}.md` | Session recording review, email/chat feedback analysis |
 
 ### Snapshot format (any source)
@@ -76,6 +79,26 @@ Minimum a file must contain:
 - **Older than 4 weeks** → consolidate into `insights/{source}/weekly/YYYY-Www.md` (one summary per ISO week: key metric shifts, what shipped, what was confirmed/refuted). Delete daily files for that week.
 - **Older than 3 months** → consolidate weekly into `insights/{source}/monthly/YYYY-MM.md` (only trends and key events for the month). Delete weekly files for that month.
 - **Exception**: snapshots referenced by ADRs in `decisions/` — do not delete, they are part of the decision's historical context.
+
+### From observations to hypotheses
+
+Not every anomaly immediately becomes a GitHub issue. Before creating one, verify the signal is strong enough.
+
+**Threshold for creating a GitHub issue:**
+- The same anomaly appears in **3 or more consecutive snapshots** for one source, OR
+- **Two or more independent sources** point to the same problem area in the same time window
+
+**How to record a pre-threshold hypothesis** — add a `## Hypotheses` section at the end of the snapshot file:
+
+```markdown
+## Hypotheses
+
+- **H1**: [what we think is causing the drop] — [expected impact if confirmed] — [what data would confirm it]
+  - Evidence: 2026-05-27 (−12% conversion), 2026-05-28 (−8%)
+  - Status: 2/3 snapshots — not yet ready for issue
+```
+
+**When the threshold is reached:** create the GitHub issue and include in its body a `Based on:` line with links to the supporting snapshots. This ensures every issue has a documented evidence trail.
 
 ### What to update in other layers
 

@@ -15,20 +15,16 @@ Agent rules "when to read / when to write" — in [`agent-workflow.md`](./agent-
 | `product/competitors.md` | Competitive landscape | Quarterly |
 | `product/positioning.md` | Positioning, value prop | Quarterly |
 | `product/pricing.md` | Pricing tiers, billing | As changed |
-| `product/gtm.md` | Go-to-market strategy | Quarterly |
 | `product/marketing.md` | Marketing channels and messages | Monthly |
 | `product/metrics.md` | North star metrics, analytics events (**definitions**) | Monthly |
-| `product/roadmap.md` | Product roadmap | Monthly |
 | `product/glossary.md` | Domain terms and entities | As changed |
 | **spec/** | Product/UX layer: flows, screens, states | Weekly |
-| `spec/flows/` | User flow descriptions | Weekly |
+| `spec/flows/` | User flow descriptions (`TEMPLATE.md` inside) | Weekly |
 | `spec/screens/inventory.md` | Screen inventory | Weekly |
 | `spec/data-model.md` | Data model summary (from ORM schema) | Per migration |
 | **design/** | Visual identity and voice | Situational |
-| `design/tokens.md` | Color tokens, typography | As changed |
 | `design/components.md` | Component registry | Weekly |
 | `design/patterns.md` | UI patterns and states (loading/empty/error) | Situational |
-| `design/voice-and-tone.md` | Brand voice, style guide | Quarterly |
 | `design/assets/` | Logos, illustrations, OG images | Situational |
 | **insights/** | Data → observations (time-stamped snapshots) | Daily |
 | `insights/analytics/` | Analytics / HogQL snapshots | Daily |
@@ -47,6 +43,6 @@ Agent rules "when to read / when to write" — in [`agent-workflow.md`](./agent-
 2. `product/audience.md` + `product/use-cases.md` — who and why
 3. `product/competitors.md` + `product/positioning.md` — what's different
 4. `spec/data-model.md` + `spec/screens/inventory.md` — how it's built
-5. `design/voice-and-tone.md` + `design/tokens.md` — how we write and look
+5. `design/components.md` + `design/patterns.md` — how we build UI
 6. `product/metrics.md` + last 2–3 files from `insights/analytics/` — what's working now
 7. `decisions/` — what decisions have already been made

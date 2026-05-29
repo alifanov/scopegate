@@ -49,7 +49,7 @@ Add all recommendations as GitHub Issues to the remote GitHub repository of this
   - [ ] <additional criterion if needed>
   ```
 
-Do NOT create recommendations about paid ads — that is handled in a separate routine.
+Do NOT create recommendations about paid ads — that is handled by `/darkflow:ads-review`.
 
 Write an analytics snapshot to `docs/insights/analytics/YYYY-MM-DD.md` before posting recommendations.
 

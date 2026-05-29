@@ -2,7 +2,16 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
+// Valid Server Action IDs are 40-char hex SHA-1 hashes.
+// Reject anything else (e.g. "x") to silence bot-scan noise.
+const VALID_ACTION_ID = /^[0-9a-f]{40}$/;
+
 export function middleware(request: NextRequest) {
+  const actionId = request.headers.get("Next-Action");
+  if (actionId !== null && !VALID_ACTION_ID.test(actionId)) {
+    return new NextResponse(null, { status: 400 });
+  }
+
   const { pathname } = request.nextUrl;
 
   // Public paths — skip auth check

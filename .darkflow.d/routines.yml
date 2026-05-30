@@ -16,8 +16,13 @@ routines:
     model: sonnet
     enabled: true
 
-  coolify-logs:
+  coolify-check-deployment:
     cron: "0 9 * * *"
+    model: sonnet
+    enabled: true
+
+  coolify-check-logs:
+    cron: "30 9 * * *"
     model: sonnet
     enabled: true
 

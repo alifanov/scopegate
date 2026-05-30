@@ -1,0 +1,43 @@
+Check the Coolify **deployment status** for this project: detect failed/red deploys and create a high-priority GitHub issue. This is a passive health check — it does not auto-fix or trigger anything.
+
+For runtime container logs, use `/darkflow:coolify-check-logs` instead — this command only looks at the deployment pipeline.
+
+All Coolify data is fetched via the official `coolify` CLI (not an MCP server). Config lives at `~/.config/coolify/config.json`.
+
+## Step 1 — Read project config
+
+Read `.darkflow` in the project root. Extract:
+- `coolify_app=` → Coolify app UUID for this project (optional; if missing, resolve it in Step 2)
+
+If `.darkflow` is missing, continue normally.
+
+## Step 2 — Resolve the app UUID
+
+If `coolify_app=` is not set, list apps and find the UUID by name/project:
+
+```bash
+coolify app list
+```
+
+## Step 3 — Check deployment status
+
+Check the deployment history for failed/red deploys:
+
+```bash
+coolify app deployments list APP_UUID
+```
+
+- If the latest deployment is in a **failed or error state**: create a `priority:p0` GitHub issue:
+  - Labels: `status:proposed`, `source:infra`, `priority:p0`, `area:infra`
+  - Title: "Fix failed deployment: <error summary>"
+  - Body: the deployment metadata + identified error. For details of the failed deploy:
+    ```bash
+    coolify deploy get DEPLOYMENT_UUID --format pretty
+    ```
+
+If the latest deployment succeeded, output: `Coolify deployment OK — latest deploy succeeded.`
+
+## Guardrails
+
+- Never trigger a new deployment — this is a passive check.
+- Never expose secrets from deployment output — redact anything that looks like a key/token.

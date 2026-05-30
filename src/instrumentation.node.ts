@@ -3,8 +3,17 @@ import * as path from "path";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
+import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
+import { metrics, type Counter } from "@opentelemetry/api";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
+
+// Mirrors the regex in middleware.ts — valid Server Action IDs are 40-char hex SHA-1 hashes.
+const VALID_ACTION_ID = /^[0-9a-f]{40}$/;
+
+// Populated after sdk.start() so the requestHook can increment it.
+let blockedRequestsCounter: Counter | null = null;
 
 // OAuth token endpoints — 4xx failures (e.g. invalid_grant) are expected,
 // handled at the application level, and tracked in ServiceConnection.status.
@@ -84,6 +93,14 @@ if (!endpoint) {
     traceExporter: new OTLPTraceExporter({
       url: `${endpoint}/v1/traces`,
     }),
+    metricReaders: [
+      new PeriodicExportingMetricReader({
+        exporter: new OTLPMetricExporter({
+          url: `${endpoint}/v1/metrics`,
+        }),
+        exportIntervalMillis: 60_000,
+      }),
+    ],
     instrumentations: [
       getNodeAutoInstrumentations({
         "@opentelemetry/instrumentation-fs": { enabled: false },
@@ -91,9 +108,21 @@ if (!endpoint) {
           requestHook: (span, request) => {
             // IncomingMessage (server requests) has `url`; ClientRequest does not.
             // Set http.route on incoming server spans so SigNoz can filter by route.
-            const incomingUrl = (request as { url?: string }).url;
-            if (typeof incomingUrl === "string" && incomingUrl) {
-              span.setAttribute("http.route", normalizeRoute(incomingUrl));
+            const req = request as {
+              url?: string;
+              headers?: Record<string, string | string[] | undefined>;
+            };
+            if (typeof req.url !== "string" || !req.url) return;
+
+            const actionId = req.headers?.["next-action"];
+            if (typeof actionId === "string" && !VALID_ACTION_ID.test(actionId)) {
+              // Middleware will 400 this — group under a canonical route so SigNoz
+              // shows these bot-scan blocks as a single aggregated route, not noise.
+              span.setAttribute("http.route", "/[blocked-action]");
+              span.setAttribute("block.reason", "invalid-next-action");
+              blockedRequestsCounter?.add(1);
+            } else {
+              span.setAttribute("http.route", normalizeRoute(req.url));
             }
           },
         },
@@ -110,4 +139,9 @@ if (!endpoint) {
   });
 
   sdk.start();
+
+  blockedRequestsCounter = metrics.getMeter("scopegate").createCounter(
+    "mcp.blocked_requests",
+    { description: "Requests blocked by middleware due to invalid Next-Action header" },
+  );
 }

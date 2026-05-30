@@ -9,7 +9,13 @@ const VALID_ACTION_ID = /^[0-9a-f]{40}$/;
 export function middleware(request: NextRequest) {
   const actionId = request.headers.get("Next-Action");
   if (actionId !== null && !VALID_ACTION_ID.test(actionId)) {
-    return new NextResponse(null, { status: 400 });
+    console.info(
+      `[middleware] blocked invalid Next-Action from ${request.headers.get("x-forwarded-for") ?? "unknown"}: "${actionId.slice(0, 16)}…"`,
+    );
+    return new NextResponse(null, {
+      status: 400,
+      headers: { "x-blocked-by": "invalid-next-action" },
+    });
   }
 
   const { pathname } = request.nextUrl;

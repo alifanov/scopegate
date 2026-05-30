@@ -2,6 +2,44 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { db } from "@/lib/db";
 import { createMcpServerForEndpoint } from "@/lib/mcp/handler";
 
+// SSE connections are long-lived by design (MCP Streamable HTTP spec).
+// p99 ≈ 299 s is the reverse-proxy idle timeout, not an app bug.
+// Keep-alive comments sent every 30 s prevent Traefik/nginx from dropping idle connections.
+// maxDuration tells Next.js/Vercel the expected maximum connection duration.
+export const maxDuration = 300;
+
+function withSseKeepAlive(response: Response, intervalMs = 30_000): Response {
+  if (!response.body) return response;
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("text/event-stream")) return response;
+
+  const encoder = new TextEncoder();
+  const ping = encoder.encode(": ping\n\n");
+  const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+  const writer = writable.getWriter();
+
+  const pump = async () => {
+    const reader = response.body!.getReader();
+    const pingTimer = setInterval(() => {
+      writer.write(ping).catch(() => clearInterval(pingTimer));
+    }, intervalMs);
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        await writer.write(value);
+      }
+    } finally {
+      clearInterval(pingTimer);
+      writer.close().catch(() => {});
+    }
+  };
+
+  pump().catch(() => writer.close().catch(() => {}));
+
+  return new Response(readable, { status: response.status, headers: response.headers });
+}
+
 async function handleMcpRequest(
   request: Request,
   apiKey: string
@@ -62,7 +100,7 @@ async function handleMcpRequest(
 
   const response = await transport.handleRequest(request);
 
-  return response;
+  return withSseKeepAlive(response);
 }
 
 export async function GET(

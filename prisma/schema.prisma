@@ -104,6 +104,9 @@ model ServiceConnection {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   mcpEndpoints McpEndpoint[]
+
+  @@index([expiresAt])
+  @@index([provider, expiresAt])
 }
 
 model McpEndpoint {

@@ -99,6 +99,53 @@ export async function getThreadsUserInfo(
   }>;
 }
 
+export async function refreshThreadsTokenForConnection(connection: {
+  id: string;
+  accessToken: string;
+  expiresAt: Date | null;
+}): Promise<string> {
+  const currentToken = decrypt(connection.accessToken);
+  const params = new URLSearchParams({
+    grant_type: "th_refresh_token",
+    access_token: currentToken,
+  });
+  const res = await fetch(
+    `https://graph.threads.net/refresh_access_token?${params.toString()}`
+  );
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error(
+      `[ScopeGate] Threads token refresh failed (${res.status}):`,
+      errorText
+    );
+    await db.serviceConnection.update({
+      where: { id: connection.id },
+      data: {
+        status: "error",
+        lastError: `Token refresh failed (${res.status}): ${errorText}`,
+      },
+    });
+    throw new Error(`Token refresh failed (${res.status}): ${errorText}`);
+  }
+
+  const data = (await res.json()) as {
+    access_token: string;
+    expires_in: number;
+  };
+  const expiresAt = new Date(Date.now() + data.expires_in * 1000);
+  await db.serviceConnection.update({
+    where: { id: connection.id },
+    data: {
+      accessToken: encrypt(data.access_token),
+      expiresAt,
+      status: "active",
+      lastError: null,
+    },
+  });
+  return data.access_token;
+}
+
 export async function getValidThreadsAccessToken(
   serviceConnectionId: string
 ): Promise<string> {

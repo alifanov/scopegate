@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { trace, SpanStatusCode } from "@opentelemetry/api";
+import { trace, SpanStatusCode, metrics } from "@opentelemetry/api";
 import { db } from "@/lib/db";
 import { refreshAccessToken } from "@/lib/google-oauth";
 import { refreshLinkedInAccessToken } from "@/lib/linkedin-oauth";
@@ -7,6 +7,11 @@ import { refreshThreadsTokenForConnection } from "@/lib/threads-oauth";
 import { encrypt, decrypt } from "@/lib/crypto";
 
 const tracer = trace.getTracer("scopegate/cron/refresh-tokens");
+const tokenRefreshFailuresCounter = metrics
+  .getMeter("scopegate")
+  .createCounter("token_refresh_failures_total", {
+    description: "OAuth token refresh failures by reason and provider",
+  });
 
 const GOOGLE_PROVIDERS = new Set([
   "gmail",
@@ -35,14 +40,17 @@ function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
 type RefreshResult =
   | { status: "refreshed" }
   | { status: "skipped" }
-  | { status: "error"; message: string };
+  | { status: "error"; message: string }
+  | { status: "revoked"; message: string };
 
 type ConnectionRow = {
   id: string;
   provider: string;
+  accountEmail: string;
   accessToken: string;
   refreshToken: string | null;
   expiresAt: Date | null;
+  projectId: string;
 };
 
 async function refreshConnection(connection: ConnectionRow): Promise<RefreshResult> {
@@ -148,14 +156,24 @@ async function refreshConnection(connection: ConnectionRow): Promise<RefreshResu
         const message = err instanceof Error ? err.message : "Unknown error";
         span.setStatus({ code: SpanStatusCode.ERROR, message });
         span.recordException(err instanceof Error ? err : new Error(message));
+        const isInvalidGrant = message.includes("invalid_grant");
+        const newStatus = isInvalidGrant ? "revoked" : "error";
+        const reason = isInvalidGrant ? "invalid_grant" : "other";
+        if (isInvalidGrant) {
+          console.info(
+            `[ScopeGate] Token revoked (invalid_grant): provider=${connection.provider} accountEmail=${connection.accountEmail} connectionId=${connection.id} projectId=${connection.projectId}`
+          );
+        }
+        tokenRefreshFailuresCounter.add(1, { reason, provider: connection.provider });
         try {
           await db.serviceConnection.update({
             where: { id: connection.id },
-            data: { status: "error", lastError: message },
+            data: { status: newStatus, lastError: message },
           });
         } catch {
           // best-effort status update
         }
+        if (isInvalidGrant) return { status: "revoked" as const, message };
         return { status: "error" as const, message };
       } finally {
         span.end();
@@ -193,27 +211,32 @@ export async function POST(request: Request) {
                 where: {
                   refreshToken: { not: null },
                   expiresAt: { not: null, lt: threshold },
+                  status: { notIn: ["error", "revoked"] },
                 },
                 select: {
                   id: true,
                   provider: true,
+                  accountEmail: true,
                   accessToken: true,
                   refreshToken: true,
                   expiresAt: true,
+                  projectId: true,
                 },
               }),
               db.serviceConnection.findMany({
                 where: {
                   provider: "threads",
                   expiresAt: { not: null, lt: threshold },
-                  status: { not: "error" },
+                  status: { notIn: ["error", "revoked"] },
                 },
                 select: {
                   id: true,
                   provider: true,
+                  accountEmail: true,
                   accessToken: true,
                   refreshToken: true,
                   expiresAt: true,
+                  projectId: true,
                 },
               }),
             ]);
@@ -258,6 +281,7 @@ export async function POST(request: Request) {
                   const message = err instanceof Error ? err.message : "Unknown error";
                   span.setStatus({ code: SpanStatusCode.ERROR, message });
                   span.recordException(err instanceof Error ? err : new Error(message));
+                  tokenRefreshFailuresCounter.add(1, { reason: "other", provider: "threads" });
                   return { status: "error" as const, message };
                 } finally {
                   span.end();
@@ -270,12 +294,19 @@ export async function POST(request: Request) {
 
       let refreshed = 0;
       let failed = 0;
+      let revoked = 0;
       const errors: { id: string; provider: string; error: string }[] = [];
+      const revokedRows: ConnectionRow[] = [];
 
       for (let i = 0; i < mainResults.length; i++) {
         const r = mainResults[i];
         if (r.status === "refreshed") refreshed++;
-        else if (r.status === "error") {
+        else if (r.status === "revoked") {
+          failed++;
+          revoked++;
+          revokedRows.push(connections[i]);
+          errors.push({ id: connections[i].id, provider: connections[i].provider, error: r.message });
+        } else if (r.status === "error") {
           failed++;
           errors.push({
             id: connections[i].id,
@@ -298,12 +329,37 @@ export async function POST(request: Request) {
         }
       }
 
+      if (revokedRows.length > 0) {
+        try {
+          const projectIds = [...new Set(revokedRows.map((c) => c.projectId))];
+          const teamMembers = await db.teamMember.findMany({
+            where: { projectId: { in: projectIds } },
+            select: { userId: true, projectId: true },
+          });
+          await db.notification.createMany({
+            data: revokedRows.flatMap((conn) => {
+              const members = teamMembers.filter((m) => m.projectId === conn.projectId);
+              return members.map((m) => ({
+                userId: m.userId,
+                type: "error",
+                title: "Требуется повторное подключение",
+                message: `Доступ к ${conn.provider} (${conn.accountEmail}) отозван провайдером. Переподключите аккаунт в настройках проекта.`,
+              }));
+            }),
+          });
+        } catch {
+          // best-effort notifications
+        }
+      }
+
       rootSpan.setAttribute("refresh.refreshed", refreshed);
       rootSpan.setAttribute("refresh.failed", failed);
+      rootSpan.setAttribute("refresh.revoked", revoked);
 
       return NextResponse.json({
         refreshed,
         failed,
+        revoked,
         total: connections.length + threadsConnections.length,
         errors: errors.length > 0 ? errors : undefined,
       });

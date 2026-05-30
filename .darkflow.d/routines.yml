@@ -41,8 +41,3 @@ routines:
     model: sonnet
     enabled: true
 
-  deployment-failure:
-    cron: ""
-    model: sonnet
-    enabled: false
-

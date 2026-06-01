@@ -41,6 +41,11 @@ routines:
     model: opus
     enabled: true
 
+  build-optimization:
+    cron: "0 4 * * 0"
+    model: opus
+    enabled: true
+
   vulnerability-check:
     cron: "0 6 * * *"
     model: sonnet

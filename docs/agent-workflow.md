@@ -59,6 +59,7 @@ Rule is universal — only the folder changes by data source:
 | UX audit — layout, accessibility, component review | `insights/ux-audit/YYYY-MM-DD.md` | `/darkflow:ux-audit`, session recording review |
 | Docs audit — docs ↔ code drift | `insights/docs-audit/YYYY-MM-DD.md` | `/darkflow:docs-audit` |
 | Product overview — state + recent improvements + hypotheses digest | `insights/product-overview/YYYY-MM-DD.md` | `/darkflow:product-overview` |
+| Build optimization — build + deploy pipeline efficiency | `insights/build-optimization/YYYY-MM-DD.md` | `/darkflow:build-optimization` |
 | Interviews, feedback, session recordings | `insights/qualitative/YYYY-MM-DD-{topic}.md` | Session recording review, email/chat feedback analysis |
 
 ### Snapshot format (any source)

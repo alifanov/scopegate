@@ -141,6 +141,7 @@ export async function refreshThreadsTokenForConnection(connection: {
       expiresAt,
       status: "active",
       lastError: null,
+      consecutiveFailures: 0,
     },
   });
   return data.access_token;
@@ -201,6 +202,7 @@ export async function getValidThreadsAccessToken(
       expiresAt,
       status: "active",
       lastError: null,
+      consecutiveFailures: 0,
     },
   });
   return data.access_token;

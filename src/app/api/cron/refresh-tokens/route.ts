@@ -23,7 +23,16 @@ const GOOGLE_PROVIDERS = new Set([
   "googleTagManager",
 ]);
 
+const PERMANENT_OAUTH_ERRORS = [
+  "invalid_grant",
+  "invalid_client",
+  "unauthorized_client",
+  "access_denied",
+  "token_revoked",
+];
+
 const REFRESH_TIMEOUT_MS = 10_000;
+const CONSECUTIVE_FAILURES_THRESHOLD = 3;
 
 function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
   return Promise.race([
@@ -35,6 +44,12 @@ function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
       )
     ),
   ]);
+}
+
+function classifyError(message: string): "permanent" | "transient" {
+  return PERMANENT_OAUTH_ERRORS.some((code) => message.includes(code))
+    ? "permanent"
+    : "transient";
 }
 
 type RefreshResult =
@@ -51,7 +66,60 @@ type ConnectionRow = {
   refreshToken: string | null;
   expiresAt: Date | null;
   projectId: string;
+  consecutiveFailures: number;
 };
+
+async function applyRefreshError(
+  connection: ConnectionRow,
+  message: string
+): Promise<RefreshResult> {
+  const errorClass = classifyError(message);
+  const errorCode =
+    PERMANENT_OAUTH_ERRORS.find((code) => message.includes(code)) ?? "other";
+
+  tokenRefreshFailuresCounter.add(1, {
+    reason: errorCode,
+    error_class: errorClass,
+    provider: connection.provider,
+  });
+
+  let newStatus: string;
+  let newConsecutiveFailures: number;
+
+  if (errorClass === "permanent") {
+    newStatus = "revoked";
+    newConsecutiveFailures = 0;
+    console.info(
+      `[ScopeGate] Token revoked (${errorCode}): provider=${connection.provider} accountEmail=${connection.accountEmail} connectionId=${connection.id} projectId=${connection.projectId}`
+    );
+  } else {
+    newConsecutiveFailures = connection.consecutiveFailures + 1;
+    if (newConsecutiveFailures >= CONSECUTIVE_FAILURES_THRESHOLD) {
+      newStatus = "revoked";
+      console.info(
+        `[ScopeGate] Token deactivated after ${newConsecutiveFailures} consecutive failures: provider=${connection.provider} accountEmail=${connection.accountEmail} connectionId=${connection.id} projectId=${connection.projectId}`
+      );
+    } else {
+      newStatus = "error";
+    }
+  }
+
+  try {
+    await db.serviceConnection.update({
+      where: { id: connection.id },
+      data: {
+        status: newStatus,
+        lastError: message,
+        consecutiveFailures: newConsecutiveFailures,
+      },
+    });
+  } catch {
+    // best-effort status update
+  }
+
+  if (newStatus === "revoked") return { status: "revoked" as const, message };
+  return { status: "error" as const, message };
+}
 
 async function refreshConnection(connection: ConnectionRow): Promise<RefreshResult> {
   return tracer.startActiveSpan(
@@ -91,6 +159,7 @@ async function refreshConnection(connection: ConnectionRow): Promise<RefreshResu
                   expiresAt,
                   status: "active",
                   lastError: null,
+                  consecutiveFailures: 0,
                 },
               });
             } finally {
@@ -124,12 +193,14 @@ async function refreshConnection(connection: ConnectionRow): Promise<RefreshResu
             expiresAt: Date;
             status: string;
             lastError: null;
+            consecutiveFailures: number;
             refreshToken?: string;
           } = {
             accessToken: encrypt(tokens.access_token),
             expiresAt,
             status: "active",
             lastError: null,
+            consecutiveFailures: 0,
           };
           if (tokens.refresh_token) {
             updateData.refreshToken = encrypt(tokens.refresh_token);
@@ -156,25 +227,8 @@ async function refreshConnection(connection: ConnectionRow): Promise<RefreshResu
         const message = err instanceof Error ? err.message : "Unknown error";
         span.setStatus({ code: SpanStatusCode.ERROR, message });
         span.recordException(err instanceof Error ? err : new Error(message));
-        const isInvalidGrant = message.includes("invalid_grant");
-        const newStatus = isInvalidGrant ? "revoked" : "error";
-        const reason = isInvalidGrant ? "invalid_grant" : "other";
-        if (isInvalidGrant) {
-          console.info(
-            `[ScopeGate] Token revoked (invalid_grant): provider=${connection.provider} accountEmail=${connection.accountEmail} connectionId=${connection.id} projectId=${connection.projectId}`
-          );
-        }
-        tokenRefreshFailuresCounter.add(1, { reason, provider: connection.provider });
-        try {
-          await db.serviceConnection.update({
-            where: { id: connection.id },
-            data: { status: newStatus, lastError: message },
-          });
-        } catch {
-          // best-effort status update
-        }
-        if (isInvalidGrant) return { status: "revoked" as const, message };
-        return { status: "error" as const, message };
+        span.setAttribute("refresh.status", "error");
+        return applyRefreshError(connection, message);
       } finally {
         span.end();
       }
@@ -221,6 +275,7 @@ export async function POST(request: Request) {
                   refreshToken: true,
                   expiresAt: true,
                   projectId: true,
+                  consecutiveFailures: true,
                 },
               }),
               db.serviceConnection.findMany({
@@ -237,6 +292,7 @@ export async function POST(request: Request) {
                   refreshToken: true,
                   expiresAt: true,
                   projectId: true,
+                  consecutiveFailures: true,
                 },
               }),
             ]);
@@ -281,8 +337,8 @@ export async function POST(request: Request) {
                   const message = err instanceof Error ? err.message : "Unknown error";
                   span.setStatus({ code: SpanStatusCode.ERROR, message });
                   span.recordException(err instanceof Error ? err : new Error(message));
-                  tokenRefreshFailuresCounter.add(1, { reason: "other", provider: "threads" });
-                  return { status: "error" as const, message };
+                  span.setAttribute("refresh.status", "error");
+                  return applyRefreshError(connection, message);
                 } finally {
                   span.end();
                 }
@@ -319,7 +375,12 @@ export async function POST(request: Request) {
       for (let i = 0; i < threadsResults.length; i++) {
         const r = threadsResults[i];
         if (r.status === "refreshed") refreshed++;
-        else if (r.status === "error") {
+        else if (r.status === "revoked") {
+          failed++;
+          revoked++;
+          revokedRows.push(threadsConnections[i]);
+          errors.push({ id: threadsConnections[i].id, provider: "threads", error: r.message });
+        } else if (r.status === "error") {
           failed++;
           errors.push({
             id: threadsConnections[i].id,

@@ -41,9 +41,8 @@ export async function exchangeLinkedInCodeForTokens(code: string) {
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error("[ScopeGate] LinkedIn token exchange failed:", text);
-    throw new Error(`LinkedIn token exchange failed (${res.status}): ${text}`);
+    console.error("[ScopeGate] LinkedIn token exchange failed", { status: res.status });
+    throw new Error("LinkedIn token exchange failed");
   }
 
   return res.json() as Promise<{
@@ -67,9 +66,8 @@ export async function refreshLinkedInAccessToken(refreshToken: string) {
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error("[ScopeGate] LinkedIn token refresh failed:", text);
-    throw new Error(`LinkedIn token refresh failed (${res.status}): ${text}`);
+    console.error("[ScopeGate] LinkedIn token refresh failed", { status: res.status });
+    throw new Error("LinkedIn token refresh failed");
   }
 
   return res.json() as Promise<{

@@ -29,9 +29,8 @@ export async function listAccessibleCustomers(
   );
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[ScopeGate] Google Ads listAccessibleCustomers error (${res.status}):`, text);
-    throw new Error(`Failed to list accessible Google Ads customers (${res.status}): ${text}`);
+    console.error(`[ScopeGate] Google Ads listAccessibleCustomers error (${res.status})`);
+    throw new Error("Failed to list accessible Google Ads customers");
   }
 
   const data = (await res.json()) as { resourceNames: string[] };
@@ -157,9 +156,8 @@ export async function googleAdsQuery(
   );
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[ScopeGate] Google Ads query error (${res.status}):`, text);
-    throw new Error(`Google Ads API query failed (${res.status}): ${text}`);
+    console.error(`[ScopeGate] Google Ads query error (${res.status})`);
+    throw new Error("Google Ads API query failed");
   }
 
   const data = await res.json();
@@ -201,9 +199,8 @@ export async function googleAdsMutate(
   );
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[ScopeGate] Google Ads mutate error (${res.status}):`, text);
-    throw new Error(`Google Ads API mutate failed (${res.status}): ${text}`);
+    console.error(`[ScopeGate] Google Ads mutate error (${res.status})`);
+    throw new Error("Google Ads API mutate failed");
   }
 
   return res.json();
@@ -232,9 +229,8 @@ export async function googleAdsApplyRecommendation(
   );
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[ScopeGate] Google Ads apply recommendation error (${res.status}):`, text);
-    throw new Error(`Google Ads API apply recommendation failed (${res.status}): ${text}`);
+    console.error(`[ScopeGate] Google Ads apply recommendation error (${res.status})`);
+    throw new Error("Google Ads API apply recommendation failed");
   }
 
   return res.json();
@@ -263,9 +259,8 @@ export async function googleAdsDismissRecommendation(
   );
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[ScopeGate] Google Ads dismiss recommendation error (${res.status}):`, text);
-    throw new Error(`Google Ads API dismiss recommendation failed (${res.status}): ${text}`);
+    console.error(`[ScopeGate] Google Ads dismiss recommendation error (${res.status})`);
+    throw new Error("Google Ads API dismiss recommendation failed");
   }
 
   return res.json();

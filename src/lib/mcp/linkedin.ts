@@ -19,8 +19,7 @@ export async function getLinkedInMemberUrn(
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Failed to fetch LinkedIn member URN (${res.status}): ${text}`);
+    throw new Error("Failed to fetch LinkedIn member URN");
   }
 
   const data = (await res.json()) as { sub: string };
@@ -49,9 +48,8 @@ export async function linkedinFetch(
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[ScopeGate] LinkedIn API error (${res.status}):`, text);
-    throw new Error(`LinkedIn API request failed (${res.status}): ${text}`);
+    console.error(`[ScopeGate] LinkedIn API error (${res.status})`);
+    throw new Error("LinkedIn API request failed");
   }
 
   if (res.status === 204 || res.status === 201) {
@@ -91,8 +89,7 @@ export async function linkedinUploadImage(
   });
 
   if (!initRes.ok) {
-    const text = await initRes.text();
-    throw new Error(`LinkedIn image upload init failed (${initRes.status}): ${text}`);
+    throw new Error("LinkedIn image upload init failed");
   }
 
   const initData = (await initRes.json()) as {
@@ -116,8 +113,7 @@ export async function linkedinUploadImage(
   });
 
   if (!uploadRes.ok) {
-    const text = await uploadRes.text();
-    throw new Error(`LinkedIn image binary upload failed (${uploadRes.status}): ${text}`);
+    throw new Error("LinkedIn image binary upload failed");
   }
 
   // Step 3: Return image URN

@@ -43,9 +43,8 @@ export async function exchangeThreadsCodeForTokens(code: string) {
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error("[ScopeGate] Threads token exchange failed:", text);
-    throw new Error(`Threads token exchange failed (${res.status}): ${text}`);
+    console.error("[ScopeGate] Threads token exchange failed", { status: res.status });
+    throw new Error("Threads token exchange failed");
   }
 
   const shortLived = (await res.json()) as {
@@ -114,19 +113,15 @@ export async function refreshThreadsTokenForConnection(connection: {
   );
 
   if (!res.ok) {
-    const errorText = await res.text();
-    console.error(
-      `[ScopeGate] Threads token refresh failed (${res.status}):`,
-      errorText
-    );
+    console.error(`[ScopeGate] Threads token refresh failed (${res.status})`);
     await db.serviceConnection.update({
       where: { id: connection.id },
       data: {
         status: "error",
-        lastError: `Token refresh failed (${res.status}): ${errorText}`,
+        lastError: `Token refresh failed (${res.status})`,
       },
     });
-    throw new Error(`Token refresh failed (${res.status}): ${errorText}`);
+    throw new Error("Token refresh failed");
   }
 
   const data = (await res.json()) as {
@@ -173,21 +168,15 @@ export async function getValidThreadsAccessToken(
   );
 
   if (!res.ok) {
-    const errorText = await res.text();
-    console.error(
-      `[ScopeGate] Threads token refresh failed (${res.status}):`,
-      errorText
-    );
+    console.error(`[ScopeGate] Threads token refresh failed (${res.status})`);
     await db.serviceConnection.update({
       where: { id: serviceConnectionId },
       data: {
         status: "error",
-        lastError: `Token refresh failed (${res.status}): ${errorText}`,
+        lastError: `Token refresh failed (${res.status})`,
       },
     });
-    throw new Error(
-      `Token refresh failed (${res.status}): ${errorText}`
-    );
+    throw new Error("Token refresh failed");
   }
 
   const data = (await res.json()) as {

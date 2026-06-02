@@ -55,9 +55,8 @@ export async function exchangeCodeForTokens(code: string) {
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error("[ScopeGate] Token exchange failed:", text);
-    throw new Error(`Token exchange failed (${res.status}): ${text}`);
+    console.error("[ScopeGate] Token exchange failed", { status: res.status });
+    throw new Error("Token exchange failed");
   }
 
   return res.json() as Promise<{
@@ -81,9 +80,8 @@ export async function refreshAccessToken(refreshToken: string) {
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error("[ScopeGate] Token refresh failed:", text);
-    throw new Error(`Token refresh failed (${res.status}): ${text}`);
+    console.error("[ScopeGate] Token refresh failed", { status: res.status });
+    throw new Error("Token refresh failed");
   }
 
   return res.json() as Promise<{
@@ -103,8 +101,7 @@ export async function revokeGoogleToken(token: string): Promise<void> {
       }
     );
     if (!res.ok) {
-      const text = await res.text();
-      console.warn("[ScopeGate] Google token revocation failed:", res.status, text);
+      console.warn("[ScopeGate] Google token revocation failed", { status: res.status });
     } else {
       console.log("[ScopeGate] Google token revoked successfully");
     }

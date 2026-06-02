@@ -19,9 +19,8 @@ export async function hubspotFetch(
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[ScopeGate] HubSpot API error (${res.status}):`, text);
-    throw new Error(`HubSpot API request failed (${res.status}): ${text}`);
+    console.error(`[ScopeGate] HubSpot API error (${res.status})`);
+    throw new Error("HubSpot API request failed");
   }
 
   if (res.status === 204) return { success: true };

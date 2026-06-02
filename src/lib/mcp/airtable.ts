@@ -23,9 +23,8 @@ export async function airtableFetch(
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[ScopeGate] Airtable API error (${res.status}):`, text);
-    throw new Error(`Airtable API request failed (${res.status}): ${text}`);
+    console.error(`[ScopeGate] Airtable API error (${res.status})`);
+    throw new Error("Airtable API request failed");
   }
 
   if (res.status === 204) return { success: true };

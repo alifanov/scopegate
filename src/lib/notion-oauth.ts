@@ -41,9 +41,8 @@ export async function exchangeNotionCodeForTokens(code: string) {
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error("[ScopeGate] Notion token exchange failed:", text);
-    throw new Error(`Notion token exchange failed (${res.status}): ${text}`);
+    console.error("[ScopeGate] Notion token exchange failed", { status: res.status });
+    throw new Error("Notion token exchange failed");
   }
 
   return res.json() as Promise<{

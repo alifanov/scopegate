@@ -24,9 +24,8 @@ export async function ahrefsFetch(
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[ScopeGate] Ahrefs API error (${res.status}):`, text);
-    throw new Error(`Ahrefs API request failed (${res.status}): ${text}`);
+    console.error(`[ScopeGate] Ahrefs API error (${res.status})`);
+    throw new Error("Ahrefs API request failed");
   }
 
   return res.json();

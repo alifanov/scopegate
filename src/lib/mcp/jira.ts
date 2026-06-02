@@ -32,9 +32,8 @@ export async function jiraFetch(
   );
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[ScopeGate] Jira API error (${res.status}):`, text);
-    throw new Error(`Jira API request failed (${res.status}): ${text}`);
+    console.error(`[ScopeGate] Jira API error (${res.status})`);
+    throw new Error("Jira API request failed");
   }
 
   if (res.status === 204) return { success: true };

@@ -43,9 +43,8 @@ export async function exchangeJiraCodeForTokens(code: string) {
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error("[ScopeGate] Jira token exchange failed:", text);
-    throw new Error(`Jira token exchange failed (${res.status}): ${text}`);
+    console.error("[ScopeGate] Jira token exchange failed", { status: res.status });
+    throw new Error("Jira token exchange failed");
   }
 
   return res.json() as Promise<{
@@ -69,9 +68,8 @@ export async function refreshJiraAccessToken(refreshToken: string) {
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error("[ScopeGate] Jira token refresh failed:", text);
-    throw new Error(`Jira token refresh failed (${res.status}): ${text}`);
+    console.error("[ScopeGate] Jira token refresh failed", { status: res.status });
+    throw new Error("Jira token refresh failed");
   }
 
   return res.json() as Promise<{

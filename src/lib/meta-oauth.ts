@@ -37,9 +37,8 @@ export async function exchangeMetaCodeForTokens(code: string) {
     `https://graph.facebook.com/v21.0/oauth/access_token?${params.toString()}`
   );
   if (!res.ok) {
-    const text = await res.text();
-    console.error("[ScopeGate] Meta token exchange failed:", text);
-    throw new Error(`Meta token exchange failed (${res.status}): ${text}`);
+    console.error("[ScopeGate] Meta token exchange failed", { status: res.status });
+    throw new Error("Meta token exchange failed");
   }
   const shortLived = (await res.json()) as {
     access_token: string;

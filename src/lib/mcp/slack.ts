@@ -19,9 +19,8 @@ export async function slackFetch(
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[ScopeGate] Slack API error (${res.status}):`, text);
-    throw new Error(`Slack API request failed (${res.status}): ${text}`);
+    console.error(`[ScopeGate] Slack API error (${res.status})`);
+    throw new Error("Slack API request failed");
   }
 
   const data = (await res.json()) as {

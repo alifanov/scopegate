@@ -21,9 +21,8 @@ export async function threadsFetch(
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[ScopeGate] Threads API error (${res.status}):`, text);
-    throw new Error(`Threads API request failed (${res.status}): ${text}`);
+    console.error(`[ScopeGate] Threads API error (${res.status})`);
+    throw new Error("Threads API request failed");
   }
 
   return res.json();

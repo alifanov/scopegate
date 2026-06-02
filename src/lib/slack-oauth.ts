@@ -40,9 +40,8 @@ export async function exchangeSlackCodeForTokens(code: string) {
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error("[ScopeGate] Slack token exchange failed:", text);
-    throw new Error(`Slack token exchange failed (${res.status}): ${text}`);
+    console.error("[ScopeGate] Slack token exchange failed", { status: res.status });
+    throw new Error("Slack token exchange failed");
   }
 
   const data = (await res.json()) as {

@@ -19,9 +19,8 @@ export async function googleTagManagerFetch(
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[ScopeGate] Google Tag Manager API error (${res.status}):`, text);
-    throw new Error(`Google Tag Manager API request failed (${res.status}): ${text}`);
+    console.error(`[ScopeGate] Google Tag Manager API error (${res.status})`);
+    throw new Error("Google Tag Manager API request failed");
   }
 
   if (res.status === 204) {

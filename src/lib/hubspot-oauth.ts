@@ -41,9 +41,8 @@ export async function exchangeHubSpotCodeForTokens(code: string) {
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error("[ScopeGate] HubSpot token exchange failed:", text);
-    throw new Error(`HubSpot token exchange failed (${res.status}): ${text}`);
+    console.error("[ScopeGate] HubSpot token exchange failed", { status: res.status });
+    throw new Error("HubSpot token exchange failed");
   }
 
   return res.json() as Promise<{
@@ -66,9 +65,8 @@ export async function refreshHubSpotAccessToken(refreshToken: string) {
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error("[ScopeGate] HubSpot token refresh failed:", text);
-    throw new Error(`HubSpot token refresh failed (${res.status}): ${text}`);
+    console.error("[ScopeGate] HubSpot token refresh failed", { status: res.status });
+    throw new Error("HubSpot token refresh failed");
   }
 
   return res.json() as Promise<{

@@ -21,9 +21,8 @@ export async function metaAdsFetch(
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[ScopeGate] Meta Ads API error (${res.status}):`, text);
-    throw new Error(`Meta Ads API request failed (${res.status}): ${text}`);
+    console.error(`[ScopeGate] Meta Ads API error (${res.status})`);
+    throw new Error("Meta Ads API request failed");
   }
 
   return res.json();

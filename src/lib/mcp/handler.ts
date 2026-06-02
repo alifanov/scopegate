@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { getToolsByActions, type ToolDefinition } from "./tools";
 import { db } from "../db";
 import { z } from "zod";
+import { redactParams, sanitizeAuditError } from "./audit-utils";
 
 export function createMcpServerForEndpoint(
   endpointId: string,
@@ -46,7 +47,7 @@ function registerTool(
           data: {
             endpointId,
             action: tool.action,
-            params: JSON.parse(JSON.stringify(params)),
+            params: JSON.parse(JSON.stringify(redactParams(params as Record<string, unknown>))),
             status: "success",
             duration,
           },
@@ -89,9 +90,9 @@ function registerTool(
           data: {
             endpointId,
             action: tool.action,
-            params: JSON.parse(JSON.stringify(params)),
+            params: JSON.parse(JSON.stringify(redactParams(params as Record<string, unknown>))),
             status: "error",
-            error: fullError,
+            error: sanitizeAuditError(fullError),
             duration,
           },
         });

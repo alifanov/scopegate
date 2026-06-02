@@ -26,9 +26,8 @@ export async function youtubeFetch(
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[ScopeGate] YouTube API error (${res.status}):`, text);
-    throw new Error(`YouTube API request failed (${res.status}): ${text}`);
+    console.error(`[ScopeGate] YouTube API error (${res.status})`);
+    throw new Error("YouTube API request failed");
   }
 
   if (res.status === 204) {
@@ -106,9 +105,8 @@ export async function youtubeUploadVideo(
   );
 
   if (!initRes.ok) {
-    const text = await initRes.text();
-    console.error(`[ScopeGate] YouTube upload init error (${initRes.status}):`, text);
-    throw new Error(`YouTube upload init failed (${initRes.status}): ${text}`);
+    console.error(`[ScopeGate] YouTube upload init error (${initRes.status})`);
+    throw new Error("YouTube upload init failed");
   }
 
   const uploadUrl = initRes.headers.get("location");
@@ -127,9 +125,8 @@ export async function youtubeUploadVideo(
   });
 
   if (!uploadRes.ok) {
-    const text = await uploadRes.text();
-    console.error(`[ScopeGate] YouTube upload error (${uploadRes.status}):`, text);
-    throw new Error(`YouTube video upload failed (${uploadRes.status}): ${text}`);
+    console.error(`[ScopeGate] YouTube upload error (${uploadRes.status})`);
+    throw new Error("YouTube video upload failed");
   }
 
   return uploadRes.json();

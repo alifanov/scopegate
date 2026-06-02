@@ -20,9 +20,8 @@ export async function githubFetch(
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[ScopeGate] GitHub API error (${res.status}):`, text);
-    throw new Error(`GitHub API request failed (${res.status}): ${text}`);
+    console.error(`[ScopeGate] GitHub API error (${res.status})`);
+    throw new Error("GitHub API request failed");
   }
 
   if (res.status === 204) return { success: true };

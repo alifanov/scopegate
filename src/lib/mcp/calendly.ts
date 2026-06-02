@@ -23,9 +23,8 @@ export async function calendlyFetch(
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[ScopeGate] Calendly API error (${res.status}):`, text);
-    throw new Error(`Calendly API request failed (${res.status}): ${text}`);
+    console.error(`[ScopeGate] Calendly API error (${res.status})`);
+    throw new Error("Calendly API request failed");
   }
 
   return res.json();

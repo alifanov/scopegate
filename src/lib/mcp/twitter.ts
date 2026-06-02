@@ -41,9 +41,8 @@ export async function twitterFetch(
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[ScopeGate] Twitter API error (${res.status}):`, text);
-    throw new Error(`Twitter API request failed (${res.status}): ${text}`);
+    console.error(`[ScopeGate] Twitter API error (${res.status})`);
+    throw new Error("Twitter API request failed");
   }
 
   if (res.status === 204) {
@@ -73,9 +72,8 @@ export async function twitterUploadMedia(
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[ScopeGate] Twitter media upload error (${res.status}):`, text);
-    throw new Error(`Twitter media upload failed (${res.status}): ${text}`);
+    console.error(`[ScopeGate] Twitter media upload error (${res.status})`);
+    throw new Error("Twitter media upload failed");
   }
 
   const data = (await res.json()) as { data?: { id?: string } };

@@ -21,9 +21,8 @@ export async function notionFetch(
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[ScopeGate] Notion API error (${res.status}):`, text);
-    throw new Error(`Notion API request failed (${res.status}): ${text}`);
+    console.error(`[ScopeGate] Notion API error (${res.status})`);
+    throw new Error("Notion API request failed");
   }
 
   if (res.status === 204) {

@@ -30,9 +30,8 @@ export async function stripeFetch(
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[ScopeGate] Stripe API error (${res.status}):`, text);
-    throw new Error(`Stripe API request failed (${res.status}): ${text}`);
+    console.error(`[ScopeGate] Stripe API error (${res.status})`);
+    throw new Error("Stripe API request failed");
   }
 
   return res.json();

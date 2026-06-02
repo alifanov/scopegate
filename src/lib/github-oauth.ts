@@ -42,9 +42,8 @@ export async function exchangeGitHubCodeForTokens(code: string) {
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error("[ScopeGate] GitHub token exchange failed:", text);
-    throw new Error(`GitHub token exchange failed (${res.status}): ${text}`);
+    console.error("[ScopeGate] GitHub token exchange failed", { status: res.status });
+    throw new Error("GitHub token exchange failed");
   }
 
   const data = (await res.json()) as {

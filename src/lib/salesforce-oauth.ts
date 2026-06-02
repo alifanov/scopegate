@@ -42,11 +42,8 @@ export async function exchangeSalesforceCodeForTokens(code: string) {
   );
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error("[ScopeGate] Salesforce token exchange failed:", text);
-    throw new Error(
-      `Salesforce token exchange failed (${res.status}): ${text}`
-    );
+    console.error("[ScopeGate] Salesforce token exchange failed", { status: res.status });
+    throw new Error("Salesforce token exchange failed");
   }
 
   return res.json() as Promise<{
@@ -76,11 +73,8 @@ export async function refreshSalesforceAccessToken(
   );
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error("[ScopeGate] Salesforce token refresh failed:", text);
-    throw new Error(
-      `Salesforce token refresh failed (${res.status}): ${text}`
-    );
+    console.error("[ScopeGate] Salesforce token refresh failed", { status: res.status });
+    throw new Error("Salesforce token refresh failed");
   }
 
   return res.json() as Promise<{ access_token: string }>;

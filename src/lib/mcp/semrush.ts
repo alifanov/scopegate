@@ -16,14 +16,13 @@ export async function semrushFetch(
   const res = await fetch(`${SEMRUSH_API_BASE}/?${query.toString()}`);
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[ScopeGate] SEMrush API error (${res.status}):`, text);
-    throw new Error(`SEMrush API request failed (${res.status}): ${text}`);
+    console.error(`[ScopeGate] SEMrush API error (${res.status})`);
+    throw new Error("SEMrush API request failed");
   }
 
   const text = await res.text();
   if (text.startsWith("ERROR"))
-    throw new Error(`SEMrush API error: ${text}`);
+    throw new Error(`SEMrush API error`);
 
   // Parse CSV response into objects
   const lines = text.trim().split("\n");

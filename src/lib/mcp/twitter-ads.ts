@@ -21,14 +21,8 @@ export async function twitterAdsFetch(
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(
-      `[ScopeGate] Twitter Ads API error (${res.status}):`,
-      text
-    );
-    throw new Error(
-      `Twitter Ads API request failed (${res.status}): ${text}`
-    );
+    console.error(`[ScopeGate] Twitter Ads API error`, { status: res.status });
+    throw new Error("Twitter Ads API request failed");
   }
 
   return res.json();

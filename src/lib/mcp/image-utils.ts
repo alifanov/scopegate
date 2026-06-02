@@ -1,3 +1,5 @@
+import { safeFetch } from "./safe-fetch";
+
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/gif"];
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 
@@ -29,8 +31,8 @@ export async function downloadImage(urlOrBase64: string): Promise<DownloadedImag
     return { buffer, mimeType, sizeBytes: buffer.length };
   }
 
-  // Handle URL
-  const res = await fetch(urlOrBase64);
+  // Handle URL — safeFetch blocks SSRF: only https:, no private/reserved IPs
+  const res = await safeFetch(urlOrBase64);
   if (!res.ok) {
     throw new Error(`Failed to download image (${res.status}): ${res.statusText}`);
   }

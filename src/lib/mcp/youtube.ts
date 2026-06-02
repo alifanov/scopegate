@@ -1,6 +1,9 @@
 import { readFile } from "fs/promises";
 import { lookup } from "mime-types";
 import { getValidAccessToken } from "@/lib/google-oauth";
+import { safeFetch } from "./safe-fetch";
+
+const MAX_VIDEO_BYTES = 256 * 1024 * 1024; // 256 MB in-memory limit
 
 const YOUTUBE_BASE_URL = "https://www.googleapis.com/youtube/v3";
 const YOUTUBE_UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos";
@@ -52,14 +55,27 @@ export async function youtubeUploadVideo(
 ): Promise<unknown> {
   const accessToken = await getValidAccessToken(serviceConnectionId);
 
-  // Download video from URL
-  const videoRes = await fetch(videoUrl);
+  // Download video from URL — safeFetch blocks SSRF: only https:, no private/reserved IPs
+  const videoRes = await safeFetch(videoUrl);
   if (!videoRes.ok) {
     throw new Error(`Failed to download video from URL (${videoRes.status}): ${videoRes.statusText}`);
   }
 
+  const contentLengthHeader = videoRes.headers.get("content-length");
+  if (contentLengthHeader && parseInt(contentLengthHeader, 10) > MAX_VIDEO_BYTES) {
+    throw new Error(
+      `Video too large: ${(parseInt(contentLengthHeader, 10) / 1024 / 1024).toFixed(0)}MB. Max: ${MAX_VIDEO_BYTES / 1024 / 1024}MB`
+    );
+  }
+
   const contentType = videoRes.headers.get("content-type") || "video/mp4";
   const videoBuffer = Buffer.from(await videoRes.arrayBuffer());
+
+  if (videoBuffer.length > MAX_VIDEO_BYTES) {
+    throw new Error(
+      `Video too large: ${(videoBuffer.length / 1024 / 1024).toFixed(0)}MB. Max: ${MAX_VIDEO_BYTES / 1024 / 1024}MB`
+    );
+  }
 
   // Build metadata body
   const body: Record<string, unknown> = {

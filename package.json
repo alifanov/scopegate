@@ -88,7 +88,8 @@
       "ip-address": ">=10.1.1",
       "postcss": ">=8.5.10",
       "vite": ">=7.3.2",
-      "nodemailer": ">=8.0.5"
+      "nodemailer": ">=8.0.5",
+      "effect": ">=3.20.0"
     }
   },
   "devDependencies": {

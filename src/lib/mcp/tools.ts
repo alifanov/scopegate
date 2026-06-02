@@ -54,6 +54,19 @@ function buildDateAndCondition(params: Record<string, unknown>): string {
   return " AND segments.date DURING LAST_30_DAYS";
 }
 
+// Google Ads GAQL validation helpers — prevents GAQL injection via AI-agent parameters
+const gaqlNumericId = z.string().regex(/^\d+$/, "Must be a numeric Google Ads ID");
+const gaqlDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD");
+const gaqlDatePreset = z.enum([
+  "TODAY", "YESTERDAY", "LAST_7_DAYS", "LAST_14_DAYS", "LAST_30_DAYS", "LAST_90_DAYS",
+  "LAST_BUSINESS_WEEK", "THIS_WEEK_SUN_TODAY", "THIS_WEEK_MON_TODAY",
+  "LAST_WEEK_SUN_SAT", "LAST_WEEK_MON_SUN", "THIS_MONTH", "LAST_MONTH", "ALL_TIME",
+]);
+const gaqlCampaignStatus = z.enum(["ENABLED", "PAUSED", "REMOVED"]);
+const gaqlAdGroupStatus = z.enum(["ENABLED", "PAUSED", "REMOVED"]);
+const gaqlAdStatus = z.enum(["ENABLED", "PAUSED", "DISABLED", "REMOVED"]);
+const gaqlEnum = z.string().regex(/^[A-Z][A-Z0-9_]*$/, "Must be a valid Google Ads enum value");
+
 export interface ToolContext {
   serviceConnectionId: string;
 }
@@ -272,7 +285,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "List campaigns in the Google Ads account",
     action: "googleAds:list_campaigns",
     inputSchema: z.object({
-      status: z.string().optional(),
+      status: gaqlCampaignStatus.optional(),
       maxResults: z.number().optional().default(50),
     }),
     handler: async (params, context) => {
@@ -289,10 +302,10 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Get performance metrics for a specific campaign",
     action: "googleAds:get_campaign_performance",
     inputSchema: z.object({
-      campaignId: z.string(),
-      dateRangeStart: z.string().optional(),
-      dateRangeEnd: z.string().optional(),
-      datePreset: z.string().optional(),
+      campaignId: gaqlNumericId,
+      dateRangeStart: gaqlDate.optional(),
+      dateRangeEnd: gaqlDate.optional(),
+      datePreset: gaqlDatePreset.optional(),
     }),
     handler: async (params, context) => {
       const query = `SELECT campaign.id, campaign.name, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.ctr, metrics.average_cpc, segments.date FROM campaign WHERE campaign.id = ${params.campaignId}${buildDateAndCondition(params)}`;
@@ -305,8 +318,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "List ad groups within a campaign",
     action: "googleAds:list_ad_groups",
     inputSchema: z.object({
-      campaignId: z.string(),
-      status: z.string().optional(),
+      campaignId: gaqlNumericId,
+      status: gaqlAdGroupStatus.optional(),
       maxResults: z.number().optional().default(50),
     }),
     handler: async (params, context) => {
@@ -323,10 +336,10 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Get performance metrics for a specific ad group",
     action: "googleAds:get_ad_group_performance",
     inputSchema: z.object({
-      adGroupId: z.string(),
-      dateRangeStart: z.string().optional(),
-      dateRangeEnd: z.string().optional(),
-      datePreset: z.string().optional(),
+      adGroupId: gaqlNumericId,
+      dateRangeStart: gaqlDate.optional(),
+      dateRangeEnd: gaqlDate.optional(),
+      datePreset: gaqlDatePreset.optional(),
     }),
     handler: async (params, context) => {
       const query = `SELECT ad_group.id, ad_group.name, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.ctr, metrics.average_cpc, segments.date FROM ad_group WHERE ad_group.id = ${params.adGroupId}${buildDateAndCondition(params)}`;
@@ -339,8 +352,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "List ads within an ad group",
     action: "googleAds:list_ads",
     inputSchema: z.object({
-      adGroupId: z.string(),
-      status: z.string().optional(),
+      adGroupId: gaqlNumericId,
+      status: gaqlAdStatus.optional(),
       maxResults: z.number().optional().default(50),
     }),
     handler: async (params, context) => {
@@ -357,11 +370,11 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Get performance metrics for a specific ad",
     action: "googleAds:get_ad_performance",
     inputSchema: z.object({
-      adGroupId: z.string(),
-      adId: z.string(),
-      dateRangeStart: z.string().optional(),
-      dateRangeEnd: z.string().optional(),
-      datePreset: z.string().optional(),
+      adGroupId: gaqlNumericId,
+      adId: gaqlNumericId,
+      dateRangeStart: gaqlDate.optional(),
+      dateRangeEnd: gaqlDate.optional(),
+      datePreset: gaqlDatePreset.optional(),
     }),
     handler: async (params, context) => {
       const query = `SELECT ad_group_ad.ad.id, ad_group_ad.ad_group, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.ctr, segments.date FROM ad_group_ad WHERE ad_group_ad.ad_group = 'customers/{cid}/adGroups/${params.adGroupId}' AND ad_group_ad.ad.id = ${params.adId}${buildDateAndCondition(params)}`;
@@ -375,7 +388,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "List keywords in an ad group",
     action: "googleAds:list_keywords",
     inputSchema: z.object({
-      adGroupId: z.string(),
+      adGroupId: gaqlNumericId,
       maxResults: z.number().optional().default(50),
     }),
     handler: async (params, context) => {
@@ -389,11 +402,11 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Get performance metrics for a specific keyword",
     action: "googleAds:get_keyword_performance",
     inputSchema: z.object({
-      adGroupId: z.string(),
-      keywordId: z.string(),
-      dateRangeStart: z.string().optional(),
-      dateRangeEnd: z.string().optional(),
-      datePreset: z.string().optional(),
+      adGroupId: gaqlNumericId,
+      keywordId: gaqlNumericId,
+      dateRangeStart: gaqlDate.optional(),
+      dateRangeEnd: gaqlDate.optional(),
+      datePreset: gaqlDatePreset.optional(),
     }),
     handler: async (params, context) => {
       const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
@@ -408,8 +421,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       "List negative keywords. Provide campaignId for campaign-level negatives, or adGroupId for ad-group-level negatives.",
     action: "googleAds:list_negative_keywords",
     inputSchema: z.object({
-      campaignId: z.string().optional(),
-      adGroupId: z.string().optional(),
+      campaignId: gaqlNumericId.optional(),
+      adGroupId: gaqlNumericId.optional(),
       maxResults: z.number().optional().default(50),
     }),
     handler: async (params, context) => {
@@ -430,11 +443,11 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Get search terms report showing actual queries that triggered ads",
     action: "googleAds:get_search_terms_report",
     inputSchema: z.object({
-      campaignId: z.string().optional(),
-      adGroupId: z.string().optional(),
-      dateRangeStart: z.string().optional(),
-      dateRangeEnd: z.string().optional(),
-      datePreset: z.string().optional(),
+      campaignId: gaqlNumericId.optional(),
+      adGroupId: gaqlNumericId.optional(),
+      dateRangeStart: gaqlDate.optional(),
+      dateRangeEnd: gaqlDate.optional(),
+      datePreset: gaqlDatePreset.optional(),
       maxResults: z.number().optional().default(100),
     }),
     handler: async (params, context) => {
@@ -456,9 +469,9 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Get an overview of the Google Ads account performance",
     action: "googleAds:get_account_overview",
     inputSchema: z.object({
-      dateRangeStart: z.string().optional(),
-      dateRangeEnd: z.string().optional(),
-      datePreset: z.string().optional(),
+      dateRangeStart: gaqlDate.optional(),
+      dateRangeEnd: gaqlDate.optional(),
+      datePreset: gaqlDatePreset.optional(),
     }),
     handler: async (params, context) => {
       const query = `SELECT customer.id, customer.descriptive_name, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.ctr, metrics.average_cpc, segments.date FROM customer${buildDateCondition(params)}`;
@@ -483,11 +496,11 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Get performance metrics for a specific audience segment",
     action: "googleAds:get_audience_performance",
     inputSchema: z.object({
-      audienceId: z.string(),
-      campaignId: z.string().optional(),
-      dateRangeStart: z.string().optional(),
-      dateRangeEnd: z.string().optional(),
-      datePreset: z.string().optional(),
+      audienceId: gaqlNumericId,
+      campaignId: gaqlNumericId.optional(),
+      dateRangeStart: gaqlDate.optional(),
+      dateRangeEnd: gaqlDate.optional(),
+      datePreset: gaqlDatePreset.optional(),
     }),
     handler: async (params, context) => {
       let query = `SELECT campaign_audience_view.resource_name, metrics.impressions, metrics.clicks, metrics.conversions, metrics.cost_micros, segments.date FROM campaign_audience_view WHERE campaign_audience_view.resource_name LIKE '%${params.audienceId}%'`;
@@ -514,11 +527,11 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Get conversion performance metrics",
     action: "googleAds:get_conversion_performance",
     inputSchema: z.object({
-      conversionActionId: z.string().optional(),
-      campaignId: z.string().optional(),
-      dateRangeStart: z.string().optional(),
-      dateRangeEnd: z.string().optional(),
-      datePreset: z.string().optional(),
+      conversionActionId: gaqlNumericId.optional(),
+      campaignId: gaqlNumericId.optional(),
+      dateRangeStart: gaqlDate.optional(),
+      dateRangeEnd: gaqlDate.optional(),
+      datePreset: gaqlDatePreset.optional(),
     }),
     handler: async (params, context) => {
       // conversion metrics must be queried from campaign/customer resource, not conversion_action
@@ -544,8 +557,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "List ad extensions (sitelinks, callouts, structured snippets, etc.)",
     action: "googleAds:list_extensions",
     inputSchema: z.object({
-      type: z.string().optional(),
-      campaignId: z.string().optional(),
+      type: gaqlEnum.optional(),
+      campaignId: gaqlNumericId.optional(),
       maxResults: z.number().optional().default(50),
     }),
     handler: async (params, context) => {
@@ -575,7 +588,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Get details for a specific campaign budget",
     action: "googleAds:get_budget_details",
     inputSchema: z.object({
-      budgetId: z.string(),
+      budgetId: gaqlNumericId,
     }),
     handler: async (params, context) => {
       const query = `SELECT campaign_budget.id, campaign_budget.name, campaign_budget.amount_micros, campaign_budget.delivery_method, campaign_budget.status, campaign_budget.total_amount_micros, campaign_budget.period, campaign_budget.explicitly_shared FROM campaign_budget WHERE campaign_budget.id = ${params.budgetId}`;
@@ -599,10 +612,10 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Get performance metrics for a specific bidding strategy",
     action: "googleAds:get_bid_strategy_performance",
     inputSchema: z.object({
-      bidStrategyId: z.string(),
-      dateRangeStart: z.string().optional(),
-      dateRangeEnd: z.string().optional(),
-      datePreset: z.string().optional(),
+      bidStrategyId: gaqlNumericId,
+      dateRangeStart: gaqlDate.optional(),
+      dateRangeEnd: gaqlDate.optional(),
+      datePreset: gaqlDatePreset.optional(),
     }),
     handler: async (params, context) => {
       const query = `SELECT bidding_strategy.id, bidding_strategy.name, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, segments.date FROM bidding_strategy WHERE bidding_strategy.id = ${params.bidStrategyId}${buildDateAndCondition(params)}`;
@@ -615,8 +628,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "List Google Ads optimization recommendations",
     action: "googleAds:list_recommendations",
     inputSchema: z.object({
-      type: z.string().optional(),
-      campaignId: z.string().optional(),
+      type: gaqlEnum.optional(),
+      campaignId: gaqlNumericId.optional(),
       maxResults: z.number().optional().default(50),
     }),
     handler: async (params, context) => {
@@ -638,9 +651,9 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Get change history for the account showing recent modifications",
     action: "googleAds:get_change_history",
     inputSchema: z.object({
-      dateRangeStart: z.string().optional(),
-      dateRangeEnd: z.string().optional(),
-      resourceType: z.string().optional(),
+      dateRangeStart: gaqlDate.optional(),
+      dateRangeEnd: gaqlDate.optional(),
+      resourceType: gaqlEnum.optional(),
       maxResults: z.number().optional().default(50),
     }),
     handler: async (params, context) => {
@@ -674,7 +687,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "List assets (images, texts, videos, etc.) in the account",
     action: "googleAds:list_assets",
     inputSchema: z.object({
-      type: z.string().optional(),
+      type: gaqlEnum.optional(),
       maxResults: z.number().optional().default(50),
     }),
     handler: async (params, context) => {
@@ -689,7 +702,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "List asset groups for Performance Max campaigns",
     action: "googleAds:list_asset_groups",
     inputSchema: z.object({
-      campaignId: z.string(),
+      campaignId: gaqlNumericId,
       maxResults: z.number().optional().default(50),
     }),
     handler: async (params, context) => {
@@ -704,10 +717,10 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Get performance metrics broken down by geographic location",
     action: "googleAds:get_geo_performance",
     inputSchema: z.object({
-      campaignId: z.string().optional(),
-      dateRangeStart: z.string().optional(),
-      dateRangeEnd: z.string().optional(),
-      datePreset: z.string().optional(),
+      campaignId: gaqlNumericId.optional(),
+      dateRangeStart: gaqlDate.optional(),
+      dateRangeEnd: gaqlDate.optional(),
+      datePreset: gaqlDatePreset.optional(),
       maxResults: z.number().optional().default(50),
     }),
     handler: async (params, context) => {
@@ -731,10 +744,10 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Get performance metrics broken down by device type",
     action: "googleAds:get_device_performance",
     inputSchema: z.object({
-      campaignId: z.string().optional(),
-      dateRangeStart: z.string().optional(),
-      dateRangeEnd: z.string().optional(),
-      datePreset: z.string().optional(),
+      campaignId: gaqlNumericId.optional(),
+      dateRangeStart: gaqlDate.optional(),
+      dateRangeEnd: gaqlDate.optional(),
+      datePreset: gaqlDatePreset.optional(),
     }),
     handler: async (params, context) => {
       const query = `SELECT segments.device, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.ctr, segments.date FROM campaign${params.campaignId ? ` WHERE campaign.id = ${params.campaignId}` : ""}${params.campaignId ? buildDateAndCondition(params) : buildDateCondition(params)}`;
@@ -748,10 +761,10 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     action: "googleAds:create_campaign",
     inputSchema: z.object({
       name: z.string(),
-      type: z.string(),
-      status: z.string().optional().default("PAUSED"),
-      budgetId: z.string(),
-      biddingStrategyType: z.string().optional(),
+      type: gaqlEnum,
+      status: gaqlCampaignStatus.optional().default("PAUSED"),
+      budgetId: gaqlNumericId,
+      biddingStrategyType: gaqlEnum.optional(),
       targetCpa: z.number().optional(),
       targetRoas: z.number().optional(),
       networkSettings: z.object({
@@ -790,11 +803,11 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Update an existing campaign's settings",
     action: "googleAds:update_campaign",
     inputSchema: z.object({
-      campaignId: z.string(),
+      campaignId: gaqlNumericId,
       name: z.string().optional(),
-      status: z.string().optional(),
-      budgetId: z.string().optional(),
-      biddingStrategyType: z.string().optional(),
+      status: gaqlCampaignStatus.optional(),
+      budgetId: gaqlNumericId.optional(),
+      biddingStrategyType: gaqlEnum.optional(),
       targetCpa: z.number().optional(),
       targetRoas: z.number().optional(),
     }),
@@ -820,7 +833,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Pause a running campaign",
     action: "googleAds:pause_campaign",
     inputSchema: z.object({
-      campaignId: z.string(),
+      campaignId: gaqlNumericId,
     }),
     handler: async (params, context) => {
       const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
@@ -840,7 +853,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Enable a paused campaign",
     action: "googleAds:enable_campaign",
     inputSchema: z.object({
-      campaignId: z.string(),
+      campaignId: gaqlNumericId,
     }),
     handler: async (params, context) => {
       const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
@@ -861,9 +874,9 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Create a new ad group within a campaign",
     action: "googleAds:create_ad_group",
     inputSchema: z.object({
-      campaignId: z.string(),
+      campaignId: gaqlNumericId,
       name: z.string(),
-      status: z.string().optional().default("PAUSED"),
+      status: gaqlAdGroupStatus.optional().default("PAUSED"),
       cpcBidMicros: z.coerce.number().optional(),
     }),
     handler: async (params, context) => {
@@ -886,9 +899,9 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Update an existing ad group's settings",
     action: "googleAds:update_ad_group",
     inputSchema: z.object({
-      adGroupId: z.string(),
+      adGroupId: gaqlNumericId,
       name: z.string().optional(),
-      status: z.string().optional(),
+      status: gaqlAdGroupStatus.optional(),
       cpcBidMicros: z.coerce.number().optional(),
     }),
     handler: async (params, context) => {
@@ -910,7 +923,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Pause an ad group",
     action: "googleAds:pause_ad_group",
     inputSchema: z.object({
-      adGroupId: z.string(),
+      adGroupId: gaqlNumericId,
     }),
     handler: async (params, context) => {
       const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
@@ -931,13 +944,13 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Create a new responsive search ad in an ad group",
     action: "googleAds:create_ad",
     inputSchema: z.object({
-      adGroupId: z.string(),
+      adGroupId: gaqlNumericId,
       headlines: z.array(z.string()).min(3).max(15),
       descriptions: z.array(z.string()).min(2).max(4),
       finalUrls: z.array(z.string()),
       path1: z.string().optional(),
       path2: z.string().optional(),
-      status: z.string().optional().default("PAUSED"),
+      status: gaqlAdStatus.optional().default("PAUSED"),
     }),
     handler: async (params, context) => {
       const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
@@ -966,9 +979,9 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Update an existing ad",
     action: "googleAds:update_ad",
     inputSchema: z.object({
-      adGroupId: z.string(),
-      adId: z.string(),
-      status: z.string().optional(),
+      adGroupId: gaqlNumericId,
+      adId: gaqlNumericId,
+      status: gaqlAdStatus.optional(),
       headlines: z.array(z.string()).optional(),
       descriptions: z.array(z.string()).optional(),
       finalUrls: z.array(z.string()).optional(),
@@ -1007,8 +1020,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Pause an ad",
     action: "googleAds:pause_ad",
     inputSchema: z.object({
-      adGroupId: z.string(),
-      adId: z.string(),
+      adGroupId: gaqlNumericId,
+      adId: gaqlNumericId,
     }),
     handler: async (params, context) => {
       const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
@@ -1029,11 +1042,11 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Add a keyword to an ad group",
     action: "googleAds:add_keyword",
     inputSchema: z.object({
-      adGroupId: z.string(),
+      adGroupId: gaqlNumericId,
       text: z.string(),
       matchType: z.enum(["EXACT", "PHRASE", "BROAD"]),
       cpcBidMicros: z.coerce.number().optional(),
-      status: z.string().optional().default("ENABLED"),
+      status: gaqlAdGroupStatus.optional().default("ENABLED"),
     }),
     handler: async (params, context) => {
       const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
@@ -1058,8 +1071,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Remove a keyword from an ad group",
     action: "googleAds:remove_keyword",
     inputSchema: z.object({
-      adGroupId: z.string(),
-      keywordId: z.string(),
+      adGroupId: gaqlNumericId,
+      keywordId: gaqlNumericId,
     }),
     handler: async (params, context) => {
       const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
@@ -1073,8 +1086,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Update the CPC bid for a keyword",
     action: "googleAds:update_keyword_bid",
     inputSchema: z.object({
-      adGroupId: z.string(),
-      keywordId: z.string(),
+      adGroupId: gaqlNumericId,
+      keywordId: gaqlNumericId,
       cpcBidMicros: z.coerce.number(),
     }),
     handler: async (params, context) => {
@@ -1097,8 +1110,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       "Add a negative keyword. Provide campaignId for campaign-level or adGroupId for ad-group-level negative keyword.",
     action: "googleAds:add_negative_keyword",
     inputSchema: z.object({
-      campaignId: z.string().optional(),
-      adGroupId: z.string().optional(),
+      campaignId: gaqlNumericId.optional(),
+      adGroupId: gaqlNumericId.optional(),
       text: z.string(),
       matchType: z.enum(["EXACT", "PHRASE", "BROAD"]),
     }),
@@ -1146,9 +1159,9 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       "Remove a negative keyword. Provide campaignId for campaign-level or adGroupId for ad-group-level.",
     action: "googleAds:remove_negative_keyword",
     inputSchema: z.object({
-      campaignId: z.string().optional(),
-      adGroupId: z.string().optional(),
-      keywordId: z.string(),
+      campaignId: gaqlNumericId.optional(),
+      adGroupId: gaqlNumericId.optional(),
+      keywordId: gaqlNumericId,
     }),
     handler: async (params, context) => {
       const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
@@ -1179,7 +1192,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Update a campaign budget amount",
     action: "googleAds:update_budget",
     inputSchema: z.object({
-      budgetId: z.string(),
+      budgetId: gaqlNumericId,
       amountMicros: z.number(),
     }),
     handler: async (params, context) => {
@@ -1260,9 +1273,9 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Assign a label to a campaign, ad group, or ad",
     action: "googleAds:assign_label",
     inputSchema: z.object({
-      labelId: z.string(),
+      labelId: gaqlNumericId,
       resourceType: z.enum(["campaign", "adGroup", "ad"]),
-      resourceId: z.string(),
+      resourceId: gaqlNumericId,
     }),
     handler: async (params, context) => {
       const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
@@ -1299,7 +1312,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       finalUrl: z.string().describe("Destination URL"),
       description1: z.string().optional().describe("First description line (max 35 chars)"),
       description2: z.string().optional().describe("Second description line (max 35 chars)"),
-      campaignId: z.string().optional().describe("Link to this campaign. If omitted, links to account level."),
+      campaignId: gaqlNumericId.optional().describe("Link to this campaign. If omitted, links to account level."),
       name: z.string().optional().describe("Internal asset name for reference"),
     }),
     handler: async (params, context) => {
@@ -1337,7 +1350,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     action: "googleAds:create_callout",
     inputSchema: z.object({
       calloutText: z.string().describe("Callout text (max 25 chars)"),
-      campaignId: z.string().optional().describe("Link to this campaign. If omitted, links to account level."),
+      campaignId: gaqlNumericId.optional().describe("Link to this campaign. If omitted, links to account level."),
       name: z.string().optional().describe("Internal asset name for reference"),
     }),
     handler: async (params, context) => {
@@ -1370,7 +1383,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Update a sitelink asset's text, descriptions, or URL",
     action: "googleAds:update_sitelink",
     inputSchema: z.object({
-      assetId: z.string(),
+      assetId: gaqlNumericId,
       linkText: z.string().optional(),
       description1: z.string().optional(),
       description2: z.string().optional(),
@@ -1399,7 +1412,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Update a callout asset's text",
     action: "googleAds:update_callout",
     inputSchema: z.object({
-      assetId: z.string(),
+      assetId: gaqlNumericId,
       calloutText: z.string(),
     }),
     handler: async (params, context) => {
@@ -1420,9 +1433,9 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Remove (unlink) a sitelink or callout extension from a campaign or account",
     action: "googleAds:remove_extension",
     inputSchema: z.object({
-      assetId: z.string(),
+      assetId: gaqlNumericId,
       fieldType: z.enum(["SITELINK", "CALLOUT"]),
-      campaignId: z.string().optional().describe("Remove from this campaign. If omitted, removes from account level."),
+      campaignId: gaqlNumericId.optional().describe("Remove from this campaign. If omitted, removes from account level."),
     }),
     handler: async (params, context) => {
       const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
@@ -5399,11 +5412,11 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: "Send a new email message via SMTP",
     action: "email:send_message",
     inputSchema: z.object({
-      to: z.string().describe("Recipient email address(es), comma-separated for multiple"),
+      to: z.string().email().describe("Recipient email address(es), comma-separated for multiple"),
       subject: z.string().describe("Email subject line"),
       body: z.string().describe("Email body content"),
-      cc: z.string().optional().describe("CC recipients, comma-separated"),
-      bcc: z.string().optional().describe("BCC recipients, comma-separated"),
+      cc: z.string().email().optional().describe("CC recipients, comma-separated"),
+      bcc: z.string().email().optional().describe("BCC recipients, comma-separated"),
       html: z.boolean().optional().default(false).describe("If true, body is treated as HTML"),
     }),
     handler: async (params, context) => {

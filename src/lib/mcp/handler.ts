@@ -38,9 +38,19 @@ function registerTool(
     shape,
     async (params) => {
       const startTime = Date.now();
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`Tool execution timed out after 30s`)), 30_000)
+      );
       try {
-        const result = await tool.handler(params as Record<string, unknown>, { serviceConnectionId });
+        const result = await Promise.race([
+          tool.handler(params as Record<string, unknown>, { serviceConnectionId }),
+          timeout,
+        ]);
         const duration = Date.now() - startTime;
+
+        console.log(
+          JSON.stringify({ tool: tool.name, action: tool.action, status: "success", duration_ms: duration })
+        );
 
         // Log to audit
         await db.auditLog.create({
@@ -63,6 +73,9 @@ function registerTool(
         const fullError =
           err instanceof Error ? err.message : "Unknown error";
 
+        console.log(
+          JSON.stringify({ tool: tool.name, action: tool.action, status: "error", duration_ms: duration, error: fullError })
+        );
         console.error(`[ScopeGate] Tool ${tool.name} failed:`, fullError);
 
         // Detect token-related errors and mark connection status

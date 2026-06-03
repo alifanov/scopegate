@@ -1,16 +1,79 @@
 import { getValidAccessToken } from "@/lib/google-oauth";
+import { metrics, type Histogram } from "@opentelemetry/api";
 
 const WEBMASTERS_BASE_URL = "https://www.googleapis.com/webmasters/v3";
 const SEARCH_CONSOLE_V1_BASE_URL = "https://searchconsole.googleapis.com/v1";
+const CACHE_TTL_MS = 30 * 60 * 1000;
 
-export async function googleSearchConsoleFetch(
+// POST paths that are read-only and safe to cache
+const CACHEABLE_POST_PATHS = ["/searchAnalytics/query", "/urlInspection/index:inspect"];
+
+interface CacheEntry {
+  data: unknown;
+  expiresAt: number;
+}
+const responseCache = new Map<string, CacheEntry>();
+
+let gscLatency: Histogram | null = null;
+function recordLatency(ms: number) {
+  if (!gscLatency) {
+    gscLatency = metrics.getMeter("scopegate").createHistogram("mcp.google_sc.latency_ms", {
+      description: "Latency of outbound Google Search Console API calls",
+      unit: "ms",
+    });
+  }
+  gscLatency.record(ms);
+}
+
+function cacheKey(serviceConnectionId: string, url: string, body?: string): string {
+  return `${serviceConnectionId}:${url}:${body ?? ""}`;
+}
+
+function isCacheable(method: string | undefined, path: string): boolean {
+  const m = (method ?? "GET").toUpperCase();
+  if (m === "GET") return true;
+  if (m === "POST") return CACHEABLE_POST_PATHS.some((p) => path.includes(p));
+  return false;
+}
+
+async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+  const MAX_RETRIES = 3;
+  let attempt = 0;
+  while (true) {
+    const res = await fetch(url, init);
+    if (res.status !== 429 || attempt >= MAX_RETRIES) return res;
+    const retryAfterHeader = res.headers.get("Retry-After");
+    const delayMs = retryAfterHeader
+      ? parseInt(retryAfterHeader, 10) * 1000
+      : Math.min(1000 * Math.pow(2, attempt), 32_000);
+    attempt++;
+    await new Promise((r) => setTimeout(r, delayMs));
+  }
+}
+
+async function gscFetch(
   serviceConnectionId: string,
+  baseUrl: string,
   path: string,
   init?: RequestInit
 ): Promise<unknown> {
-  const accessToken = await getValidAccessToken(serviceConnectionId);
+  const method = init?.method;
+  const body = typeof init?.body === "string" ? init.body : undefined;
+  const fullUrl = `${baseUrl}${path}`;
+  const cacheable = isCacheable(method, path);
+  const key = cacheKey(serviceConnectionId, fullUrl, body);
 
-  const res = await fetch(`${WEBMASTERS_BASE_URL}${path}`, {
+  if (cacheable) {
+    const cached = responseCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.data;
+    }
+  }
+
+  const accessToken = await getValidAccessToken(serviceConnectionId);
+  const start = Date.now();
+
+  const res = await fetchWithRetry(fullUrl, {
     ...init,
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -19,8 +82,12 @@ export async function googleSearchConsoleFetch(
     },
   });
 
+  recordLatency(Date.now() - start);
+
   if (!res.ok) {
-    console.error(`[ScopeGate] Google Search Console API error (${res.status})`);
+    console.error(
+      `[ScopeGate] Google Search Console API error (${res.status}): ${baseUrl}${path}`
+    );
     throw new Error("Google Search Console API request failed");
   }
 
@@ -28,7 +95,21 @@ export async function googleSearchConsoleFetch(
     return { success: true };
   }
 
-  return res.json();
+  const data = await res.json() as unknown;
+
+  if (cacheable) {
+    responseCache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+  }
+
+  return data;
+}
+
+export async function googleSearchConsoleFetch(
+  serviceConnectionId: string,
+  path: string,
+  init?: RequestInit
+): Promise<unknown> {
+  return gscFetch(serviceConnectionId, WEBMASTERS_BASE_URL, path, init);
 }
 
 export async function googleSearchConsoleV1Fetch(
@@ -36,25 +117,5 @@ export async function googleSearchConsoleV1Fetch(
   path: string,
   init?: RequestInit
 ): Promise<unknown> {
-  const accessToken = await getValidAccessToken(serviceConnectionId);
-
-  const res = await fetch(`${SEARCH_CONSOLE_V1_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
-  });
-
-  if (!res.ok) {
-    console.error(`[ScopeGate] Google Search Console v1 API error (${res.status})`);
-    throw new Error("Google Search Console API request failed");
-  }
-
-  if (res.status === 204) {
-    return { success: true };
-  }
-
-  return res.json();
+  return gscFetch(serviceConnectionId, SEARCH_CONSOLE_V1_BASE_URL, path, init);
 }

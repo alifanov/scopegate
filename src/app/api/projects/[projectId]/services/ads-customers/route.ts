@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-middleware";
+import { requireProjectMember, requireProjectOwner } from "@/lib/project-auth";
 import { listAccessibleCustomers } from "@/lib/mcp/google-ads";
 
 // GET /api/projects/[projectId]/services/ads-customers?connectionId=xxx
@@ -14,12 +15,8 @@ export async function GET(
   }
 
   const { projectId } = await params;
-  const member = await db.teamMember.findUnique({
-    where: { userId_projectId: { userId: user.userId, projectId } },
-  });
-  if (!member) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+  const memberOrError = await requireProjectMember(user.userId, projectId);
+  if (memberOrError instanceof NextResponse) return memberOrError;
 
   const { searchParams } = new URL(request.url);
   const connectionId = searchParams.get("connectionId");
@@ -57,12 +54,8 @@ export async function POST(
   }
 
   const { projectId } = await params;
-  const member = await db.teamMember.findUnique({
-    where: { userId_projectId: { userId: user.userId, projectId } },
-  });
-  if (!member) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+  const memberOrError = await requireProjectOwner(user.userId, projectId);
+  if (memberOrError instanceof NextResponse) return memberOrError;
 
   const body = (await request.json()) as {
     connectionId?: string;

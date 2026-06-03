@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-middleware";
+import { requireProjectOwner } from "@/lib/project-auth";
 import { encrypt } from "@/lib/crypto";
 
 const API_KEY_PROVIDERS = ["openRouter", "telegram", "semrush", "ahrefs", "stripe", "airtable", "calendly"] as const;
@@ -127,12 +128,8 @@ export async function POST(
   }
 
   const { projectId } = await params;
-  const member = await db.teamMember.findUnique({
-    where: { userId_projectId: { userId: user.userId, projectId } },
-  });
-  if (!member) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+  const memberOrError = await requireProjectOwner(user.userId, projectId);
+  if (memberOrError instanceof NextResponse) return memberOrError;
 
   let body: Record<string, string | undefined>;
   try {

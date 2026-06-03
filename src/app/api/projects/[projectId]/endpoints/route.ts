@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-middleware";
+import { requireProjectMember, requireProjectOwner } from "@/lib/project-auth";
 import { ALL_ACTIONS } from "@/lib/mcp/permissions";
 
 // GET /api/projects/[projectId]/endpoints
@@ -14,12 +15,8 @@ export async function GET(
   }
 
   const { projectId } = await params;
-  const member = await db.teamMember.findUnique({
-    where: { userId_projectId: { userId: user.userId, projectId } },
-  });
-  if (!member) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+  const memberOrError = await requireProjectMember(user.userId, projectId);
+  if (memberOrError instanceof NextResponse) return memberOrError;
 
   const endpoints = await db.mcpEndpoint.findMany({
     where: { projectId },
@@ -45,12 +42,8 @@ export async function POST(
   }
 
   const { projectId } = await params;
-  const member = await db.teamMember.findUnique({
-    where: { userId_projectId: { userId: user.userId, projectId } },
-  });
-  if (!member) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+  const memberOrError = await requireProjectOwner(user.userId, projectId);
+  if (memberOrError instanceof NextResponse) return memberOrError;
 
   try {
     const { name, serviceConnectionId, permissions, rateLimitPerMinute } =

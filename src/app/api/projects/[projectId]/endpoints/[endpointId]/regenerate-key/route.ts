@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-middleware";
+import { requireProjectOwner } from "@/lib/project-auth";
 import { createId } from "@paralleldrive/cuid2";
 
 // POST /api/projects/[projectId]/endpoints/[endpointId]/regenerate-key
@@ -14,12 +15,8 @@ export async function POST(
   }
 
   const { projectId, endpointId } = await params;
-  const member = await db.teamMember.findUnique({
-    where: { userId_projectId: { userId: user.userId, projectId } },
-  });
-  if (!member) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+  const memberOrError = await requireProjectOwner(user.userId, projectId);
+  if (memberOrError instanceof NextResponse) return memberOrError;
 
   const existing = await db.mcpEndpoint.findFirst({
     where: { id: endpointId, projectId },

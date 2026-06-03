@@ -22,6 +22,12 @@ vi.mock("@/lib/auth-middleware", () => ({
   getCurrentUser: vi.fn(),
 }));
 
+// project-auth uses db directly — the db mock above covers it
+vi.mock("@/lib/project-auth", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/project-auth")>();
+  return actual;
+});
+
 import { PATCH, DELETE } from "../route";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-middleware";
@@ -51,7 +57,7 @@ describe("endpoint route – IDOR (Fix 1) + permission validation (Fix 4)", () =
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetCurrentUser.mockResolvedValue({ userId: "user-1", email: "a@b.com" });
-    mockTeamMemberFindUnique.mockResolvedValue({ id: "tm-1" } as never);
+    mockTeamMemberFindUnique.mockResolvedValue({ id: "tm-1", role: "owner" } as never);
   });
 
   // --- IDOR tests ---
@@ -87,6 +93,21 @@ describe("endpoint route – IDOR (Fix 1) + permission validation (Fix 4)", () =
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.endpoint.name).toBe("updated");
+    });
+  });
+
+  describe("DELETE – role enforcement", () => {
+    it("returns 403 when user is a member (not owner)", async () => {
+      mockTeamMemberFindUnique.mockResolvedValue({ id: "tm-1", role: "member" } as never);
+
+      const res = await DELETE(
+        new Request("http://localhost"),
+        makeParams("p1", "e1")
+      );
+
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body.error).toBe("Forbidden");
     });
   });
 
@@ -136,6 +157,19 @@ describe("endpoint route – IDOR (Fix 1) + permission validation (Fix 4)", () =
       expect(body.error).toContain("Invalid permissions");
       expect(body.error).toContain("foo:bar");
       expect(body.error).toContain("evil:action");
+    });
+
+    it("returns 403 when user is a member (not owner)", async () => {
+      mockTeamMemberFindUnique.mockResolvedValue({ id: "tm-1", role: "member" } as never);
+
+      const res = await PATCH(
+        makeRequest({ name: "updated" }),
+        makeParams("p1", "e1")
+      );
+
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body.error).toBe("Forbidden");
     });
 
     it("succeeds with valid permissions", async () => {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-middleware";
+import { requireProjectMember, requireProjectOwner } from "@/lib/project-auth";
 import { ALL_ACTIONS } from "@/lib/mcp/permissions";
 
 type Params = { params: Promise<{ projectId: string; endpointId: string }> };
@@ -13,12 +14,8 @@ export async function GET(_request: Request, { params }: Params) {
   }
 
   const { projectId, endpointId } = await params;
-  const member = await db.teamMember.findUnique({
-    where: { userId_projectId: { userId: user.userId, projectId } },
-  });
-  if (!member) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+  const memberOrError = await requireProjectMember(user.userId, projectId);
+  if (memberOrError instanceof NextResponse) return memberOrError;
 
   const endpoint = await db.mcpEndpoint.findFirst({
     where: { id: endpointId, projectId },
@@ -44,12 +41,8 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 
   const { projectId, endpointId } = await params;
-  const member = await db.teamMember.findUnique({
-    where: { userId_projectId: { userId: user.userId, projectId } },
-  });
-  if (!member) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+  const memberOrError = await requireProjectOwner(user.userId, projectId);
+  if (memberOrError instanceof NextResponse) return memberOrError;
 
   try {
     const existing = await db.mcpEndpoint.findFirst({
@@ -114,12 +107,8 @@ export async function DELETE(_request: Request, { params }: Params) {
   }
 
   const { projectId, endpointId } = await params;
-  const member = await db.teamMember.findUnique({
-    where: { userId_projectId: { userId: user.userId, projectId } },
-  });
-  if (!member) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+  const memberOrError = await requireProjectOwner(user.userId, projectId);
+  if (memberOrError instanceof NextResponse) return memberOrError;
 
   const existing = await db.mcpEndpoint.findFirst({
     where: { id: endpointId, projectId },

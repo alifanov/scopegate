@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-middleware";
+import { requireProjectMember, requireProjectOwner } from "@/lib/project-auth";
 import { revokeGoogleToken } from "@/lib/google-oauth";
 import { revokeLinkedInToken } from "@/lib/linkedin-oauth";
 import { decrypt } from "@/lib/crypto";
@@ -16,12 +17,8 @@ export async function GET(
   }
 
   const { projectId } = await params;
-  const member = await db.teamMember.findUnique({
-    where: { userId_projectId: { userId: user.userId, projectId } },
-  });
-  if (!member) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+  const memberOrError = await requireProjectMember(user.userId, projectId);
+  if (memberOrError instanceof NextResponse) return memberOrError;
 
   const services = await db.serviceConnection.findMany({
     where: { projectId },
@@ -54,12 +51,8 @@ export async function DELETE(
   }
 
   const { projectId } = await params;
-  const member = await db.teamMember.findUnique({
-    where: { userId_projectId: { userId: user.userId, projectId } },
-  });
-  if (!member) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+  const memberOrError = await requireProjectOwner(user.userId, projectId);
+  if (memberOrError instanceof NextResponse) return memberOrError;
 
   const { searchParams } = new URL(request.url);
   const serviceId = searchParams.get("serviceId");

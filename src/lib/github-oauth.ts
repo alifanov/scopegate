@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
+import { buildSignedState } from "@/lib/oauth-state";
 
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID!;
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET!;
@@ -14,9 +15,7 @@ export function buildGitHubAuthUrl(
   projectId: string,
   csrfToken: string
 ): string {
-  const state = btoa(
-    JSON.stringify({ projectId, provider: "github", csrfToken })
-  );
+  const state = buildSignedState({ projectId, provider: "github", csrfToken });
   const params = new URLSearchParams({
     client_id: GITHUB_CLIENT_ID,
     redirect_uri: getRedirectUri(),

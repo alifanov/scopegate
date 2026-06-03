@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { encrypt, decrypt } from "@/lib/crypto";
+import { buildSignedState } from "@/lib/oauth-state";
 
 const LINKEDIN_CLIENT_ID = process.env.LINKEDIN_CLIENT_ID!;
 const LINKEDIN_CLIENT_SECRET = process.env.LINKEDIN_CLIENT_SECRET!;
@@ -14,7 +15,7 @@ export function buildLinkedInAuthUrl(
   projectId: string,
   csrfToken: string
 ): string {
-  const state = btoa(JSON.stringify({ projectId, provider: "linkedin", csrfToken }));
+  const state = buildSignedState({ projectId, provider: "linkedin", csrfToken });
 
   const params = new URLSearchParams({
     response_type: "code",

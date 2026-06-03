@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { encrypt, decrypt } from "@/lib/crypto";
+import { buildSignedState } from "@/lib/oauth-state";
 
 const THREADS_APP_ID = process.env.THREADS_APP_ID!;
 const THREADS_APP_SECRET = process.env.THREADS_APP_SECRET!;
@@ -15,9 +16,7 @@ export function buildThreadsAuthUrl(
   projectId: string,
   csrfToken: string
 ): string {
-  const state = btoa(
-    JSON.stringify({ projectId, provider: "threads", csrfToken })
-  );
+  const state = buildSignedState({ projectId, provider: "threads", csrfToken });
   const params = new URLSearchParams({
     client_id: THREADS_APP_ID,
     redirect_uri: getRedirectUri(),

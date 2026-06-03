@@ -6,6 +6,7 @@ import {
   getSlackTeamInfo,
 } from "@/lib/slack-oauth";
 import { encrypt } from "@/lib/crypto";
+import { parseAndVerifyState, parseCookieValue } from "@/lib/oauth-state";
 
 export async function GET(request: Request) {
   const baseUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000";
@@ -24,7 +25,7 @@ export async function GET(request: Request) {
 
   let state: { projectId: string; provider: string; csrfToken: string };
   try {
-    state = JSON.parse(atob(stateParam));
+    state = parseAndVerifyState(stateParam);
   } catch {
     return NextResponse.redirect(`${baseUrl}/projects?error=oauth_failed`);
   }
@@ -37,11 +38,7 @@ export async function GET(request: Request) {
 
   // Verify CSRF
   const cookies = request.headers.get("cookie") || "";
-  const csrfCookie = cookies
-    .split(";")
-    .map((c) => c.trim())
-    .find((c) => c.startsWith("oauth_csrf="));
-  const csrfValue = csrfCookie?.split("=")[1];
+  const csrfValue = parseCookieValue(cookies, "oauth_csrf");
 
   if (!csrfValue || csrfValue !== csrfToken) {
     return NextResponse.redirect(

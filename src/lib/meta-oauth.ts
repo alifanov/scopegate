@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { encrypt, decrypt } from "@/lib/crypto";
+import { buildSignedState } from "@/lib/oauth-state";
 
 const META_APP_ID = process.env.META_APP_ID!;
 const META_APP_SECRET = process.env.META_APP_SECRET!;
@@ -12,9 +13,7 @@ export function buildMetaAuthUrl(
   projectId: string,
   csrfToken: string
 ): string {
-  const state = btoa(
-    JSON.stringify({ projectId, provider: "metaAds", csrfToken })
-  );
+  const state = buildSignedState({ projectId, provider: "metaAds", csrfToken });
   const params = new URLSearchParams({
     client_id: META_APP_ID,
     redirect_uri: getRedirectUri(),

@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { encrypt, decrypt } from "@/lib/crypto";
 import crypto from "crypto";
+import { buildSignedState } from "@/lib/oauth-state";
 
 const TWITTER_CLIENT_ID = process.env.TWITTER_CLIENT_ID!;
 const TWITTER_CLIENT_SECRET = process.env.TWITTER_CLIENT_SECRET!;
@@ -42,7 +43,7 @@ export function buildTwitterAuthUrl(
   csrfToken: string,
   codeChallenge: string
 ): string {
-  const state = btoa(JSON.stringify({ projectId, provider, csrfToken }));
+  const state = buildSignedState({ projectId, provider, csrfToken });
 
   const params = new URLSearchParams({
     response_type: "code",

@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { encrypt, decrypt } from "@/lib/crypto";
+import { buildSignedState } from "@/lib/oauth-state";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
@@ -25,7 +26,7 @@ export function buildGoogleAuthUrl(
   provider: string,
   csrfToken: string
 ): string {
-  const state = btoa(JSON.stringify({ projectId, provider, csrfToken }));
+  const state = buildSignedState({ projectId, provider, csrfToken });
   const scope = GOOGLE_SCOPES[provider];
 
   const params = new URLSearchParams({

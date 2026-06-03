@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { encrypt, decrypt } from "@/lib/crypto";
+import { buildSignedState } from "@/lib/oauth-state";
 
 const JIRA_CLIENT_ID = process.env.JIRA_CLIENT_ID!;
 const JIRA_CLIENT_SECRET = process.env.JIRA_CLIENT_SECRET!;
@@ -14,9 +15,7 @@ export function buildJiraAuthUrl(
   projectId: string,
   csrfToken: string
 ): string {
-  const state = btoa(
-    JSON.stringify({ projectId, provider: "jira", csrfToken })
-  );
+  const state = buildSignedState({ projectId, provider: "jira", csrfToken });
   const params = new URLSearchParams({
     audience: "api.atlassian.com",
     client_id: JIRA_CLIENT_ID,

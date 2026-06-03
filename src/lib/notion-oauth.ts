@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
+import { buildSignedState } from "@/lib/oauth-state";
 
 const NOTION_CLIENT_ID = process.env.NOTION_CLIENT_ID!;
 const NOTION_CLIENT_SECRET = process.env.NOTION_CLIENT_SECRET!;
@@ -12,9 +13,7 @@ export function buildNotionAuthUrl(
   projectId: string,
   csrfToken: string
 ): string {
-  const state = btoa(
-    JSON.stringify({ projectId, provider: "notion", csrfToken })
-  );
+  const state = buildSignedState({ projectId, provider: "notion", csrfToken });
   const params = new URLSearchParams({
     client_id: NOTION_CLIENT_ID,
     response_type: "code",

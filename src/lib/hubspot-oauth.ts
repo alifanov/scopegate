@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { encrypt, decrypt } from "@/lib/crypto";
+import { buildSignedState } from "@/lib/oauth-state";
 
 const HUBSPOT_CLIENT_ID = process.env.HUBSPOT_CLIENT_ID!;
 const HUBSPOT_CLIENT_SECRET = process.env.HUBSPOT_CLIENT_SECRET!;
@@ -15,9 +16,7 @@ export function buildHubSpotAuthUrl(
   projectId: string,
   csrfToken: string
 ): string {
-  const state = btoa(
-    JSON.stringify({ projectId, provider: "hubspot", csrfToken })
-  );
+  const state = buildSignedState({ projectId, provider: "hubspot", csrfToken });
   const params = new URLSearchParams({
     client_id: HUBSPOT_CLIENT_ID,
     redirect_uri: getRedirectUri(),

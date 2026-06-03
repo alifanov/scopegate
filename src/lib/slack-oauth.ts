@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
+import { buildSignedState } from "@/lib/oauth-state";
 
 const SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID!;
 const SLACK_CLIENT_SECRET = process.env.SLACK_CLIENT_SECRET!;
@@ -15,9 +16,7 @@ export function buildSlackAuthUrl(
   projectId: string,
   csrfToken: string
 ): string {
-  const state = btoa(
-    JSON.stringify({ projectId, provider: "slack", csrfToken })
-  );
+  const state = buildSignedState({ projectId, provider: "slack", csrfToken });
   const params = new URLSearchParams({
     client_id: SLACK_CLIENT_ID,
     scope: SLACK_SCOPES,

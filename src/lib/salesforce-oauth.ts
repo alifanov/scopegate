@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { encrypt, decrypt } from "@/lib/crypto";
+import { buildSignedState } from "@/lib/oauth-state";
 
 const SALESFORCE_CLIENT_ID = process.env.SALESFORCE_CLIENT_ID!;
 const SALESFORCE_CLIENT_SECRET = process.env.SALESFORCE_CLIENT_SECRET!;
@@ -12,9 +13,7 @@ export function buildSalesforceAuthUrl(
   projectId: string,
   csrfToken: string
 ): string {
-  const state = btoa(
-    JSON.stringify({ projectId, provider: "salesforce", csrfToken })
-  );
+  const state = buildSignedState({ projectId, provider: "salesforce", csrfToken });
   const params = new URLSearchParams({
     response_type: "code",
     client_id: SALESFORCE_CLIENT_ID,

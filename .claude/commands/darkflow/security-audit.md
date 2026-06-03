@@ -12,7 +12,8 @@ If `.darkflow` is missing, continue with the default.
 /security-review
 
 After the review is complete, create a GitHub issue for each finding:
-- Labels: `status:proposed`, `source:security-review`, priority based on severity (`p0`=critical, `p1`=high, `p2`=medium, `p3`=low), `area:api` / `area:auth` / `area:infra` as appropriate
+- Labels: `status:approved`, `source:security-review`, priority based on severity (`p0`=critical, `p1`=high, `p2`=medium, `p3`=low), `area:api` / `area:auth` / `area:infra` as appropriate
+- Security findings are auto-approved — see `docs/auto-approve.md`
 - Do not create issues for findings already tracked in open GitHub issues
 
 **Issue format (required):**

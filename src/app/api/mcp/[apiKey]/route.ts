@@ -67,16 +67,19 @@ async function handleMcpRequest(
     );
   }
 
-  // Rate limit check
-  const oneMinuteAgo = new Date(Date.now() - 60_000);
-  const recentCalls = await db.auditLog.count({
-    where: {
-      endpointId: endpoint.id,
-      createdAt: { gte: oneMinuteAgo },
-    },
-  });
+  // Rate limit check — atomic upsert to avoid races and remove auditLog.count hot-path query.
+  // Bucket key = (endpointId, current UTC minute). Count is incremented before execution.
+  const windowStart = new Date(Math.floor(Date.now() / 60_000) * 60_000);
+  const result = await db.$queryRaw<{ count: number }[]>`
+    INSERT INTO "rate_limit_bucket" ("endpointId", "windowStart", "count")
+    VALUES (${endpoint.id}, ${windowStart}, 1)
+    ON CONFLICT ("endpointId", "windowStart")
+    DO UPDATE SET "count" = "rate_limit_bucket"."count" + 1
+    RETURNING "count"
+  `;
+  const currentCount = Number(result[0]?.count ?? 1);
 
-  if (recentCalls >= endpoint.rateLimitPerMinute) {
+  if (currentCount > endpoint.rateLimitPerMinute) {
     return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
       status: 429,
       headers: { "Content-Type": "application/json" },

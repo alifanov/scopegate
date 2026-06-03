@@ -1,119 +1,18 @@
-import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth-middleware";
-import {
-  exchangeThreadsCodeForTokens,
-  getThreadsUserInfo,
-} from "@/lib/threads-oauth";
-import { encrypt } from "@/lib/crypto";
-import { parseAndVerifyState, parseCookieValue } from "@/lib/oauth-state";
+import { handleOAuthCallback } from "@/lib/oauth-flow";
+import { exchangeThreadsCodeForTokens, getThreadsUserInfo } from "@/lib/threads-oauth";
 
 export async function GET(request: Request) {
-  const baseUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000";
-  const { searchParams } = new URL(request.url);
-  const code = searchParams.get("code");
-  const stateParam = searchParams.get("state");
-  const error = searchParams.get("error");
-
-  if (error) {
-    return NextResponse.redirect(`${baseUrl}/projects?error=oauth_failed`);
-  }
-
-  if (!code || !stateParam) {
-    return NextResponse.redirect(`${baseUrl}/projects?error=oauth_failed`);
-  }
-
-  let state: { projectId: string; provider: string; csrfToken: string };
-  try {
-    state = parseAndVerifyState(stateParam);
-  } catch {
-    return NextResponse.redirect(`${baseUrl}/projects?error=oauth_failed`);
-  }
-
-  const { projectId, provider, csrfToken } = state;
-
-  if (!projectId || provider !== "threads" || !csrfToken) {
-    return NextResponse.redirect(`${baseUrl}/projects?error=oauth_failed`);
-  }
-
-  const cookies = request.headers.get("cookie") || "";
-  const csrfValue = parseCookieValue(cookies, "oauth_csrf");
-
-  if (!csrfValue || csrfValue !== csrfToken) {
-    return NextResponse.redirect(
-      `${baseUrl}/projects/${projectId}?tab=services&error=oauth_failed`
-    );
-  }
-
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.redirect(`${baseUrl}/login`);
-  }
-
-  const member = await db.teamMember.findUnique({
-    where: {
-      userId_projectId: { userId: user.userId, projectId },
+  return handleOAuthCallback(request, {
+    expectedProvider: "threads",
+    exchange: (code) => exchangeThreadsCodeForTokens(code),
+    getConnectionData: async (tokens) => {
+      const userInfo = await getThreadsUserInfo(tokens.access_token);
+      return {
+        accountEmail: userInfo.username || `threads:${userInfo.id}`,
+        expiresAt: new Date(Date.now() + tokens.expires_in * 1000),
+        refreshToken: null,
+        metadata: { threadsUserId: String(tokens.user_id) },
+      };
     },
   });
-  if (!member) {
-    return NextResponse.redirect(
-      `${baseUrl}/projects/${projectId}?tab=services&error=oauth_failed`
-    );
-  }
-
-  try {
-    const tokens = await exchangeThreadsCodeForTokens(code);
-    const userInfo = await getThreadsUserInfo(tokens.access_token);
-    const accountEmail = userInfo.username || `threads:${userInfo.id}`;
-    const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
-
-    const existing = await db.serviceConnection.findFirst({
-      where: { projectId, provider: "threads", accountEmail },
-    });
-
-    const encryptedAccessToken = encrypt(tokens.access_token);
-
-    if (existing) {
-      await db.serviceConnection.update({
-        where: { id: existing.id },
-        data: {
-          accessToken: encryptedAccessToken,
-          refreshToken: null,
-          expiresAt,
-          status: "active",
-          lastError: null,
-          metadata: { threadsUserId: String(tokens.user_id) },
-        },
-      });
-    } else {
-      await db.serviceConnection.create({
-        data: {
-          projectId,
-          provider: "threads",
-          accountEmail,
-          accessToken: encryptedAccessToken,
-          refreshToken: null,
-          expiresAt,
-          metadata: { threadsUserId: String(tokens.user_id) },
-        },
-      });
-    }
-
-    const response = NextResponse.redirect(
-      `${baseUrl}/projects/${projectId}?tab=services`
-    );
-    response.cookies.set("oauth_csrf", "", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 0,
-      path: "/",
-    });
-    return response;
-  } catch (err) {
-    console.error("Threads OAuth callback error:", err);
-    return NextResponse.redirect(
-      `${baseUrl}/projects/${projectId}?tab=services&error=oauth_failed`
-    );
-  }
 }

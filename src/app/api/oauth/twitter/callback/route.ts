@@ -1,138 +1,52 @@
-import { NextResponse } from "next/server";
+import { handleOAuthCallback } from "@/lib/oauth-flow";
+import { exchangeTwitterCodeForTokens, getTwitterUserInfo } from "@/lib/twitter-oauth";
 import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth-middleware";
-import {
-  exchangeTwitterCodeForTokens,
-  getTwitterUserInfo,
-} from "@/lib/twitter-oauth";
-import { encrypt } from "@/lib/crypto";
-import { parseAndVerifyState, parseCookieValue } from "@/lib/oauth-state";
 
 export async function GET(request: Request) {
-  const baseUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000";
-  const { searchParams } = new URL(request.url);
-  const code = searchParams.get("code");
-  const stateParam = searchParams.get("state");
-  const error = searchParams.get("error");
-
-  if (error) {
-    return NextResponse.redirect(`${baseUrl}/projects?error=oauth_failed`);
-  }
-
-  if (!code || !stateParam) {
-    return NextResponse.redirect(`${baseUrl}/projects?error=oauth_failed`);
-  }
-
-  let state: { projectId: string; provider: string; csrfToken: string };
-  try {
-    state = parseAndVerifyState(stateParam);
-  } catch {
-    return NextResponse.redirect(`${baseUrl}/projects?error=oauth_failed`);
-  }
-
-  const { projectId, provider, csrfToken } = state;
-
-  if (!projectId || (provider !== "twitter" && provider !== "twitterAds") || !csrfToken) {
-    return NextResponse.redirect(`${baseUrl}/projects?error=oauth_failed`);
-  }
-
-  // Verify CSRF
-  const cookies = request.headers.get("cookie") || "";
-  const csrfValue = parseCookieValue(cookies, "oauth_csrf");
-
-  if (!csrfValue || csrfValue !== csrfToken) {
-    return NextResponse.redirect(
-      `${baseUrl}/projects/${projectId}?tab=services&error=oauth_failed`
-    );
-  }
-
-  // Get code_verifier from cookie
-  const codeVerifier = parseCookieValue(cookies, "twitter_code_verifier");
-
-  if (!codeVerifier) {
-    return NextResponse.redirect(
-      `${baseUrl}/projects/${projectId}?tab=services&error=oauth_failed`
-    );
-  }
-
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.redirect(`${baseUrl}/login`);
-  }
-
-  const member = await db.teamMember.findUnique({
-    where: {
-      userId_projectId: { userId: user.userId, projectId },
+  return handleOAuthCallback(request, {
+    expectedProvider: ["twitter", "twitterAds"],
+    extraCookiesToRead: ["twitter_code_verifier"],
+    extraCookiesToClear: ["twitter_code_verifier"],
+    exchange: (code, ctx) =>
+      exchangeTwitterCodeForTokens(code, ctx.extras.twitter_code_verifier),
+    getConnectionData: async (tokens) => {
+      const userInfo = await getTwitterUserInfo(tokens.access_token);
+      return {
+        accountEmail: `@${userInfo.username}`,
+        expiresAt: new Date(Date.now() + tokens.expires_in * 1000),
+        refreshToken: tokens.refresh_token ?? null,
+      };
     },
-  });
-  if (!member) {
-    return NextResponse.redirect(
-      `${baseUrl}/projects/${projectId}?tab=services&error=oauth_failed`
-    );
-  }
-
-  try {
-    const tokens = await exchangeTwitterCodeForTokens(code, codeVerifier);
-    const userInfo = await getTwitterUserInfo(tokens.access_token);
-    const accountEmail = `@${userInfo.username}`;
-    const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
-
-    const existing = await db.serviceConnection.findFirst({
-      where: { projectId, provider },
-    });
-
-    const encryptedAccessToken = encrypt(tokens.access_token);
-    const encryptedRefreshToken = tokens.refresh_token
-      ? encrypt(tokens.refresh_token)
-      : null;
-
-    if (existing) {
-      await db.serviceConnection.update({
-        where: { id: existing.id },
-        data: {
-          accessToken: encryptedAccessToken,
-          refreshToken: encryptedRefreshToken,
-          accountEmail,
-          expiresAt,
-          status: "active",
-          lastError: null,
-        },
+    // Twitter: one connection per (project, provider), not per account email
+    persist: async ({ projectId, provider, connectionData, encryptedAccessToken, encryptedRefreshToken }) => {
+      const existing = await db.serviceConnection.findFirst({
+        where: { projectId, provider },
       });
-    } else {
-      await db.serviceConnection.create({
+      if (existing) {
+        await db.serviceConnection.update({
+          where: { id: existing.id },
+          data: {
+            accessToken: encryptedAccessToken,
+            refreshToken: encryptedRefreshToken,
+            accountEmail: connectionData.accountEmail,
+            expiresAt: connectionData.expiresAt ?? null,
+            status: "active",
+            lastError: null,
+          },
+        });
+        return existing.id;
+      }
+      const created = await db.serviceConnection.create({
         data: {
           projectId,
           provider,
-          accountEmail,
+          accountEmail: connectionData.accountEmail,
           accessToken: encryptedAccessToken,
           refreshToken: encryptedRefreshToken,
-          expiresAt,
+          expiresAt: connectionData.expiresAt ?? null,
         },
       });
-    }
-
-    const response = NextResponse.redirect(
-      `${baseUrl}/projects/${projectId}?tab=services`
-    );
-    response.cookies.set("oauth_csrf", "", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 0,
-      path: "/",
-    });
-    response.cookies.set("twitter_code_verifier", "", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 0,
-      path: "/",
-    });
-    return response;
-  } catch (err) {
-    console.error("Twitter OAuth callback error:", err);
-    return NextResponse.redirect(
-      `${baseUrl}/projects/${projectId}?tab=services&error=oauth_failed`
-    );
-  }
+      return created.id;
+    },
+  });
 }

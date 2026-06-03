@@ -8,6 +8,7 @@ import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { metrics, type Counter } from "@opentelemetry/api";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
+import { PrismaInstrumentation } from "@prisma/instrumentation";
 
 // Mirrors the regex in middleware.ts — valid Server Action IDs are 40-char hex SHA-1 hashes.
 const VALID_ACTION_ID = /^[0-9a-f]{40}$/;
@@ -102,6 +103,7 @@ if (!endpoint) {
       }),
     ],
     instrumentations: [
+      new PrismaInstrumentation(),
       getNodeAutoInstrumentations({
         "@opentelemetry/instrumentation-fs": { enabled: false },
         "@opentelemetry/instrumentation-http": {

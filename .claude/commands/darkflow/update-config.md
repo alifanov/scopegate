@@ -11,6 +11,8 @@ Update Dark Flow project settings: language and/or main branch.
 
 ## Step 1 — Read current settings
 
+Run `bash .darkflow.d/get-config.sh` to pull the latest project settings from the Web UI and refresh the local `.darkflow` cache (silently falls back to cache if the server is unreachable).
+
 Read `.darkflow` from the project root. Extract `language=` and `branch=` values. If the file is missing, abort with an error.
 
 ## Step 2 — Determine new values

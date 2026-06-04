@@ -4,6 +4,8 @@ This is a **verification check**: it answers "are the docs still true?" It does 
 
 ## Step 1 — Read project config
 
+Run `bash .darkflow.d/get-config.sh` to pull the latest project settings from the Web UI and refresh the local `.darkflow` cache (silently falls back to cache if the server is unreachable).
+
 Read `.darkflow` in the project root. Extract:
 - `language=` → output/issue language (default: English)
 

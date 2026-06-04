@@ -12,6 +12,8 @@ Application **discovery** uses the official `coolify` CLI (not an MCP server). C
 
 ## Step 1 — Read project config
 
+Run `bash .darkflow.d/get-config.sh` to pull the latest project settings from the Web UI and refresh the local `.darkflow` cache (silently falls back to cache if the server is unreachable).
+
 Read `.darkflow` in the project root. Extract:
 - `coolify_app=` → Coolify app UUID for this project (optional; if missing, resolve it in Step 2)
 - `coolify_ssh=` → SSH target for the Coolify host, e.g. `user@host` (used in Step 4 to read container logs)

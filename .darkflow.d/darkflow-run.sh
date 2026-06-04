@@ -561,6 +561,11 @@ run_routine() {
 
   log "START  ${name} (model=${model}, perm=${permission_mode})"
 
+  # Refresh settings from Web UI before invoking Claude so both darkflow_val()
+  # reads below and the LLM command's "Step 1 — Read project config" see fresh values.
+  # Falls back to the cached .darkflow silently if the server is offline.
+  bash "${PROJECT_ROOT}/.darkflow.d/get-config.sh" 2>/dev/null || true
+
   send_heartbeat "running" "$name"
   start_heartbeat_loop "$name"
 

@@ -1,6 +1,6 @@
 Help the user create a GitHub issue for a manually identified task (bug, feature, or improvement).
 
-**Before asking anything**, read `.darkflow` in the project root (if it exists) and extract:
+Run `bash .darkflow.d/get-config.sh` to refresh the local `.darkflow` cache from the Web UI (silently falls back to cache if offline), then read `.darkflow` in the project root (if it exists) and extract:
 - `language=` → language for all conversation and issue text (default: English)
 
 Then read `docs/github-issues.md` to get the list of `area:*` labels defined for this project. Use those — not a hardcoded list.

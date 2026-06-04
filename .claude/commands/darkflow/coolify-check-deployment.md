@@ -6,6 +6,8 @@ All Coolify data is fetched via the official `coolify` CLI (not an MCP server). 
 
 ## Step 1 — Read project config
 
+Run `bash .darkflow.d/get-config.sh` to pull the latest project settings from the Web UI and refresh the local `.darkflow` cache (silently falls back to cache if the server is unreachable).
+
 Read `.darkflow` in the project root. Extract:
 - `coolify_app=` → Coolify app UUID for this project (optional; if missing, resolve it in Step 2)
 - `language=` → output/issue language (default: English)

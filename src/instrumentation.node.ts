@@ -138,6 +138,20 @@ if (!endpoint) {
           },
         },
         "@opentelemetry/instrumentation-undici": {
+          // Name outgoing fetch spans as "METHOD hostname" (e.g. "GET api.github.com")
+          // so anonymous "GET" spans in SigNoz become identifiable by their target host.
+          requestHook: (span, request) => {
+            try {
+              const host = new URL((request as { origin: string }).origin).hostname;
+              const method = (request as { method: string }).method;
+              const path = (request as { path: string }).path;
+              span.updateName(`${method} ${host}`);
+              span.setAttribute("peer.service", host);
+              span.setAttribute("url.path", path.split("?")[0]);
+            } catch {
+              // invalid origin — leave span name unchanged
+            }
+          },
           ignoreRequestHook: (request) => {
             const fullUrl = `${request.origin}${request.path}`;
             return OAUTH_TOKEN_URL_PATTERNS.some((pattern) =>

@@ -8,6 +8,7 @@ All Coolify data is fetched via the official `coolify` CLI (not an MCP server). 
 
 Read `.darkflow` in the project root. Extract:
 - `coolify_app=` → Coolify app UUID for this project (optional; if missing, resolve it in Step 2)
+- `language=` → output/issue language (default: English)
 
 If `.darkflow` is missing, continue normally.
 
@@ -36,6 +37,8 @@ coolify app deployments list APP_UUID
     ```
 
 If the latest deployment succeeded, output: `Coolify deployment OK — latest deploy succeeded.`
+
+Language for all GitHub issues and output: the `language=` value from `.darkflow`.
 
 ## Guardrails
 

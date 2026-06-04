@@ -1,6 +1,9 @@
 Help the user create a GitHub issue for a manually identified task (bug, feature, or improvement).
 
-**Before asking anything**, read `docs/github-issues.md` to get the list of `area:*` labels defined for this project. Use those — not a hardcoded list.
+**Before asking anything**, read `.darkflow` in the project root (if it exists) and extract:
+- `language=` → language for all conversation and issue text (default: English)
+
+Then read `docs/github-issues.md` to get the list of `area:*` labels defined for this project. Use those — not a hardcoded list.
 
 If `$ARGUMENTS` contains text (e.g. `/darkflow:add-issue fix login button on mobile`), use that text as the **title** — do not ask for a title again. Infer the type from the title if obvious ("fix"/"bug" → `bug`, "add"/"implement" → `enhancement`).
 
@@ -45,6 +48,7 @@ EOF
 ```
 
 **Important rules:**
+- Language for all conversation and issue text: the `language=` value from `.darkflow` (default: English)
 - Always use `status:approved` — the user already decided to do it
 - If effort is `l`: warn "This looks like more than a day — better to split into 2–4 sub-issues. Want me to help break it down first?"
 - After creating, show the URL and issue number. The fix-issues routine will pick it up automatically.

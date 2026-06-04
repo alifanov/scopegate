@@ -20,7 +20,7 @@ grep -qxF '.darkflow' .gitignore 2>/dev/null || echo '.darkflow' >> .gitignore
 
 <!-- Note: the detection logic below (name-match → write ID) is mirrored in analytics-review.md Step 1. Keep both in sync when modifying. -->
 
-Read `.darkflow`. If `posthog_project_id=` is missing or empty, and the PostHog MCP is available:
+Read `.darkflow`. Extract `language=` (default: English) for all user-facing output. If `posthog_project_id=` is missing or empty, and the PostHog MCP is available:
 
 1. List all available PostHog projects.
 2. Find the one whose name best matches `name=` from `.darkflow` (case-insensitive, partial match).
@@ -67,7 +67,7 @@ Replace `vX.Y.Z` with the actual installed version. If there were no changes (al
 
 ## Step 6 — Report
 
-Print a single summary line:
+Print a single summary line in `language=`:
 - On success: `Dark Flow updated to vX.Y.Z`
 - If already up to date: `Dark Flow already up to date (vX.Y.Z)`
 - On failure: print the error output and exit non-zero

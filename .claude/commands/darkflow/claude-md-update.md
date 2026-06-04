@@ -4,6 +4,7 @@ Scan the current codebase state and recent session history to regenerate CLAUDE.
 
 Read `.darkflow` in the project root. Extract:
 - `branch=` → main branch name for push (default: main)
+- `language=` → output language (default: English)
 
 If `.darkflow` is missing or has no `<!-- darkflow:start -->` marker in `CLAUDE.md`, skip the run without committing — leave no comment.
 
@@ -66,6 +67,8 @@ Rules:
 - Be concise: one line per concept, no verbose explanations, no obvious info
 - Keep CLAUDE.md under 300 lines — summarise, don't enumerate
 - All documented commands must be copy-paste ready
+
+Language for all user-facing output: the `language=` value from `.darkflow`.
 
 ## Step 6 — Commit and push
 

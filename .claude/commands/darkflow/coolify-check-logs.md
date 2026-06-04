@@ -7,7 +7,7 @@ Application **discovery** uses the official `coolify` CLI (not an MCP server). C
 > **Per-container logs require SSH.** The `coolify` CLI cannot return the logs of a specific
 > container, so this command reads them over SSH with `docker logs`. **You MUST get explicit
 > permission before opening any SSH connection:**
-> - **Interactive run:** ask the user plainly — *«Можно ли использовать SSH-подключение к серверу Coolify (`<host>`) для чтения логов контейнера?»* — and wait for an explicit "yes". If denied, **stop** and report that container logs cannot be inspected without SSH access.
+> - **Interactive run:** ask the user plainly in `language=` — *"May I open an SSH connection to the Coolify server (`<host>`) to read container logs?"* — and wait for an explicit "yes". If denied, **stop** and report that container logs cannot be inspected without SSH access.
 > - **Unattended / scheduled run:** SSH must be pre-approved (host/user/key configured in `.darkflow`). If it is not configured, **skip** log fetching, say so in the output, and open a `priority:p3` issue titled "Coolify SSH access not configured for log checks".
 
 ## Step 1 — Read project config
@@ -15,6 +15,7 @@ Application **discovery** uses the official `coolify` CLI (not an MCP server). C
 Read `.darkflow` in the project root. Extract:
 - `coolify_app=` → Coolify app UUID for this project (optional; if missing, resolve it in Step 2)
 - `coolify_ssh=` → SSH target for the Coolify host, e.g. `user@host` (used in Step 4 to read container logs)
+- `language=` → output/issue language (default: English)
 
 If `.darkflow` is missing, continue normally. If `coolify_ssh=` is missing, handle SSH access per the permission rule above (ask the user interactively, or skip on unattended runs).
 
@@ -60,6 +61,8 @@ For each container, identify errors, restarts, crash loops, OOM kills, port conf
 - Body: paste the relevant log excerpt (truncated to ~30 lines) + which container it came from + what likely caused it
 
 If no problems found in any container, output: `Coolify logs OK — no errors across all containers in the last 24h.`
+
+Language for all GitHub issues and output: the `language=` value from `.darkflow`.
 
 ## Guardrails
 

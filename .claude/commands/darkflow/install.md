@@ -10,7 +10,9 @@ Options:
 - `--dry-run` — preview changes without applying
 - `--force` — re-apply all templates, skip version check
 
-After the installer finishes, check for stale slash commands that are no longer part of Dark Flow:
+After the installer finishes, read `.darkflow` if it exists and extract `language=` (default: English) — use it for all user-facing messages below.
+
+Check for stale slash commands that are no longer part of Dark Flow:
 
 1. Fetch the current canonical command list from the Dark Flow repo:
    ```bash

@@ -119,14 +119,21 @@ export const searchConsoleTools: ToolDefinition[] = [
       };
       if (params.languageCode) body.languageCode = params.languageCode;
 
-      return googleSearchConsoleV1Fetch(
-        context.serviceConnectionId,
-        "/urlInspection/index:inspect",
-        {
-          method: "POST",
-          body: JSON.stringify(body),
+      try {
+        return await googleSearchConsoleV1Fetch(
+          context.serviceConnectionId,
+          "/urlInspection/index:inspect",
+          {
+            method: "POST",
+            body: JSON.stringify(body),
+          }
+        );
+      } catch (error) {
+        if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
+          return { error: "timeout", message: "GSC URL Inspection API не ответил за 5s, попробуйте позже" };
         }
-      );
+        throw error;
+      }
     },
   },
   {

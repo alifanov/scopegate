@@ -3,7 +3,8 @@ import { metrics, type Histogram } from "@opentelemetry/api";
 
 const WEBMASTERS_BASE_URL = "https://www.googleapis.com/webmasters/v3";
 const SEARCH_CONSOLE_V1_BASE_URL = "https://searchconsole.googleapis.com/v1";
-const CACHE_TTL_MS = 30 * 60 * 1000;
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour — URL inspection results change at most hourly
+const URL_INSPECTION_TIMEOUT_MS = 5_000;
 
 // POST paths that are read-only and safe to cache
 const CACHEABLE_POST_PATHS = ["/searchAnalytics/query", "/urlInspection/index:inspect"];
@@ -73,6 +74,9 @@ async function gscFetch(
   const accessToken = await getValidAccessToken(serviceConnectionId);
   const start = Date.now();
 
+  const isUrlInspection = path.includes("/urlInspection/");
+  const timeoutSignal = isUrlInspection ? AbortSignal.timeout(URL_INSPECTION_TIMEOUT_MS) : undefined;
+
   const res = await fetchWithRetry(fullUrl, {
     ...init,
     headers: {
@@ -80,6 +84,7 @@ async function gscFetch(
       "Content-Type": "application/json",
       ...init?.headers,
     },
+    ...(timeoutSignal ? { signal: timeoutSignal } : {}),
   });
 
   recordLatency(Date.now() - start);

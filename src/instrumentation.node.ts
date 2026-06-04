@@ -116,6 +116,15 @@ if (!endpoint) {
             };
             if (typeof req.url !== "string" || !req.url) return;
 
+            // Capture client identity on every incoming span so any 400 in SigNoz
+            // can be traced back to its source (IP, User-Agent) for diagnostics.
+            const rawIp = req.headers?.["x-forwarded-for"];
+            const ip = Array.isArray(rawIp) ? rawIp[0] : rawIp;
+            const rawUa = req.headers?.["user-agent"];
+            const ua = Array.isArray(rawUa) ? rawUa[0] : rawUa;
+            if (ip) span.setAttribute("client.address", ip);
+            if (ua) span.setAttribute("user_agent.original", ua.slice(0, 256));
+
             const actionId = req.headers?.["next-action"];
             if (typeof actionId === "string" && !VALID_ACTION_ID.test(actionId)) {
               // Middleware will 400 this — group under a canonical route so SigNoz

@@ -10,7 +10,11 @@ export function middleware(request: NextRequest) {
   const actionId = request.headers.get("Next-Action");
   if (actionId !== null && !VALID_ACTION_ID.test(actionId)) {
     console.info(
-      `[middleware] blocked invalid Next-Action from ${request.headers.get("x-forwarded-for") ?? "unknown"}: "${actionId.slice(0, 16)}…"`,
+      `[middleware] blocked invalid Next-Action` +
+        ` ip=${request.headers.get("x-forwarded-for") ?? "unknown"}` +
+        ` ua="${(request.headers.get("user-agent") ?? "-").slice(0, 120)}"` +
+        ` ${request.method} ${request.nextUrl.pathname}` +
+        `: "${actionId.slice(0, 16)}…"`,
     );
     return new NextResponse(null, {
       status: 400,

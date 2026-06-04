@@ -87,6 +87,9 @@ Detect the project's tech stack and run all available checks. Stop at the first 
 
 **If all checks pass (or no checks apply), proceed:**
 
+**Branch rule — never cherry-pick to main/master on your own:**
+If the `branch=` value from `.darkflow` is `dev`, `develop`, or any non-main/non-master branch, land the fix **only** on that branch. Do NOT cherry-pick, merge, or push to `main` or `master` independently — that is a human decision. Leave the fix in the configured branch and close the issue.
+
 **If `merge_strategy=pr`:**
 Open a pull request targeting the `branch=` value from `.darkflow` with `Closes #N` in the description. Merge the pull request into that branch. Leave a comment on the issue confirming completion. Close the issue.
 

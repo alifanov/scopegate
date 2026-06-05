@@ -44,14 +44,16 @@ See also: [`decisions/`](./decisions/) for the ADR explaining why this approach 
 
 ### `priority:*` — срочность
 
-Ровно один. Заменяет суффиксы `/P0`–`/P3` в заголовках.
+Ровно один. Заменяет суффиксы приоритета в заголовках.
 
 | Лейбл | Цвет | Семантика |
 |---|---|---|
-| `priority:p0` | красный `#b60205` | Бьёт по revenue или выключает фичу прямо сейчас |
-| `priority:p1` | оранжевый `#d93f0b` | На этой неделе |
-| `priority:p2` | жёлтый `#fbca04` | В этом месяце |
-| `priority:p3` | серый `#cccccc` | Когда-нибудь / nice-to-have |
+| `priority:critical` | красный `#b60205` | Бьёт по revenue или выключает фичу прямо сейчас |
+| `priority:high` | оранжевый `#d93f0b` | На этой неделе |
+| `priority:medium` | жёлтый `#fbca04` | В этом месяце |
+| `priority:low` | серый `#cccccc` | Когда-нибудь / nice-to-have |
+
+> **Правило создания issue:** агенты и рутины создают issue **только для `critical` / `high` / `medium`**. Находки уровня `low` не превращаются в issue — их фиксируют в снимке (`docs/insights/*`). Лейбл `priority:low` остаётся валидным для issue, заведённых вручную.
 
 ### Тип задачи — стандартные GitHub-лейблы
 
@@ -112,7 +114,7 @@ See also: [`decisions/`](./decisions/) for the ADR explaining why this approach 
 ## Антипаттерны
 
 - **Не ставить датированные source-лейблы** (`posthog-2026-05-16`) — используй `source:posthog` + ссылку на снимок в теле issue.
-- **Не кодировать приоритет в заголовке** (`[SEO/P0]`) — ставь `priority:p0`.
+- **Не кодировать приоритет в заголовке** (`[SEO/P0]`) — ставь `priority:critical`.
 - **Не пересоздавать rejected issue** без новых данных — укажи в снимке `Не пересоздаём — отклонено в #N`.
 - **Не закрывать issue вручную как "done"** без PR или ссылки — закрытие через `Closes #N` в PR даёт трассируемость.
 
@@ -144,8 +146,8 @@ gh label create "source:infra"                 --color "5319e7" --description "C
 gh label create "source:manual"                --color "5319e7" --description "Гипотеза без data-источника"
 
 # priority
-gh label create "priority:p0" --color "b60205" --description "Бьёт по revenue / выключает фичу сейчас"
-gh label create "priority:p1" --color "d93f0b" --description "На этой неделе"
-gh label create "priority:p2" --color "fbca04" --description "В этом месяце"
-gh label create "priority:p3" --color "cccccc" --description "Когда-нибудь / nice-to-have"
+gh label create "priority:critical" --color "b60205" --description "Бьёт по revenue / выключает фичу сейчас"
+gh label create "priority:high"     --color "d93f0b" --description "На этой неделе"
+gh label create "priority:medium"   --color "fbca04" --description "В этом месяце"
+gh label create "priority:low"      --color "cccccc" --description "Когда-нибудь / nice-to-have (issue не создаётся автоматически)"
 ```

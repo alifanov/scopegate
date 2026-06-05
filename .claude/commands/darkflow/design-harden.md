@@ -15,9 +15,9 @@ If `.darkflow` is missing, continue with defaults.
 
 After the hardening review is complete, create a GitHub issue for each gap found:
 - Labels: `status:proposed`, `source:design`, priority based on risk:
-  - `priority:p1` — missing error states on critical flows, broken overflow, untranslated strings in production
-  - `priority:p2` — edge cases that cause layout breaks, unhandled empty states
-  - `priority:p3` — cosmetic overflow, optional i18n gaps, low-risk edge cases
+  - `priority:high` — missing error states on critical flows, broken overflow, untranslated strings in production
+  - `priority:medium` — edge cases that cause layout breaks, unhandled empty states
+  - **cosmetic overflow / optional i18n gaps / low-risk edge cases → do NOT create an issue** — note them under Recommendations in the snapshot only
 - Do not create issues for findings already tracked in open GitHub issues
 
 **Issue format (required):**
@@ -52,7 +52,7 @@ Write `docs/insights/design-harden/YYYY-MM-DD.md` (use today's date; append a ne
 
 | Category | Component / Page | Gap | Risk | Issue |
 |---|---|---|---|---|
-| error states | | | p1 / p2 / p3 | #N |
+| error states | | | high / medium | #N |
 | overflow | | | | |
 | i18n | | | | |
 | edge cases | | | | |
@@ -70,7 +70,7 @@ Write `docs/insights/design-harden/YYYY-MM-DD.md` (use today's date; append a ne
 
 Run `gh issue list --state open --json number,labels --limit 200`, then:
 - Count issues with label `source:design` → `openIssues`
-- Count those with `priority:p1` → `criticalOpen`
+- Count those with `priority:critical` or `priority:high` → `criticalOpen`
 - Derive `status`: `"warning"` if `criticalOpen > 0`, `"ok"` otherwise
 
 Write `.darkflow.d/state/metrics/design-harden.json` (create parent directories if needed):

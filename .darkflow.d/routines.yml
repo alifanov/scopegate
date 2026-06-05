@@ -21,11 +21,6 @@ routines:
     model: sonnet
     enabled: true
 
-  coolify-check-logs:
-    cron: "30 9 * * *"
-    model: sonnet
-    enabled: true
-
   claude-md-update:
     cron: "0 9 * * 1-5"
     model: sonnet

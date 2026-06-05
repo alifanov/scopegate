@@ -39,7 +39,7 @@ If a recent commit changed code in an area whose docs were not touched, that is 
 
 Create a GitHub issue for each significant mismatch. Group trivially related mismatches into one issue (e.g. "Sync data-model.md with 3 new fields") rather than one issue per field.
 
-- Labels: `status:proposed`, `source:docs`, `area:docs`, priority by impact (`p1` = docs actively misleading agents/devs, `p2` = stale, `p3` = cosmetic/minor)
+- Labels: `status:proposed`, `source:docs`, `area:docs`, priority by impact (`priority:high` = docs actively misleading agents/devs, `priority:medium` = stale). **Cosmetic / minor drift → do NOT create an issue** — list it in the snapshot only
 - Do not create issues for drift already tracked in open GitHub issues
 - Do not create issues for missing/stub files that were never written — list those in the snapshot only
 
@@ -73,7 +73,7 @@ Write `docs/insights/docs-audit/YYYY-MM-DD.md` (use today's date; append a new s
 
 | Doc file | Claims | Code reality | Severity | Issue |
 |---|---|---|---|---|
-| | | | p1 / p2 / p3 | #N |
+| | | | high / medium | #N |
 
 ## Not yet written
 
@@ -98,7 +98,7 @@ Save a docs-audit snapshot so the Dark Flow worker can forward it to the web UI.
 
 Run `gh issue list --state open --json number,labels --limit 200`, then:
 - Count issues with label `source:docs` → `openIssues`
-- Count those with `priority:p1` → `criticalOpen`
+- Count those with `priority:critical` or `priority:high` → `criticalOpen`
 - Derive `status`: `"warning"` if criticalOpen > 0, `"warning"` if openIssues > 5, `"ok"` otherwise
 
 Write `.darkflow.d/state/metrics/docs-audit.json` (create parent directories if needed):

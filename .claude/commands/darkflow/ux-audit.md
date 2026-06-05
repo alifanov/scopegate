@@ -14,7 +14,7 @@ If `.darkflow` is missing, continue with the default.
 /impeccable
 
 After the review is complete, create a GitHub issue for each significant finding:
-- Labels: `status:proposed`, `source:ux-audit`, priority based on impact (`p1` = broken UX or inaccessible, `p2` = significant friction, `p3` = polish), `area:ui` / `area:ux` / `area:landing` as appropriate
+- Labels: `status:proposed`, `source:ux-audit`, priority based on impact (`priority:high` = broken UX or inaccessible, `priority:medium` = significant friction), `area:ui` / `area:ux` / `area:landing` as appropriate. **Polish-level findings → do NOT create an issue** — note them in the snapshot only
 - Focus on actionable problems: broken layouts, missing states (empty/loading/error), accessibility failures, confusing flows, inconsistent components
 - Do not create issues for pure stylistic preferences or findings already tracked in open GitHub issues
 
@@ -49,7 +49,7 @@ Write `docs/insights/ux-audit/YYYY-MM-DD.md` (use today's date; append a new sec
 
 | Page / Component | Problem | Severity | Screenshot / Recording |
 |---|---|---|---|
-| | | p1 broken / p2 friction / p3 polish | |
+| | | high (broken) / medium (friction) | |
 
 ## Recurring Issues
 
@@ -70,7 +70,7 @@ Save a UX snapshot so the Dark Flow worker can forward it to the web UI.
 
 Run `gh issue list --state open --json number,labels --limit 200`, then:
 - Count issues with label `source:ux-audit` → `openIssues`
-- Count those with `priority:p0` or `priority:p1` → `criticalOpen`
+- Count those with `priority:critical` or `priority:high` → `criticalOpen`
 - Derive `status`: `"warning"` if criticalOpen > 0, `"ok"` otherwise
 
 Write `.darkflow.d/state/metrics/ux.json` (create parent directories if needed):

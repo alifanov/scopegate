@@ -15,9 +15,9 @@ If `.darkflow` is missing, continue with defaults.
 
 After the critique is complete, create a GitHub issue for each significant finding:
 - Labels: `status:proposed`, `source:design`, priority based on impact:
-  - `priority:p1` — broken or confusing user journeys, low design score on key flows
-  - `priority:p2` — friction points, persona test failures, inconsistent patterns
-  - `priority:p3` — minor UX polish, low-impact scoring gaps
+  - `priority:high` — broken or confusing user journeys, low design score on key flows
+  - `priority:medium` — friction points, persona test failures, inconsistent patterns
+  - **minor UX polish / low-impact scoring gaps → do NOT create an issue** — note them under Recommendations in the snapshot only
 - Do not create issues for findings already tracked in open GitHub issues
 
 **Issue format (required):**
@@ -64,7 +64,7 @@ Write `docs/insights/design-critique/YYYY-MM-DD.md` (use today's date; append a 
 
 | Page / Component | Problem | Severity |
 |---|---|---|
-| | | p1 / p2 / p3 |
+| | | high / medium |
 
 ## Recurring Issues
 
@@ -79,7 +79,7 @@ Write `docs/insights/design-critique/YYYY-MM-DD.md` (use today's date; append a 
 
 Run `gh issue list --state open --json number,labels --limit 200`, then:
 - Count issues with label `source:design` → `openIssues`
-- Count those with `priority:p1` → `criticalOpen`
+- Count those with `priority:critical` or `priority:high` → `criticalOpen`
 - Derive `status`: `"warning"` if `criticalOpen > 0`, `"warning"` if `openIssues > 5`, `"ok"` otherwise
 
 Write `.darkflow.d/state/metrics/design-critique.json` (create parent directories if needed):

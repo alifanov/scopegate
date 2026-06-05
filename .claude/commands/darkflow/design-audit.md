@@ -15,9 +15,9 @@ If `.darkflow` is missing, continue with defaults.
 
 After the audit is complete, create a GitHub issue for each significant finding:
 - Labels: `status:proposed`, `source:design`, priority based on severity:
-  - `priority:p1` — P0/P1 findings (broken layouts, inaccessible elements, missing critical states)
-  - `priority:p2` — P2 findings (visual inconsistency, spacing issues, unclear hierarchy)
-  - `priority:p3` — P3 findings (polish, minor refinements)
+  - `priority:high` — broken layouts, inaccessible elements, missing critical states
+  - `priority:medium` — visual inconsistency, spacing issues, unclear hierarchy
+  - **polish / minor refinements → do NOT create an issue** — note them under Recommendations in the snapshot only
 - Do not create issues for findings already tracked in open GitHub issues
 
 **Issue format (required):**
@@ -44,9 +44,9 @@ Language for all GitHub issues and output: the `language=` value from `.darkflow
 
 After the performance audit is complete, create a GitHub issue for each significant finding:
 - Labels: `status:proposed`, `source:design`, `area:performance`, priority based on impact:
-  - `priority:p1` — LCP > 2.5s, CLS > 0.1, or bundle size regressions blocking interaction
-  - `priority:p2` — measurable slowdowns, large unoptimized assets, render-blocking resources
-  - `priority:p3` — minor improvements, nice-to-have optimizations
+  - `priority:high` — LCP > 2.5s, CLS > 0.1, or bundle size regressions blocking interaction
+  - `priority:medium` — measurable slowdowns, large unoptimized assets, render-blocking resources
+  - **minor / nice-to-have optimizations → do NOT create an issue** — note them under Recommendations in the snapshot only
 - Do not create issues for findings already tracked in open GitHub issues or covered by `build-optimization`
 
 **Issue format (required):**
@@ -102,7 +102,7 @@ Write `docs/insights/design-audit/YYYY-MM-DD.md` (use today's date; append a new
 
 Run `gh issue list --state open --json number,labels --limit 200`, then:
 - Count issues with label `source:design` → `openIssues`
-- Count those with `priority:p1` → `criticalOpen`
+- Count those with `priority:critical` or `priority:high` → `criticalOpen`
 - Derive `status`: `"warning"` if `criticalOpen > 0`, `"warning"` if `openIssues > 5`, `"ok"` otherwise
 
 Write `.darkflow.d/state/metrics/design-audit.json` (create parent directories if needed):

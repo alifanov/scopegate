@@ -15,10 +15,10 @@ If `.darkflow` is missing, continue with the defaults.
 
 Pick exactly **one** open issue with the `status:approved` label, choosing strictly by priority. Walk the priority labels in this order and stop at the first level that has any issues:
 
-1. `priority:p0`
-2. `priority:p1`
-3. `priority:p2`
-4. `priority:p3`
+1. `priority:critical`
+2. `priority:high`
+3. `priority:medium`
+4. `priority:low`
 5. `status:approved` without any `priority:*` label (treat as lowest)
 
 Within the chosen level, take the **oldest** issue (smallest issue number). Concretely:
@@ -26,7 +26,7 @@ Within the chosen level, take the **oldest** issue (smallest issue number). Conc
 Issues with `action:reply` are handled exclusively by `mailbox-check` — skip them here.
 
 ```bash
-for p in p0 p1 p2 p3; do
+for p in critical high medium low; do
   n=$(gh issue list --state open --label "status:approved" --label "priority:$p" \
         --json number,labels \
         --jq '[.[] | select(.labels | map(.name) | index("action:reply") | not)]
@@ -61,6 +61,8 @@ Read the title, body, and all comments carefully. If the issue references other 
 ## Step 4 — Do the work
 
 Implement all the changes needed for it.
+
+**Product language is always English.** The `language=` setting is the *communication* language (issues, comments, commits, chat) — it never changes what you write inside the product. All source code, identifiers, code comments, UI copy, user-facing strings, and logs you add must be in English, even when `language=` is set to something else.
 
 **Before merging or pushing — run quality checks:**
 
@@ -117,4 +119,4 @@ After landing, leave a comment on the issue with a brief summary of what was don
 
 Then close the issue.
 
-Language for GitHub comments and output: the `language=` value from `.darkflow`.
+Language for GitHub comments and output: the `language=` value from `.darkflow`. Code and everything shipped inside the product stays in English regardless of this value.

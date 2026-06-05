@@ -26,6 +26,8 @@ For each finding:
 
 Create a GitHub issue for each significant finding. Use labels: `status:proposed`, `source:signoz` (or the relevant observability tool), `area:api` / `area:worker` / `area:infra`, `priority:*`, `effort:*`.
 
+Priority vocabulary: `priority:critical` / `priority:high` / `priority:medium` / `priority:low`. **Only create issues for `critical` / `high` / `medium`** — `low`-priority findings are skipped (record them under Hypotheses in the snapshot instead).
+
 **Issue format (required):**
 
 - **Title**: action-oriented verb — "Add index on X", "Cache Y endpoint", "Fix N+1 in Z" — never just a description of the symptom ("Slow endpoint detected", "High error rate on X")
@@ -86,7 +88,7 @@ Save an observability snapshot so the Dark Flow worker can forward it to the web
 
 Run `gh issue list --state open --json number,labels --limit 200`, then:
 - Count issues with label `source:signoz` (or the relevant observability tool) → `openIssues`
-- Count those with `priority:p0` or `priority:p1` → `criticalOpen`
+- Count those with `priority:critical` or `priority:high` → `criticalOpen`
 - Derive `status`: `"critical"` if criticalOpen > 0, `"warning"` if openIssues > 5, `"ok"` otherwise
 
 Write `.darkflow.d/state/metrics/observability.json` (create parent directories if needed):

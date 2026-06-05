@@ -14,7 +14,8 @@ If `.darkflow` is missing, continue with the default.
 /security-review
 
 After the review is complete, create a GitHub issue for each finding:
-- Labels: `status:approved`, `source:security-review`, priority based on severity (`p0`=critical, `p1`=high, `p2`=medium, `p3`=low), `area:api` / `area:auth` / `area:infra` as appropriate
+- Labels: `status:approved`, `source:security-review`, priority = severity (`priority:critical` / `priority:high` / `priority:medium`), `area:api` / `area:auth` / `area:infra` as appropriate
+- **`low`-severity findings: do NOT create an issue** — note them in the snapshot only
 - Security findings are auto-approved — see `docs/auto-approve.md`
 - Do not create issues for findings already tracked in open GitHub issues
 
@@ -70,7 +71,7 @@ Save a security snapshot so the Dark Flow worker can forward it to the web UI.
 
 Run `gh issue list --state open --json number,labels --limit 200`, then:
 - Count issues with label `source:security-review` → `openIssues`
-- Count those with `priority:p0` or `priority:p1` → `criticalOpen`
+- Count those with `priority:critical` or `priority:high` → `criticalOpen`
 - Derive `status`: `"critical"` if criticalOpen > 0, `"warning"` if openIssues > 5, `"ok"` otherwise
 
 Write `.darkflow.d/state/metrics/security.json` (create parent directories if needed):

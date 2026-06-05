@@ -1,6 +1,6 @@
 Check the Coolify **deployment status** for this project: detect failed/red deploys and create a high-priority GitHub issue. This is a passive health check — it does not auto-fix or trigger anything.
 
-For runtime container logs, use `/darkflow:coolify-check-logs` instead — this command only looks at the deployment pipeline.
+This command only looks at the deployment pipeline status. Runtime container errors, crashes, and OOM signals are covered by your observability tool (SigNoz/Datadog/Grafana) via `/darkflow:observability-check`, since container logs already ship there.
 
 All Coolify data is fetched via the official `coolify` CLI (not an MCP server). Config lives at `~/.config/coolify/config.json`.
 
@@ -30,8 +30,8 @@ Check the deployment history for failed/red deploys:
 coolify app deployments list APP_UUID
 ```
 
-- If the latest deployment is in a **failed or error state**: create a `priority:p0` GitHub issue:
-  - Labels: `status:proposed`, `source:infra`, `priority:p0`, `area:infra`
+- If the latest deployment is in a **failed or error state**: create a `priority:critical` GitHub issue:
+  - Labels: `status:proposed`, `source:infra`, `priority:critical`, `area:infra`
   - Title: "Fix failed deployment: <error summary>"
   - Body: the deployment metadata + identified error. For details of the failed deploy:
     ```bash

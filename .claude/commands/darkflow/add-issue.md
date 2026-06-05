@@ -18,10 +18,10 @@ Walk through **only the missing fields** conversationally — skip any field alr
 3. **Area** — pick one or more from the project's `area:*` labels (read from `docs/github-issues.md`)
 
 4. **Priority:**
-   - p0 — breaks revenue or a key feature right now
-   - p1 — this week
-   - p2 — this month
-   - p3 — someday / nice-to-have
+   - critical — breaks revenue or a key feature right now
+   - high — this week
+   - medium — this month
+   - low — someday / nice-to-have (allowed for manual issues; scheduled routines never auto-create `low`)
 
 5. **Effort:**
    - xs — ≤ 30 min · s — ~2 hours · m — half a day · l — more than a day

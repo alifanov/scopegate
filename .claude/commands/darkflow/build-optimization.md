@@ -83,9 +83,9 @@ Rank opportunities by: **impact** (time saved per run × runs/week) vs **effort*
 Create a GitHub issue for each significant, independent optimization. Group trivially related changes into one issue (e.g., "Add .dockerignore and fix layer ordering" → one issue). Do not create issues for already-tracked open issues.
 
 - Labels: `status:proposed`, `source:build`, priority by impact:
-  - `priority:p1` — large, safe time savings (e.g., 5+ min per CI run, or image 2× smaller)
-  - `priority:p2` — moderate improvement (1–5 min, meaningful size reduction)
-  - `priority:p3` — minor / nice-to-have
+  - `priority:high` — large, safe time savings (e.g., 5+ min per CI run, or image 2× smaller)
+  - `priority:medium` — moderate improvement (1–5 min, meaningful size reduction)
+  - **minor / nice-to-have → do NOT create an issue** — note it in the snapshot only
 
 **Issue format (required):**
 
@@ -122,7 +122,7 @@ Write `docs/insights/build-optimization/YYYY-MM-DD.md` (use today's date; append
 
 | Area | Current | Proposed | Est. savings | Severity | Issue |
 |---|---|---|---|---|---|
-| | | | | p1 / p2 / p3 | #N |
+| | | | | high / medium | #N |
 
 ## Recurring
 
@@ -137,7 +137,7 @@ Save a snapshot so the Dark Flow worker can forward it to the web UI.
 
 Run `gh issue list --state open --json number,labels --limit 200`, then:
 - Count issues with label `source:build` → `openIssues`
-- Count those with `priority:p1` → `criticalOpen`
+- Count those with `priority:critical` or `priority:high` → `criticalOpen`
 - Derive `status`: `"warning"` if `criticalOpen > 0`, `"warning"` if `openIssues > 5`, `"ok"` otherwise
 
 Write `.darkflow.d/state/metrics/build-optimization.json` (create parent directories if needed):

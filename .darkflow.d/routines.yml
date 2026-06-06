@@ -8,49 +8,49 @@ defaults:
 
 routines:
   fix-issues:
-    cron: "0 * * * *"
+    cron: "49 * * * *"
     model: sonnet
     engine: claude
     enabled: true
 
   observability-check:
-    cron: "30 8 * * *"
+    cron: "19 8 * * *"
     model: sonnet
     engine: claude
     enabled: true
 
   coolify-check-deployment:
-    cron: "0 9 * * *"
+    cron: "49 9 * * *"
     model: sonnet
     engine: claude
     enabled: true
 
   claude-md-update:
-    cron: "0 9 * * 1-5"
+    cron: "49 9 * * 1-5"
     model: sonnet
     engine: claude
     enabled: true
 
   architecture-review:
-    cron: "0 2 * * 0"
+    cron: "49 2 * * 0"
     model: opus
     engine: claude
     enabled: true
 
   security-audit:
-    cron: "0 3 * * 0"
+    cron: "49 3 * * 0"
     model: opus
     engine: claude
     enabled: true
 
   build-optimization:
-    cron: "0 4 * * 0"
+    cron: "49 4 * * 0"
     model: opus
     engine: claude
     enabled: true
 
   vulnerability-check:
-    cron: "0 6 * * *"
+    cron: "49 6 * * *"
     model: sonnet
     engine: claude
     enabled: true

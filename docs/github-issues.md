@@ -36,7 +36,6 @@ See also: [`decisions/`](./decisions/) for the ADR explaining why this approach 
 | `source:ads` | `docs/insights/ads/*.md` (Google Ads) |
 | `source:signoz` | SigNoz observability (`/check-signoz`) |
 | `source:security-review` | Аудит безопасности (`/security-review`) |
-| `source:ux-audit` | UI-ревью (`impeccable`, `critique`, session recordings) |
 | `source:user-feedback` | `docs/insights/qualitative/*` (интервью, письма) |
 | `source:vulnerability-report` | GitHub Dependabot / Code Scanning / Secret Scanning |
 | `source:infra` | Coolify / deployment health checks |
@@ -139,7 +138,6 @@ gh label create "source:gsc"             --color "5319e7" --description "Из in
 gh label create "source:ads"             --color "5319e7" --description "Из insights/ads/* (Google Ads)"
 gh label create "source:signoz"          --color "5319e7" --description "Из SigNoz observability"
 gh label create "source:security-review" --color "5319e7" --description "Из security-аудита"
-gh label create "source:ux-audit"              --color "5319e7" --description "Из UI-ревью / session recordings"
 gh label create "source:user-feedback"         --color "5319e7" --description "Из insights/qualitative/*"
 gh label create "source:vulnerability-report"  --color "5319e7" --description "GitHub Dependabot / Code Scanning / Secret Scanning"
 gh label create "source:infra"                 --color "5319e7" --description "Coolify / deployment health checks"

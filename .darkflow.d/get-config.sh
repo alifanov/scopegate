@@ -99,6 +99,7 @@ if command -v jq &>/dev/null; then
       echo ""
       echo "defaults:"
       echo "  model: sonnet"
+      echo "  engine: claude"
       echo "  permission_mode: bypassPermissions"
       echo ""
       echo "routines:"
@@ -106,6 +107,7 @@ if command -v jq &>/dev/null; then
         "  " + .name + ":",
         "    cron: \"" + (.cron // "0 * * * *") + "\"",
         "    model: " + (.model // "sonnet"),
+        "    engine: " + (.engine // "claude"),
         "    enabled: " + (if .enabled then "true" else "false" end),
         if .permissionMode then "    permission_mode: " + .permissionMode else empty end
       )'

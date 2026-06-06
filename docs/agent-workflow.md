@@ -56,10 +56,10 @@ Rule is universal — only the folder changes by data source:
 | Paid ads — campaigns, keywords, spend, CPA, ROAS | `insights/ads/YYYY-MM-DD.md` | Any ads account check, campaign optimization |
 | Observability — errors, latency, DB performance | `insights/observability/YYYY-MM-DD.md` | SigNoz/Datadog checks, latency alerts |
 | Security audit — vulnerabilities, code scanning | `insights/security/YYYY-MM-DD.md` | `/darkflow:security-audit`, Dependabot alerts |
-| UX audit — layout, accessibility, component review | `insights/ux-audit/YYYY-MM-DD.md` | `/darkflow:ux-audit`, session recording review |
 | Docs audit — docs ↔ code drift | `insights/docs-audit/YYYY-MM-DD.md` | `/darkflow:docs-audit` |
 | Product overview — state + recent improvements + hypotheses digest | `insights/product-overview/YYYY-MM-DD.md` | `/darkflow:product-overview` |
 | Build optimization — build + deploy pipeline efficiency | `insights/build-optimization/YYYY-MM-DD.md` | `/darkflow:build-optimization` |
+| Code health — dead code, duplication, cycles, complexity (fallow) | `insights/code-health/YYYY-MM-DD.md` | `/darkflow:code-health` |
 | Design audit — five-dimension technical quality (impeccable:audit) | `insights/design-audit/YYYY-MM-DD.md` | `/darkflow:design-audit` |
 | Design critique — scored review, persona tests (impeccable:critique) | `insights/design-critique/YYYY-MM-DD.md` | `/darkflow:design-critique` |
 | Design harden — edge cases, i18n, error states (impeccable:harden) | `insights/design-harden/YYYY-MM-DD.md` | `/darkflow:design-harden` |

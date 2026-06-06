@@ -3,46 +3,55 @@
 # List routines and status: bash .darkflow.d/darkflow-run.sh --list
 defaults:
   model: sonnet
+  engine: claude
   permission_mode: bypassPermissions
 
 routines:
   fix-issues:
     cron: "0 * * * *"
     model: sonnet
+    engine: claude
     enabled: true
 
   observability-check:
     cron: "30 8 * * *"
     model: sonnet
+    engine: claude
     enabled: true
 
   coolify-check-deployment:
     cron: "0 9 * * *"
     model: sonnet
+    engine: claude
     enabled: true
 
   claude-md-update:
     cron: "0 9 * * 1-5"
     model: sonnet
+    engine: claude
     enabled: true
 
   architecture-review:
     cron: "0 2 * * 0"
     model: opus
+    engine: claude
     enabled: true
 
   security-audit:
     cron: "0 3 * * 0"
     model: opus
+    engine: claude
     enabled: true
 
   build-optimization:
     cron: "0 4 * * 0"
     model: opus
+    engine: claude
     enabled: true
 
   vulnerability-check:
     cron: "0 6 * * *"
     model: sonnet
+    engine: claude
     enabled: true
 

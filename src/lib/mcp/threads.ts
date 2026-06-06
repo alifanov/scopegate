@@ -9,13 +9,13 @@ export async function threadsFetch(
 ): Promise<unknown> {
   const accessToken = await getValidThreadsAccessToken(serviceConnectionId);
 
-  const separator = path.includes("?") ? "&" : "?";
-  const url = `${THREADS_API_BASE}${path}${separator}access_token=${accessToken}`;
+  const url = `${THREADS_API_BASE}${path}`;
 
   const res = await fetch(url, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
       ...init?.headers,
     },
   });

@@ -87,7 +87,8 @@ export async function getThreadsUserInfo(
   accessToken: string
 ): Promise<{ id: string; username: string; name?: string }> {
   const res = await fetch(
-    `https://graph.threads.net/v1.0/me?fields=id,username,name,threads_profile_picture_url&access_token=${accessToken}`
+    `https://graph.threads.net/v1.0/me?fields=id,username,name,threads_profile_picture_url`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
   );
   if (!res.ok) throw new Error("Failed to fetch Threads user info");
   return res.json() as Promise<{

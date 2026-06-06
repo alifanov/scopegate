@@ -145,9 +145,14 @@ if (!endpoint) {
               const host = new URL((request as { origin: string }).origin).hostname;
               const method = (request as { method: string }).method;
               const path = (request as { path: string }).path;
+              // Strip sensitive query params from all URL attributes before recording.
+              const sanitizedPath = path.replace(/([?&])access_token=[^&]*/g, "$1access_token=REDACTED");
+              const sanitizedUrl = `${(request as { origin: string }).origin}${sanitizedPath}`;
               span.updateName(`${method} ${host}`);
               span.setAttribute("peer.service", host);
-              span.setAttribute("url.path", path.split("?")[0]);
+              span.setAttribute("url.path", sanitizedPath.split("?")[0]);
+              span.setAttribute("url.full", sanitizedUrl);
+              span.setAttribute("http.url", sanitizedUrl);
             } catch {
               // invalid origin — leave span name unchanged
             }

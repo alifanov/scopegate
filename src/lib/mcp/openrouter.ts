@@ -3,6 +3,13 @@ import { decrypt } from "@/lib/crypto";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
+const CREDITS_CACHE_TTL_MS = 3_600_000; // 1 hour
+
+const creditsCache = new Map<
+  string,
+  { value: unknown; expiresAt: number }
+>();
+
 export async function openRouterFetch(
   serviceConnectionId: string,
   path: string,
@@ -33,4 +40,28 @@ export async function openRouterFetch(
   }
 
   return res.json();
+}
+
+export async function getOpenRouterCredits(
+  serviceConnectionId: string
+): Promise<unknown> {
+  const cached = creditsCache.get(serviceConnectionId);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.value;
+  }
+
+  try {
+    const value = await openRouterFetch(serviceConnectionId, "/credits");
+    creditsCache.set(serviceConnectionId, {
+      value,
+      expiresAt: Date.now() + CREDITS_CACHE_TTL_MS,
+    });
+    return value;
+  } catch (err) {
+    // Graceful degradation: return stale cached value if available
+    if (cached) {
+      return cached.value;
+    }
+    throw err;
+  }
 }

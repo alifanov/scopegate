@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { openRouterFetch } from '../openrouter';
+import { openRouterFetch, getOpenRouterCredits } from '../openrouter';
 import type { ToolDefinition } from './types';
 
 export const openRouterTools: ToolDefinition[] = [
@@ -94,7 +94,7 @@ export const openRouterTools: ToolDefinition[] = [
     action: "openRouter:get_credits",
     inputSchema: z.object({}),
     handler: async (_params, context) => {
-      return openRouterFetch(context.serviceConnectionId, "/credits");
+      return getOpenRouterCredits(context.serviceConnectionId);
     },
   },
   {

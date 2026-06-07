@@ -1,3 +1,13 @@
 node_modules
 .next
 .git
+docs
+.darkflow.d
+.agents
+.claude
+.devcontainer
+.github
+scripts
+.env*
+*.tsbuildinfo
+src/generated

@@ -2,7 +2,7 @@
 set -e
 
 echo "Running database migrations..."
-pnpm exec prisma migrate deploy
+/prisma-runtime/node_modules/.bin/prisma migrate deploy
 
 echo "Starting application..."
-exec pnpm run start
+exec node server.js

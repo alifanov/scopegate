@@ -554,12 +554,16 @@ run_routine() {
     # Codex has no /darkflow:<name> slash command, so feed the routine's command
     # markdown directly as the prompt (same file Claude resolves the command
     # from). Codex has no per-tool permission allowlist — map every permission
-    # mode to autonomous, sandboxed, no-prompt execution.
+    # mode to autonomous, no-prompt execution. `codex exec` is already
+    # non-interactive (the old `--ask-for-approval never` flag was removed from
+    # the exec subcommand in newer Codex CLIs). Darkflow routines push to git and
+    # call gh, which the workspace-write sandbox blocks (no network), so we run
+    # with the externally-sandboxed bypass — equivalent to Claude's bypassPermissions.
     # Codex's stdout is already human-readable, so we store it verbatim.
     local _cmd_file="${PROJECT_ROOT}/.claude/commands/darkflow/${name}.md"
     if [[ -f "$_cmd_file" ]]; then
       run_in_pgid codex exec --model "${model}" \
-        --sandbox workspace-write --ask-for-approval never \
+        --dangerously-bypass-approvals-and-sandbox \
         "$(cat "$_cmd_file")" > "$_stream_file" || exit_code=$?
     else
       log "ERROR  ${name} — engine=codex but command file missing: ${_cmd_file}"

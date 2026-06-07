@@ -1,11 +1,14 @@
+# syntax=docker/dockerfile:1
+
 # Stage 1: install all dependencies (build-time cache layer)
 FROM node:22-slim AS deps
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
-RUN corepack enable
+RUN corepack enable && pnpm config set store-dir /pnpm/store
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY prisma ./prisma/
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+    pnpm install --frozen-lockfile
 
 # Stage 2: build application with standalone output
 FROM node:22-slim AS builder

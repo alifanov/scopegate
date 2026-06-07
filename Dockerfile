@@ -40,7 +40,10 @@ RUN PRISMA_VERSION=$(node -e "console.log(require('/tmp/package.json').dependenc
     rm /tmp/package.json
 
 COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh && \
+    chown -R node:node /app /prisma-runtime /docker-entrypoint.sh
+
+USER node
 
 EXPOSE 3000
 CMD ["/docker-entrypoint.sh"]

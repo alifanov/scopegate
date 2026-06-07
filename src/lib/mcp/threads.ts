@@ -1,4 +1,5 @@
 import { getValidThreadsAccessToken } from "@/lib/threads-oauth";
+import { safeFetch } from "@/lib/mcp/safe-fetch";
 
 const THREADS_API_BASE = "https://graph.threads.net/v1.0";
 
@@ -11,13 +12,14 @@ export async function threadsFetch(
 
   const url = `${THREADS_API_BASE}${path}`;
 
-  const res = await fetch(url, {
+  const res = await safeFetch(url, {
     ...init,
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken}`,
       ...init?.headers,
     },
+    timeout: 8_000,
   });
 
   if (!res.ok) {

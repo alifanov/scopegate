@@ -110,13 +110,14 @@ function headersToRecord(h: RequestInit["headers"]): Record<string, string> {
 // cannot re-resolve the hostname and be tricked by DNS rebinding.
 function makeRequest(
   parsed: URL,
-  options: RequestInit | undefined,
+  options: SafeFetchOptions | undefined,
   pinnedIp: string,
   pinnedFamily: number
 ): Promise<Response> {
   return new Promise((resolve, reject) => {
     const port = parsed.port ? Number(parsed.port) : 443;
     const method = (options?.method as string | undefined) ?? "GET";
+    const timeoutMs = options?.timeout;
 
     const req = https.request(
       {
@@ -165,6 +166,12 @@ function makeRequest(
 
     req.on("error", reject);
 
+    if (timeoutMs) {
+      req.setTimeout(timeoutMs, () => {
+        req.destroy(new Error(`Request timed out after ${timeoutMs}ms`));
+      });
+    }
+
     const body = options?.body;
     if (typeof body === "string") req.write(body);
     else if (body instanceof Uint8Array || Buffer.isBuffer(body)) req.write(body);
@@ -173,15 +180,19 @@ function makeRequest(
   });
 }
 
+export type SafeFetchOptions = RequestInit & { timeout?: number };
+
 /**
  * SSRF-safe HTTPS fetch. Resolves all DNS records (A + AAAA) and blocks requests
  * if any resolves to a private/reserved range. Pins the TCP connection to the
  * validated IP to prevent DNS-rebinding TOCTOU attacks. Re-validates on every
  * redirect hop.
+ *
+ * Pass `timeout` (ms) to abort the request if the server doesn't respond in time.
  */
 export async function safeFetch(
   url: string,
-  options?: RequestInit,
+  options?: SafeFetchOptions,
   _depth = 0
 ): Promise<Response> {
   if (_depth > MAX_REDIRECTS) {

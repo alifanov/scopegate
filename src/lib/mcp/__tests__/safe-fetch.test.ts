@@ -227,6 +227,73 @@ describe("safeFetch – SSRF protection", () => {
     });
   });
 
+  describe("timeout", () => {
+    it("destroys the request and rejects with a timeout error", async () => {
+      mockDns({ address: "93.184.216.34", family: 4 });
+
+      const mockReq = {
+        on: vi.fn().mockReturnThis(),
+        write: vi.fn(),
+        end: vi.fn(),
+        setTimeout: vi.fn(),
+        destroy: vi.fn(),
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (mockHttpsRequest as any).mockImplementationOnce(
+        (_opts: unknown, _cb?: unknown) => mockReq
+      );
+
+      const fetchPromise = safeFetch("https://example.com/api", { timeout: 100 });
+
+      // Wait for makeRequest to be called (after DNS resolution microtasks)
+      await vi.waitFor(() => expect(mockReq.setTimeout).toHaveBeenCalledWith(100, expect.any(Function)));
+
+      // Simulate the timeout firing
+      const timeoutCb = mockReq.setTimeout.mock.calls[0][1] as () => void;
+      timeoutCb();
+
+      expect(mockReq.destroy).toHaveBeenCalledWith(expect.any(Error));
+      const destroyErr = mockReq.destroy.mock.calls[0][0] as Error;
+      expect(destroyErr.message).toContain("timed out after 100ms");
+
+      // Propagate the error through the "error" event listener
+      const errorHandler = mockReq.on.mock.calls.find((c: unknown[]) => c[0] === "error");
+      (errorHandler![1] as (e: Error) => void)(destroyErr);
+
+      await expect(fetchPromise).rejects.toThrow("timed out after 100ms");
+    });
+
+    it("does not call req.setTimeout when timeout option is absent", async () => {
+      mockDns({ address: "93.184.216.34", family: 4 });
+
+      const mockReq = {
+        on: vi.fn().mockReturnThis(),
+        write: vi.fn(),
+        end: vi.fn(),
+        setTimeout: vi.fn(),
+        destroy: vi.fn(),
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (mockHttpsRequest as any).mockImplementationOnce(
+        (_opts: unknown, cb?: (res: unknown) => void) => {
+          if (cb) {
+            const mockRes = {
+              statusCode: 200,
+              statusMessage: "OK",
+              headers: {},
+              on: vi.fn().mockReturnThis(),
+            };
+            cb(mockRes);
+          }
+          return mockReq;
+        }
+      );
+
+      await safeFetch("https://example.com/api");
+      expect(mockReq.setTimeout).not.toHaveBeenCalled();
+    });
+  });
+
   describe("successful requests", () => {
     it("returns response with correct status", async () => {
       mockDns({ address: "93.184.216.34", family: 4 });

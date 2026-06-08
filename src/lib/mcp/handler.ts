@@ -3,6 +3,7 @@ import { getToolsByActions, type ToolDefinition } from "./tools";
 import { db } from "../db";
 import { z } from "zod";
 import { redactParams, sanitizeAuditError } from "./audit-utils";
+import { OAuthTokenError, markConnectionTokenError } from "../oauth-token-lifecycle";
 
 export function createMcpServerForEndpoint(
   endpointId: string,
@@ -78,22 +79,11 @@ function registerTool(
         );
         console.error(`[ScopeGate] Tool ${tool.name} failed:`, fullError);
 
-        // Detect token-related errors and mark connection status
-        const isTokenError =
-          fullError.includes("Token refresh failed") ||
-          fullError.includes("No refresh token") ||
-          fullError.includes("invalid_grant") ||
-          fullError.includes("Token exchange failed");
+        const isTokenError = err instanceof OAuthTokenError;
 
         if (isTokenError) {
           try {
-            await db.serviceConnection.update({
-              where: { id: serviceConnectionId },
-              data: {
-                status: "error",
-                lastError: fullError,
-              },
-            });
+            await markConnectionTokenError(serviceConnectionId, fullError);
           } catch (updateErr) {
             console.error("[ScopeGate] Failed to update connection status:", updateErr);
           }

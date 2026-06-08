@@ -1,6 +1,23 @@
 import { db } from "@/lib/db";
 import { encrypt, decrypt } from "@/lib/crypto";
 
+export class OAuthTokenError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "OAuthTokenError";
+  }
+}
+
+export async function markConnectionTokenError(
+  connectionId: string,
+  message: string
+): Promise<void> {
+  await db.serviceConnection.update({
+    where: { id: connectionId },
+    data: { status: "error", lastError: message },
+  });
+}
+
 const STATIC_PROVIDERS = new Set([
   "github", "slack", "notion",
   // API key providers — tokens never expire, just decrypt and use
@@ -58,7 +75,7 @@ function getProviderConfig(provider: string): ProviderConfig {
             grant_type: "refresh_token",
           }),
         });
-        if (!res.ok) throw new Error(`Google token refresh failed (${res.status})`);
+        if (!res.ok) throw new OAuthTokenError(`Google token refresh failed (${res.status})`);
         return res.json() as Promise<StandardTokenResponse>;
       },
     };
@@ -81,7 +98,7 @@ function getProviderConfig(provider: string): ProviderConfig {
             client_secret: clientSecret,
           }),
         });
-        if (!res.ok) throw new Error(`HubSpot token refresh failed (${res.status})`);
+        if (!res.ok) throw new OAuthTokenError(`HubSpot token refresh failed (${res.status})`);
         return res.json() as Promise<StandardTokenResponse>;
       },
     };
@@ -104,7 +121,7 @@ function getProviderConfig(provider: string): ProviderConfig {
             refresh_token: refreshToken,
           }),
         });
-        if (!res.ok) throw new Error(`Jira token refresh failed (${res.status})`);
+        if (!res.ok) throw new OAuthTokenError(`Jira token refresh failed (${res.status})`);
         return res.json() as Promise<StandardTokenResponse>;
       },
     };
@@ -127,7 +144,7 @@ function getProviderConfig(provider: string): ProviderConfig {
             client_secret: clientSecret,
           }),
         });
-        if (!res.ok) throw new Error(`LinkedIn token refresh failed (${res.status})`);
+        if (!res.ok) throw new OAuthTokenError(`LinkedIn token refresh failed (${res.status})`);
         return res.json() as Promise<StandardTokenResponse>;
       },
     };
@@ -150,7 +167,7 @@ function getProviderConfig(provider: string): ProviderConfig {
             client_secret: clientSecret,
           }),
         });
-        if (!res.ok) throw new Error(`Salesforce token refresh failed (${res.status})`);
+        if (!res.ok) throw new OAuthTokenError(`Salesforce token refresh failed (${res.status})`);
         const data = (await res.json()) as { access_token: string };
         // Salesforce doesn't return expires_in — assume 2 hours
         return { access_token: data.access_token, expires_in: 2 * 60 * 60 };
@@ -177,7 +194,7 @@ function getProviderConfig(provider: string): ProviderConfig {
             refresh_token: refreshToken,
           }),
         });
-        if (!res.ok) throw new Error(`Twitter token refresh failed (${res.status})`);
+        if (!res.ok) throw new OAuthTokenError(`Twitter token refresh failed (${res.status})`);
         return res.json() as Promise<StandardTokenResponse>;
       },
     };
@@ -221,7 +238,7 @@ function getProviderConfig(provider: string): ProviderConfig {
         const res = await fetch(
           `https://graph.threads.net/refresh_access_token?${params}`
         );
-        if (!res.ok) throw new Error(`Threads token refresh failed (${res.status})`);
+        if (!res.ok) throw new OAuthTokenError(`Threads token refresh failed (${res.status})`);
         return res.json() as Promise<StandardTokenResponse>;
       },
     };
@@ -271,7 +288,7 @@ export async function getValidAccessTokenForConnection(conn: DbConnection): Prom
 
   // kind === "refresh"
   if (!conn.refreshToken) {
-    throw new Error(
+    throw new OAuthTokenError(
       `No refresh token available for connection ${conn.id} (${conn.provider})`
     );
   }

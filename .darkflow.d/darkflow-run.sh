@@ -302,8 +302,14 @@ preflight() {
     echo "darkflow-run: ${YAML} not found. Run install.sh to reinstall Dark Flow." >&2
     ok=false
   fi
-  # Verify that each enabled routine has a corresponding command file.
-  # A mismatch means routines.yml and .claude/commands/darkflow/ are out of sync.
+  # Warn when an enabled routine has no command file, but DON'T fail the whole
+  # dispatcher over it. This is the expected state right after Dark Flow removes a
+  # routine upstream: existing projects still carry a stale enabled entry in
+  # routines.yml until get-config.sh refreshes it from the Web UI (which now drops
+  # routines Dark Flow no longer ships). Aborting here would brick every other
+  # routine AND block the get-config.sh refresh that self-heals the file — the
+  # orphan simply gets skipped at dispatch time instead. mode_manual still errors
+  # if you explicitly request a routine whose command is missing.
   if [[ -f "$YAML" ]] && command -v yq &>/dev/null; then
     local _cmd_dir="${PROJECT_ROOT}/.claude/commands/darkflow"
     local _rname _enabled
@@ -311,9 +317,8 @@ preflight() {
       _enabled=$(yq ".routines[\"${_rname}\"].enabled // true" "$YAML" 2>/dev/null || echo "true")
       [[ "$_enabled" == "false" ]] && continue
       if [[ ! -f "${_cmd_dir}/${_rname}.md" ]]; then
-        echo "darkflow-run: routine '${_rname}' is enabled in routines.yml but missing command file: .claude/commands/darkflow/${_rname}.md" >&2
-        echo "  Run install.sh to repair, or disable the routine in routines.yml." >&2
-        ok=false
+        echo "darkflow-run: routine '${_rname}' has no command file (.claude/commands/darkflow/${_rname}.md) — skipping it." >&2
+        echo "  This is normal if Dark Flow removed the routine; it clears on the next Web UI config refresh." >&2
       fi
     done < <(routine_names)
   fi
@@ -1101,6 +1106,12 @@ mode_dispatch() {
       continue
     fi
 
+    # Skip routines Dark Flow no longer ships (no command file). preflight already
+    # warned; running them would only fail. They clear on the next config refresh.
+    if [[ ! -f "${PROJECT_ROOT}/.claude/commands/darkflow/${name}.md" ]]; then
+      continue
+    fi
+
     model=$(yaml_get ".routines[\"${name}\"].model" "$YAML" "$default_model")
     permission_mode=$(yaml_get ".routines[\"${name}\"].permission_mode" "$YAML" "$default_perm")
     engine=$(yaml_get ".routines[\"${name}\"].engine" "$YAML" "$default_engine")
@@ -1147,6 +1158,12 @@ mode_manual() {
   if ! yq ".routines | has(\"${name}\")" "$YAML" 2>/dev/null | grep -q "true"; then
     echo "darkflow-run: unknown routine '${name}'" >&2
     echo "Known routines: $(routine_names | tr '\n' ' ')" >&2
+    exit 1
+  fi
+
+  if [[ ! -f "${PROJECT_ROOT}/.claude/commands/darkflow/${name}.md" ]]; then
+    echo "darkflow-run: routine '${name}' has no command file: .claude/commands/darkflow/${name}.md" >&2
+    echo "  Dark Flow may have removed it. Run install.sh to repair, or remove it from routines.yml." >&2
     exit 1
   fi
 

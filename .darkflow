@@ -11,3 +11,4 @@ slug=scopegate
 name=scopegate
 webapp_url=http://localhost:5555
 max_concurrent=3
+site_url=https://scopegate.chatindex.app

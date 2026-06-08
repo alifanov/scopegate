@@ -1,6 +1,5 @@
-import { db } from "@/lib/db";
-import { encrypt, decrypt } from "@/lib/crypto";
 import { buildSignedState } from "@/lib/oauth-state";
+import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
 
 const LINKEDIN_CLIENT_ID = process.env.LINKEDIN_CLIENT_ID!;
 const LINKEDIN_CLIENT_SECRET = process.env.LINKEDIN_CLIENT_SECRET!;
@@ -54,31 +53,6 @@ export async function exchangeLinkedInCodeForTokens(code: string) {
   }>;
 }
 
-export async function refreshLinkedInAccessToken(refreshToken: string) {
-  const res = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-      client_id: LINKEDIN_CLIENT_ID,
-      client_secret: LINKEDIN_CLIENT_SECRET,
-    }),
-  });
-
-  if (!res.ok) {
-    console.error("[ScopeGate] LinkedIn token refresh failed", { status: res.status });
-    throw new Error("LinkedIn token refresh failed");
-  }
-
-  return res.json() as Promise<{
-    access_token: string;
-    expires_in: number;
-    refresh_token?: string;
-    refresh_token_expires_in?: number;
-  }>;
-}
-
 export async function revokeLinkedInToken(_token: string): Promise<void> {
   // LinkedIn does not provide a public token revocation API.
   // Tokens are simply deleted from the database on disconnect.
@@ -104,48 +78,6 @@ export async function getLinkedInUserInfo(
   return data;
 }
 
-export async function getValidLinkedInAccessToken(
-  serviceConnectionId: string
-): Promise<string> {
-  const connection = await db.serviceConnection.findUniqueOrThrow({
-    where: { id: serviceConnectionId },
-  });
-
-  // If token expires within 5 minutes, refresh it
-  const bufferMs = 5 * 60 * 1000;
-  const needsRefresh =
-    !connection.expiresAt ||
-    connection.expiresAt.getTime() < Date.now() + bufferMs;
-
-  if (!needsRefresh) {
-    return decrypt(connection.accessToken);
-  }
-
-  if (!connection.refreshToken) {
-    throw new Error("No refresh token available for this LinkedIn connection");
-  }
-  const decryptedRefreshToken = decrypt(connection.refreshToken);
-  const tokens = await refreshLinkedInAccessToken(decryptedRefreshToken);
-  const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
-
-  const updateData: { accessToken: string; expiresAt: Date; refreshToken?: string } = {
-    accessToken: encrypt(tokens.access_token),
-    expiresAt,
-  };
-
-  // LinkedIn may return a new refresh token
-  if (tokens.refresh_token) {
-    updateData.refreshToken = encrypt(tokens.refresh_token);
-  }
-
-  await db.serviceConnection.update({
-    where: { id: serviceConnectionId },
-    data: {
-      ...updateData,
-      status: "active",
-      lastError: null,
-    },
-  });
-
-  return tokens.access_token;
+export function getValidLinkedInAccessToken(serviceConnectionId: string): Promise<string> {
+  return getValidAccessToken(serviceConnectionId);
 }

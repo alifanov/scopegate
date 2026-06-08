@@ -1,7 +1,6 @@
-import { db } from "@/lib/db";
-import { encrypt, decrypt } from "@/lib/crypto";
 import crypto from "crypto";
 import { buildSignedState } from "@/lib/oauth-state";
+import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
 
 const TWITTER_CLIENT_ID = process.env.TWITTER_CLIENT_ID!;
 const TWITTER_CLIENT_SECRET = process.env.TWITTER_CLIENT_SECRET!;
@@ -89,35 +88,6 @@ export async function exchangeTwitterCodeForTokens(code: string, codeVerifier: s
   }>;
 }
 
-export async function refreshTwitterAccessToken(refreshToken: string) {
-  const basicAuth = Buffer.from(`${TWITTER_CLIENT_ID}:${TWITTER_CLIENT_SECRET}`).toString("base64");
-
-  const res = await fetch("https://api.x.com/2/oauth2/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${basicAuth}`,
-    },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-    }),
-  });
-
-  if (!res.ok) {
-    console.error("[ScopeGate] Twitter token refresh failed", { status: res.status });
-    throw new Error("Twitter token refresh failed");
-  }
-
-  return res.json() as Promise<{
-    access_token: string;
-    expires_in: number;
-    refresh_token?: string;
-    token_type: string;
-    scope: string;
-  }>;
-}
-
 export async function getTwitterUserInfo(
   accessToken: string
 ): Promise<{ id: string; username: string; name: string }> {
@@ -133,49 +103,6 @@ export async function getTwitterUserInfo(
   return json.data;
 }
 
-export async function getValidTwitterAccessToken(
-  serviceConnectionId: string
-): Promise<string> {
-  const connection = await db.serviceConnection.findUniqueOrThrow({
-    where: { id: serviceConnectionId },
-  });
-
-  // If token expires within 5 minutes, refresh it
-  const bufferMs = 5 * 60 * 1000;
-  const needsRefresh =
-    !connection.expiresAt ||
-    connection.expiresAt.getTime() < Date.now() + bufferMs;
-
-  if (!needsRefresh) {
-    return decrypt(connection.accessToken);
-  }
-
-  if (!connection.refreshToken) {
-    throw new Error("No refresh token available for this Twitter connection");
-  }
-
-  const decryptedRefreshToken = decrypt(connection.refreshToken);
-  const tokens = await refreshTwitterAccessToken(decryptedRefreshToken);
-  const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
-
-  const updateData: { accessToken: string; expiresAt: Date; refreshToken?: string } = {
-    accessToken: encrypt(tokens.access_token),
-    expiresAt,
-  };
-
-  // Twitter rotates refresh tokens on each use
-  if (tokens.refresh_token) {
-    updateData.refreshToken = encrypt(tokens.refresh_token);
-  }
-
-  await db.serviceConnection.update({
-    where: { id: serviceConnectionId },
-    data: {
-      ...updateData,
-      status: "active",
-      lastError: null,
-    },
-  });
-
-  return tokens.access_token;
+export function getValidTwitterAccessToken(serviceConnectionId: string): Promise<string> {
+  return getValidAccessToken(serviceConnectionId);
 }

@@ -1,6 +1,5 @@
-import { db } from "@/lib/db";
-import { encrypt, decrypt } from "@/lib/crypto";
 import { buildSignedState } from "@/lib/oauth-state";
+import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
 
 const JIRA_CLIENT_ID = process.env.JIRA_CLIENT_ID!;
 const JIRA_CLIENT_SECRET = process.env.JIRA_CLIENT_SECRET!;
@@ -54,30 +53,6 @@ export async function exchangeJiraCodeForTokens(code: string) {
   }>;
 }
 
-export async function refreshJiraAccessToken(refreshToken: string) {
-  const res = await fetch("https://auth.atlassian.com/oauth/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      grant_type: "refresh_token",
-      client_id: JIRA_CLIENT_ID,
-      client_secret: JIRA_CLIENT_SECRET,
-      refresh_token: refreshToken,
-    }),
-  });
-
-  if (!res.ok) {
-    console.error("[ScopeGate] Jira token refresh failed", { status: res.status });
-    throw new Error("Jira token refresh failed");
-  }
-
-  return res.json() as Promise<{
-    access_token: string;
-    refresh_token: string;
-    expires_in: number;
-  }>;
-}
-
 export async function getJiraCloudInfo(
   accessToken: string
 ): Promise<{ cloudId: string; name: string; url: string }> {
@@ -101,40 +76,6 @@ export async function getJiraCloudInfo(
   };
 }
 
-export async function getValidJiraAccessToken(
-  serviceConnectionId: string
-): Promise<string> {
-  const connection = await db.serviceConnection.findUniqueOrThrow({
-    where: { id: serviceConnectionId },
-  });
-
-  const bufferMs = 5 * 60 * 1000;
-  const needsRefresh =
-    !connection.expiresAt ||
-    connection.expiresAt.getTime() < Date.now() + bufferMs;
-
-  if (!needsRefresh) {
-    return decrypt(connection.accessToken);
-  }
-
-  if (!connection.refreshToken) {
-    throw new Error("No refresh token available for this Jira connection");
-  }
-
-  const decryptedRefreshToken = decrypt(connection.refreshToken);
-  const tokens = await refreshJiraAccessToken(decryptedRefreshToken);
-  const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
-
-  await db.serviceConnection.update({
-    where: { id: serviceConnectionId },
-    data: {
-      accessToken: encrypt(tokens.access_token),
-      refreshToken: encrypt(tokens.refresh_token),
-      expiresAt,
-      status: "active",
-      lastError: null,
-    },
-  });
-
-  return tokens.access_token;
+export function getValidJiraAccessToken(serviceConnectionId: string): Promise<string> {
+  return getValidAccessToken(serviceConnectionId);
 }

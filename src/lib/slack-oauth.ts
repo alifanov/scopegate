@@ -1,6 +1,5 @@
-import { db } from "@/lib/db";
-import { decrypt } from "@/lib/crypto";
 import { buildSignedState } from "@/lib/oauth-state";
+import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
 
 const SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID!;
 const SLACK_CLIENT_SECRET = process.env.SLACK_CLIENT_SECRET!;
@@ -73,12 +72,6 @@ export async function getSlackTeamInfo(
   return { team: data.team || "Slack", user: data.user || "" };
 }
 
-export async function getValidSlackAccessToken(
-  serviceConnectionId: string
-): Promise<string> {
-  const connection = await db.serviceConnection.findUniqueOrThrow({
-    where: { id: serviceConnectionId },
-  });
-  // Slack bot tokens don't expire
-  return decrypt(connection.accessToken);
+export function getValidSlackAccessToken(serviceConnectionId: string): Promise<string> {
+  return getValidAccessToken(serviceConnectionId);
 }

@@ -1,6 +1,5 @@
-import { db } from "@/lib/db";
-import { encrypt, decrypt } from "@/lib/crypto";
 import { buildSignedState } from "@/lib/oauth-state";
+import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
 
 const THREADS_APP_ID = process.env.THREADS_APP_ID!;
 const THREADS_APP_SECRET = process.env.THREADS_APP_SECRET!;
@@ -98,101 +97,6 @@ export async function getThreadsUserInfo(
   }>;
 }
 
-export async function refreshThreadsTokenForConnection(connection: {
-  id: string;
-  accessToken: string;
-  expiresAt: Date | null;
-}): Promise<string> {
-  const currentToken = decrypt(connection.accessToken);
-  const params = new URLSearchParams({
-    grant_type: "th_refresh_token",
-    access_token: currentToken,
-  });
-  const res = await fetch(
-    `https://graph.threads.net/refresh_access_token?${params.toString()}`
-  );
-
-  if (!res.ok) {
-    console.error(`[ScopeGate] Threads token refresh failed (${res.status})`);
-    await db.serviceConnection.update({
-      where: { id: connection.id },
-      data: {
-        status: "error",
-        lastError: `Token refresh failed (${res.status})`,
-      },
-    });
-    throw new Error("Token refresh failed");
-  }
-
-  const data = (await res.json()) as {
-    access_token: string;
-    expires_in: number;
-  };
-  const expiresAt = new Date(Date.now() + data.expires_in * 1000);
-  await db.serviceConnection.update({
-    where: { id: connection.id },
-    data: {
-      accessToken: encrypt(data.access_token),
-      expiresAt,
-      status: "active",
-      lastError: null,
-      consecutiveFailures: 0,
-    },
-  });
-  return data.access_token;
-}
-
-export async function getValidThreadsAccessToken(
-  serviceConnectionId: string
-): Promise<string> {
-  const connection = await db.serviceConnection.findUniqueOrThrow({
-    where: { id: serviceConnectionId },
-  });
-
-  const bufferMs = 24 * 60 * 60 * 1000; // 1 day buffer
-  if (
-    connection.expiresAt &&
-    connection.expiresAt.getTime() > Date.now() + bufferMs
-  ) {
-    return decrypt(connection.accessToken);
-  }
-
-  // Refresh long-lived token
-  const currentToken = decrypt(connection.accessToken);
-  const params = new URLSearchParams({
-    grant_type: "th_refresh_token",
-    access_token: currentToken,
-  });
-  const res = await fetch(
-    `https://graph.threads.net/refresh_access_token?${params.toString()}`
-  );
-
-  if (!res.ok) {
-    console.error(`[ScopeGate] Threads token refresh failed (${res.status})`);
-    await db.serviceConnection.update({
-      where: { id: serviceConnectionId },
-      data: {
-        status: "error",
-        lastError: `Token refresh failed (${res.status})`,
-      },
-    });
-    throw new Error("Token refresh failed");
-  }
-
-  const data = (await res.json()) as {
-    access_token: string;
-    expires_in: number;
-  };
-  const expiresAt = new Date(Date.now() + data.expires_in * 1000);
-  await db.serviceConnection.update({
-    where: { id: serviceConnectionId },
-    data: {
-      accessToken: encrypt(data.access_token),
-      expiresAt,
-      status: "active",
-      lastError: null,
-      consecutiveFailures: 0,
-    },
-  });
-  return data.access_token;
+export function getValidThreadsAccessToken(serviceConnectionId: string): Promise<string> {
+  return getValidAccessToken(serviceConnectionId);
 }

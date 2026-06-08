@@ -1,5 +1,3 @@
-import { db } from "@/lib/db";
-import { encrypt, decrypt } from "@/lib/crypto";
 import { buildSignedState } from "@/lib/oauth-state";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
@@ -68,30 +66,6 @@ export async function exchangeCodeForTokens(code: string) {
   }>;
 }
 
-export async function refreshAccessToken(refreshToken: string) {
-  const res = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      refresh_token: refreshToken,
-      client_id: GOOGLE_CLIENT_ID,
-      client_secret: GOOGLE_CLIENT_SECRET,
-      grant_type: "refresh_token",
-    }),
-  });
-
-  if (!res.ok) {
-    console.error("[ScopeGate] Token refresh failed", { status: res.status });
-    throw new Error("Token refresh failed");
-  }
-
-  return res.json() as Promise<{
-    access_token: string;
-    expires_in: number;
-    token_type: string;
-  }>;
-}
-
 export async function revokeGoogleToken(token: string): Promise<void> {
   try {
     const res = await fetch(
@@ -126,39 +100,4 @@ export async function getGoogleUserEmail(
   return data.email;
 }
 
-export async function getValidAccessToken(
-  serviceConnectionId: string
-): Promise<string> {
-  const connection = await db.serviceConnection.findUniqueOrThrow({
-    where: { id: serviceConnectionId },
-  });
-
-  // If token expires within 5 minutes, refresh it
-  const bufferMs = 5 * 60 * 1000;
-  const needsRefresh =
-    !connection.expiresAt ||
-    connection.expiresAt.getTime() < Date.now() + bufferMs;
-
-  if (!needsRefresh) {
-    return decrypt(connection.accessToken);
-  }
-
-  if (!connection.refreshToken) {
-    throw new Error("No refresh token available for this connection");
-  }
-  const decryptedRefreshToken = decrypt(connection.refreshToken);
-  const tokens = await refreshAccessToken(decryptedRefreshToken);
-  const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
-
-  await db.serviceConnection.update({
-    where: { id: serviceConnectionId },
-    data: {
-      accessToken: encrypt(tokens.access_token),
-      expiresAt,
-      status: "active",
-      lastError: null,
-    },
-  });
-
-  return tokens.access_token;
-}
+export { getValidAccessToken } from "@/lib/oauth-token-lifecycle";

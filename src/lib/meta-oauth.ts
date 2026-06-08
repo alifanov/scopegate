@@ -1,6 +1,5 @@
-import { db } from "@/lib/db";
-import { encrypt, decrypt } from "@/lib/crypto";
 import { buildSignedState } from "@/lib/oauth-state";
+import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
 
 const META_APP_ID = process.env.META_APP_ID!;
 const META_APP_SECRET = process.env.META_APP_SECRET!;
@@ -80,52 +79,6 @@ export async function getMetaUserInfo(
   }>;
 }
 
-export async function getValidMetaAccessToken(
-  serviceConnectionId: string
-): Promise<string> {
-  const connection = await db.serviceConnection.findUniqueOrThrow({
-    where: { id: serviceConnectionId },
-  });
-
-  const bufferMs = 24 * 60 * 60 * 1000; // 1 day buffer
-  if (
-    connection.expiresAt &&
-    connection.expiresAt.getTime() > Date.now() + bufferMs
-  ) {
-    return decrypt(connection.accessToken);
-  }
-
-  // Try to refresh by exchanging current token for a new long-lived one
-  const currentToken = decrypt(connection.accessToken);
-  try {
-    const params = new URLSearchParams({
-      grant_type: "fb_exchange_token",
-      client_id: META_APP_ID,
-      client_secret: META_APP_SECRET,
-      fb_exchange_token: currentToken,
-    });
-    const res = await fetch(
-      `https://graph.facebook.com/v21.0/oauth/access_token?${params.toString()}`
-    );
-    if (res.ok) {
-      const data = (await res.json()) as {
-        access_token: string;
-        expires_in: number;
-      };
-      const expiresAt = new Date(Date.now() + data.expires_in * 1000);
-      await db.serviceConnection.update({
-        where: { id: serviceConnectionId },
-        data: {
-          accessToken: encrypt(data.access_token),
-          expiresAt,
-          status: "active",
-          lastError: null,
-        },
-      });
-      return data.access_token;
-    }
-  } catch {
-    // Refresh failed, return current token
-  }
-  return currentToken;
+export function getValidMetaAccessToken(serviceConnectionId: string): Promise<string> {
+  return getValidAccessToken(serviceConnectionId);
 }

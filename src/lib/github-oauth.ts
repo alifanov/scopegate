@@ -1,6 +1,5 @@
-import { db } from "@/lib/db";
-import { decrypt } from "@/lib/crypto";
 import { buildSignedState } from "@/lib/oauth-state";
+import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
 
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID!;
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET!;
@@ -79,12 +78,6 @@ export async function getGitHubUserInfo(
   }>;
 }
 
-export async function getValidGitHubAccessToken(
-  serviceConnectionId: string
-): Promise<string> {
-  const connection = await db.serviceConnection.findUniqueOrThrow({
-    where: { id: serviceConnectionId },
-  });
-  // GitHub tokens don't expire (unless expiration is enabled on the app)
-  return decrypt(connection.accessToken);
+export function getValidGitHubAccessToken(serviceConnectionId: string): Promise<string> {
+  return getValidAccessToken(serviceConnectionId);
 }

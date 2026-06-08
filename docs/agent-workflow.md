@@ -59,6 +59,7 @@ Rule is universal — only the folder changes by data source:
 | Docs audit — docs ↔ code drift | `insights/docs-audit/YYYY-MM-DD.md` | `/darkflow:docs-audit` |
 | Product overview — state + recent improvements + hypotheses digest | `insights/product-overview/YYYY-MM-DD.md` | `/darkflow:product-overview` |
 | Build optimization — build + deploy pipeline efficiency | `insights/build-optimization/YYYY-MM-DD.md` | `/darkflow:build-optimization` |
+| Uptime check — DNS / HTTP status / page-load health | `insights/uptime/YYYY-MM-DD.md` | `/darkflow:uptime-check` |
 | Code health — dead code, duplication, cycles, complexity (fallow) | `insights/code-health/YYYY-MM-DD.md` | `/darkflow:code-health` |
 | Design audit — five-dimension technical quality (impeccable:audit) | `insights/design-audit/YYYY-MM-DD.md` | `/darkflow:design-audit` |
 | Design critique — scored review, persona tests (impeccable:critique) | `insights/design-critique/YYYY-MM-DD.md` | `/darkflow:design-critique` |

@@ -49,6 +49,12 @@ routines:
     engine: claude
     enabled: true
 
+  uptime-check:
+    cron: "49 */4 * * *"
+    model: sonnet
+    engine: claude
+    enabled: true
+
   vulnerability-check:
     cron: "49 6 * * *"
     model: sonnet

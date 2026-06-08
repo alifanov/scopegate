@@ -2,6 +2,8 @@ Check the project's IMAP inbox for new messages, create GitHub issues from them,
 
 ## Step 1 — Read config
 
+Run `bash .darkflow.d/get-config.sh` to pull the latest project settings from the Web UI and refresh the local `.darkflow` cache (silently falls back to cache if the server is unreachable).
+
 Read `.darkflow` in the project root. Extract:
 - `language=` → output/issue language (default: English)
 - `branch=` → main branch name
@@ -78,15 +80,15 @@ Capture the output and parse it. Process each message one by one in Step 4.
 For each message from Step 3:
 
 **Determine priority:**
-- `priority:p1` — subject or body contains urgency keywords: "broken", "ошибка", "не работает", "urgent", "critical", "срочно", "bug", "crash", "down"
-- `priority:p2` — everything else (default)
+- `priority:high` — subject or body contains urgency keywords: "broken", "ошибка", "не работает", "urgent", "critical", "срочно", "bug", "crash", "down"
+- `priority:medium` — everything else (default)
 
 **Create the issue:**
 
 ```bash
 gh issue create \
   --title "<action-oriented title>" \
-  --label "status:proposed,source:mailbox,priority:<p1 or p2>" \
+  --label "status:proposed,source:mailbox,priority:<high or medium>" \
   --body "$(cat << 'EOF'
 ## Incoming email
 

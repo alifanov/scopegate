@@ -548,6 +548,7 @@ run_routine() {
   start_heartbeat_loop "$name"
 
   local agent_output _stream_file
+  local _cost_json="" _tokens_json=""   # JSON fragments for PENDING_LOGS (empty = omit)
   _stream_file=$(mktemp)
   _CLEANUP_FILES+=("$_stream_file")
   if [[ "$engine" == "codex" ]]; then
@@ -571,11 +572,24 @@ run_routine() {
     fi
     agent_output=$(cat "$_stream_file") || agent_output=""
   else
-    # Claude's default (text) output is the final assistant message — stored
-    # verbatim, no transcript parsing.
+    # --output-format json returns a single result object carrying the final
+    # assistant text (.result) plus usage metrics (.total_cost_usd, .usage.*).
+    # We persist cost + total tokens per run so the web UI can show which
+    # routine consumes the most of the account's limits.
     run_in_pgid claude -p "/darkflow:${name}" --model "${model}" "${perm_args[@]}" \
-      > "$_stream_file" || exit_code=$?
-    agent_output=$(cat "$_stream_file") || agent_output=""
+      --output-format json > "$_stream_file" || exit_code=$?
+    local _raw; _raw=$(cat "$_stream_file") || _raw=""
+    if jq -e . >/dev/null 2>&1 <<< "$_raw"; then
+      agent_output=$(jq -r '.result // ""' <<< "$_raw")
+      local _cost _tokens
+      _cost=$(jq -r '.total_cost_usd // empty' <<< "$_raw")
+      _tokens=$(jq -r '[.usage.input_tokens, .usage.output_tokens, .usage.cache_creation_input_tokens, .usage.cache_read_input_tokens] | map(select(. != null)) | add // empty' <<< "$_raw")
+      [[ -n "$_cost" ]]   && _cost_json=",\"costUsd\":${_cost}"
+      [[ -n "$_tokens" ]] && _tokens_json=",\"totalTokens\":${_tokens}"
+    else
+      # Non-JSON stdout (crash/partial) — keep raw text, leave metrics empty.
+      agent_output="$_raw"
+    fi
   fi
   rm -f "$_stream_file"
   _CLEANUP_FILES=("${_CLEANUP_FILES[@]/$_stream_file}")
@@ -593,7 +607,7 @@ run_routine() {
   local ts; ts=$(date -u +%FT%TZ)
   local output_json
   output_json=$(jq -Rsa '.' <<< "$agent_output")
-  PENDING_LOGS+=("{\"routine\":\"${name}\",\"summary\":\"ran ${name} — ${status_str}\",\"output\":${output_json},\"timestamp\":\"${ts}\"}")
+  PENDING_LOGS+=("{\"routine\":\"${name}\",\"summary\":\"ran ${name} — ${status_str}\",\"output\":${output_json}${_cost_json}${_tokens_json},\"timestamp\":\"${ts}\"}")
 
   return $exit_code
 }

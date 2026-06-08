@@ -42,6 +42,11 @@ RUN PRISMA_VERSION=$(node -e "console.log(require('/tmp/package.json').dependenc
     npm cache clean --force && \
     rm /tmp/package.json
 
+# Prisma config for runtime `migrate deploy`. The schema datasource has no url —
+# it is supplied here from DATABASE_URL. Loaded from cwd /prisma-runtime by the
+# entrypoint so that `prisma/config` resolves against the prisma CLI installed above.
+COPY docker/prisma.config.ts /prisma-runtime/prisma.config.ts
+
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh && \
     chown -R node:node /app /prisma-runtime /docker-entrypoint.sh

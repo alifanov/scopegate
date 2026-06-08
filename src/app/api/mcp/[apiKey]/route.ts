@@ -1,6 +1,8 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import { trace } from "@opentelemetry/api";
 import { db } from "@/lib/db";
 import { createMcpServerForEndpoint } from "@/lib/mcp/handler";
+import { recordMcpInvalidRequest } from "@/lib/mcp/metrics";
 
 // SSE connections are long-lived by design (MCP Streamable HTTP spec).
 // p99 ≈ 299 s is the reverse-proxy idle timeout, not an app bug.
@@ -44,6 +46,13 @@ async function handleMcpRequest(
   request: Request,
   apiKey: string
 ): Promise<Response> {
+  // Explicitly tag the active OTel span with the route pattern.
+  // The http-level requestHook in instrumentation.node.ts also sets this, but in
+  // production (no src/app/ present) normalizeRoute falls back to the raw URL which
+  // embeds the actual API key. Setting it here on the framework-level span ensures
+  // SigNoz always aggregates all MCP traffic under a single canonical route.
+  trace.getActiveSpan()?.setAttribute("http.route", "/api/mcp/[apiKey]");
+
   // Look up endpoint by API key
   const endpoint = await db.mcpEndpoint.findUnique({
     where: { apiKey },
@@ -54,6 +63,7 @@ async function handleMcpRequest(
   });
 
   if (!endpoint) {
+    recordMcpInvalidRequest("unauthorized");
     return new Response(JSON.stringify({ error: "Invalid API key" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
@@ -61,6 +71,7 @@ async function handleMcpRequest(
   }
 
   if (!endpoint.isActive) {
+    recordMcpInvalidRequest("unauthorized");
     return new Response(
       JSON.stringify({ error: "Endpoint is deactivated" }),
       { status: 403, headers: { "Content-Type": "application/json" } }
@@ -80,6 +91,7 @@ async function handleMcpRequest(
   const currentCount = Number(result[0]?.count ?? 1);
 
   if (currentCount > endpoint.rateLimitPerMinute) {
+    recordMcpInvalidRequest("rate_limited");
     return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
       status: 429,
       headers: { "Content-Type": "application/json" },
@@ -101,7 +113,22 @@ async function handleMcpRequest(
 
   await server.connect(transport);
 
+  // Clone before the transport consumes the body so we can log it on 400.
+  const requestClone = request.clone();
   const response = await transport.handleRequest(request);
+
+  if (response.status === 400) {
+    recordMcpInvalidRequest("invalid_format");
+    const bodyPreview = await requestClone.text().catch(() => "<unreadable>");
+    console.log(
+      JSON.stringify({
+        event: "mcp.invalid_request",
+        route: "/api/mcp/[apiKey]",
+        status: 400,
+        body_preview: bodyPreview.slice(0, 500),
+      })
+    );
+  }
 
   return withSseKeepAlive(response);
 }

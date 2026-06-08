@@ -1,17 +1,15 @@
-import { db } from "@/lib/db";
-import { decrypt } from "@/lib/crypto";
+import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
+import { safeFetch } from "@/lib/mcp/safe-fetch";
 
 export async function telegramFetch(
   serviceConnectionId: string,
   method: string,
   params?: Record<string, unknown>
 ): Promise<unknown> {
-  const connection = await db.serviceConnection.findUniqueOrThrow({
-    where: { id: serviceConnectionId },
-  });
-  const botToken = decrypt(connection.accessToken);
+  // Telegram embeds the bot token in the URL path — cannot use standard Bearer auth
+  const botToken = await getValidAccessToken(serviceConnectionId);
 
-  const res = await fetch(
+  const res = await safeFetch(
     `https://api.telegram.org/bot${botToken}/${method}`,
     {
       method: "POST",

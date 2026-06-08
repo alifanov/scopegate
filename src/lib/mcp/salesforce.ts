@@ -1,27 +1,11 @@
-import { getValidSalesforceAccessToken } from "@/lib/salesforce-oauth";
+import { serviceFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch";
 
 export async function salesforceFetch(
   serviceConnectionId: string,
   path: string,
-  init?: RequestInit
+  init?: ServiceFetchOptions
 ): Promise<unknown> {
-  const { accessToken, instanceUrl } =
-    await getValidSalesforceAccessToken(serviceConnectionId);
-
-  if (!instanceUrl) {
-    throw new Error(
-      "Salesforce instance URL not found in service connection metadata"
-    );
-  }
-
-  const res = await fetch(`${instanceUrl}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
-  });
+  const res = await serviceFetch(serviceConnectionId, path, init);
 
   if (!res.ok) {
     console.error(`[ScopeGate] Salesforce API error (${res.status})`);

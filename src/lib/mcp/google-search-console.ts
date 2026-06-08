@@ -1,4 +1,5 @@
-import { getValidAccessToken } from "@/lib/google-oauth";
+import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
+import { safeFetch, type SafeFetchOptions } from "@/lib/mcp/safe-fetch";
 import { metrics, type Histogram } from "@opentelemetry/api";
 
 const WEBMASTERS_BASE_URL = "https://www.googleapis.com/webmasters/v3";
@@ -37,11 +38,11 @@ function isCacheable(method: string | undefined, path: string): boolean {
   return false;
 }
 
-async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+async function fetchWithRetry(url: string, init: SafeFetchOptions): Promise<Response> {
   const MAX_RETRIES = 3;
   let attempt = 0;
   while (true) {
-    const res = await fetch(url, init);
+    const res = await safeFetch(url, init);
     if (res.status !== 429 || attempt >= MAX_RETRIES) return res;
     const retryAfterHeader = res.headers.get("Retry-After");
     const delayMs = retryAfterHeader
@@ -75,16 +76,15 @@ async function gscFetch(
   const start = Date.now();
 
   const isUrlInspection = path.includes("/urlInspection/");
-  const timeoutSignal = isUrlInspection ? AbortSignal.timeout(URL_INSPECTION_TIMEOUT_MS) : undefined;
 
   const res = await fetchWithRetry(fullUrl, {
     ...init,
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
-      ...init?.headers,
+      ...(init?.headers as Record<string, string> | undefined),
     },
-    ...(timeoutSignal ? { signal: timeoutSignal } : {}),
+    ...(isUrlInspection ? { timeout: URL_INSPECTION_TIMEOUT_MS } : {}),
   });
 
   recordLatency(Date.now() - start);

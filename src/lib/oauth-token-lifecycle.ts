@@ -1,7 +1,11 @@
 import { db } from "@/lib/db";
 import { encrypt, decrypt } from "@/lib/crypto";
 
-const STATIC_PROVIDERS = new Set(["github", "slack", "notion"]);
+const STATIC_PROVIDERS = new Set([
+  "github", "slack", "notion",
+  // API key providers — tokens never expire, just decrypt and use
+  "openRouter", "telegram", "semrush", "ahrefs", "stripe", "airtable", "calendly",
+]);
 const GOOGLE_PROVIDERS = new Set([
   "gmail",
   "calendar",

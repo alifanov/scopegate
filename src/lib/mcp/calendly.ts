@@ -1,26 +1,11 @@
-import { db } from "@/lib/db";
-import { decrypt } from "@/lib/crypto";
-
-const CALENDLY_API_BASE = "https://api.calendly.com";
+import { serviceFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch";
 
 export async function calendlyFetch(
   serviceConnectionId: string,
   path: string,
-  init?: RequestInit
+  init?: ServiceFetchOptions
 ): Promise<unknown> {
-  const connection = await db.serviceConnection.findUniqueOrThrow({
-    where: { id: serviceConnectionId },
-  });
-  const apiKey = decrypt(connection.accessToken);
-
-  const res = await fetch(`${CALENDLY_API_BASE}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
-  });
+  const res = await serviceFetch(serviceConnectionId, path, init);
 
   if (!res.ok) {
     console.error(`[ScopeGate] Calendly API error (${res.status})`);

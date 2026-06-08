@@ -1,6 +1,6 @@
-import { getValidTwitterAccessToken } from "@/lib/twitter-oauth";
+import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
+import { serviceFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch";
 
-const TWITTER_BASE_URL = "https://api.x.com/2";
 const TWITTER_UPLOAD_URL = "https://api.x.com/2/media/upload";
 
 // Cache authenticated user IDs per service connection
@@ -25,20 +25,9 @@ export async function getAuthenticatedUserId(
 export async function twitterFetch(
   serviceConnectionId: string,
   path: string,
-  init?: RequestInit
+  init?: ServiceFetchOptions
 ): Promise<unknown> {
-  const accessToken = await getValidTwitterAccessToken(serviceConnectionId);
-
-  const fullUrl = `${TWITTER_BASE_URL}${path}`;
-
-  const res = await fetch(fullUrl, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
-  });
+  const res = await serviceFetch(serviceConnectionId, path, init);
 
   if (!res.ok) {
     console.error(`[ScopeGate] Twitter API error (${res.status})`);
@@ -57,7 +46,8 @@ export async function twitterUploadMedia(
   imageBuffer: Buffer,
   mimeType: string
 ): Promise<string> {
-  const accessToken = await getValidTwitterAccessToken(serviceConnectionId);
+  // FormData body is not supported by safeFetch — use bare fetch for this fixed-URL upload
+  const accessToken = await getValidAccessToken(serviceConnectionId);
 
   const formData = new FormData();
   formData.append("media", new Blob([imageBuffer.buffer as ArrayBuffer], { type: mimeType }));

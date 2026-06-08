@@ -1,23 +1,11 @@
-import { getValidGitHubAccessToken } from "@/lib/github-oauth";
-
-const GITHUB_API_BASE = "https://api.github.com";
+import { serviceFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch";
 
 export async function githubFetch(
   serviceConnectionId: string,
   path: string,
-  init?: RequestInit
+  init?: ServiceFetchOptions
 ): Promise<unknown> {
-  const accessToken = await getValidGitHubAccessToken(serviceConnectionId);
-
-  const res = await fetch(`${GITHUB_API_BASE}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: "application/vnd.github.v3+json",
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
-  });
+  const res = await serviceFetch(serviceConnectionId, path, init);
 
   if (!res.ok) {
     console.error(`[ScopeGate] GitHub API error (${res.status})`);

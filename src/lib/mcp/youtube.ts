@@ -1,38 +1,25 @@
-import { readFile } from "fs/promises";
-import { lookup } from "mime-types";
-import { getValidAccessToken } from "@/lib/google-oauth";
+import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
+import { serviceFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch";
 import { safeFetch } from "./safe-fetch";
 
 const MAX_VIDEO_BYTES = 256 * 1024 * 1024; // 256 MB in-memory limit
 
-const YOUTUBE_BASE_URL = "https://www.googleapis.com/youtube/v3";
 const YOUTUBE_UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos";
 
 export async function youtubeFetch(
   serviceConnectionId: string,
   path: string,
-  init?: RequestInit,
+  init?: ServiceFetchOptions,
   options?: { responseType?: "text" }
 ): Promise<unknown> {
-  const accessToken = await getValidAccessToken(serviceConnectionId);
-
-  const res = await fetch(`${YOUTUBE_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
-  });
+  const res = await serviceFetch(serviceConnectionId, path, init);
 
   if (!res.ok) {
     console.error(`[ScopeGate] YouTube API error (${res.status})`);
     throw new Error("YouTube API request failed");
   }
 
-  if (res.status === 204) {
-    return { success: true };
-  }
+  if (res.status === 204) return { success: true };
 
   if (options?.responseType === "text") {
     return { content: await res.text() };
@@ -90,7 +77,7 @@ export async function youtubeUploadVideo(
   };
 
   // Step 1: Initiate resumable upload
-  const initRes = await fetch(
+  const initRes = await safeFetch(
     `${YOUTUBE_UPLOAD_URL}?uploadType=resumable&part=snippet,status`,
     {
       method: "POST",
@@ -114,8 +101,8 @@ export async function youtubeUploadVideo(
     throw new Error("YouTube upload init did not return upload URL");
   }
 
-  // Step 2: Upload the video bytes
-  const uploadRes = await fetch(uploadUrl, {
+  // Step 2: Upload the video bytes to the provider-returned URL (SSRF-safe)
+  const uploadRes = await safeFetch(uploadUrl, {
     method: "PUT",
     headers: {
       "Content-Type": contentType,

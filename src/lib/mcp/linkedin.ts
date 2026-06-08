@@ -1,8 +1,13 @@
-import { getValidLinkedInAccessToken } from "@/lib/linkedin-oauth";
+import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
+import { serviceFetch } from "@/lib/mcp/service-fetch";
+import { safeFetch } from "@/lib/mcp/safe-fetch";
 
-const LINKEDIN_REST_BASE = "https://api.linkedin.com/rest";
 const LINKEDIN_V2_BASE = "https://api.linkedin.com/v2";
 const LINKEDIN_VERSION = "202601";
+const LINKEDIN_FIXED_HEADERS = {
+  "X-Restli-Protocol-Version": "2.0.0",
+  "LinkedIn-Version": LINKEDIN_VERSION,
+};
 
 // Cache member URN per service connection
 const memberUrnCache = new Map<string, string>();
@@ -13,16 +18,9 @@ export async function getLinkedInMemberUrn(
   const cached = memberUrnCache.get(serviceConnectionId);
   if (cached) return cached;
 
-  const accessToken = await getValidLinkedInAccessToken(serviceConnectionId);
-  const res = await fetch(`${LINKEDIN_V2_BASE}/userinfo`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-
-  if (!res.ok) {
-    throw new Error("Failed to fetch LinkedIn member URN");
-  }
-
-  const data = (await res.json()) as { sub: string };
+  const data = (await linkedinFetch(serviceConnectionId, "/userinfo", {
+    useV2: true,
+  })) as { sub: string };
   const urn = `urn:li:person:${data.sub}`;
   memberUrnCache.set(serviceConnectionId, urn);
   return urn;
@@ -31,21 +29,26 @@ export async function getLinkedInMemberUrn(
 export async function linkedinFetch(
   serviceConnectionId: string,
   path: string,
-  init?: RequestInit & { useV2?: boolean }
+  init?: { useV2?: boolean; method?: string; body?: string; headers?: Record<string, string> }
 ): Promise<unknown> {
-  const accessToken = await getValidLinkedInAccessToken(serviceConnectionId);
-  const base = init?.useV2 ? LINKEDIN_V2_BASE : LINKEDIN_REST_BASE;
+  const { useV2, ...restInit } = init ?? {};
 
-  const res = await fetch(`${base}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-      "X-Restli-Protocol-Version": "2.0.0",
-      "LinkedIn-Version": LINKEDIN_VERSION,
-      ...init?.headers,
-    },
-  });
+  let res: Response;
+  if (useV2) {
+    // V2 uses a different base URL — route through safeFetch with manual auth
+    const accessToken = await getValidAccessToken(serviceConnectionId);
+    res = await safeFetch(`${LINKEDIN_V2_BASE}${path}`, {
+      ...restInit,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        ...LINKEDIN_FIXED_HEADERS,
+        ...restInit.headers,
+      },
+    });
+  } else {
+    res = await serviceFetch(serviceConnectionId, path, restInit);
+  }
 
   if (!res.ok) {
     console.error(`[ScopeGate] LinkedIn API error (${res.status})`);
@@ -58,10 +61,7 @@ export async function linkedinFetch(
   }
 
   const text = await res.text();
-  if (!text) {
-    return { success: true };
-  }
-
+  if (!text) return { success: true };
   return JSON.parse(text);
 }
 
@@ -70,23 +70,17 @@ export async function linkedinUploadImage(
   imageBuffer: Buffer,
   mimeType: string
 ): Promise<string> {
-  const accessToken = await getValidLinkedInAccessToken(serviceConnectionId);
   const authorUrn = await getLinkedInMemberUrn(serviceConnectionId);
 
-  // Step 1: Initialize upload
-  const initRes = await fetch(`${LINKEDIN_REST_BASE}/images?action=initializeUpload`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-      "LinkedIn-Version": LINKEDIN_VERSION,
-    },
-    body: JSON.stringify({
-      initializeUploadRequest: {
-        owner: authorUrn,
-      },
-    }),
-  });
+  // Step 1: Initialize upload via standard REST transport
+  const initRes = await serviceFetch(
+    serviceConnectionId,
+    "/images?action=initializeUpload",
+    {
+      method: "POST",
+      body: JSON.stringify({ initializeUploadRequest: { owner: authorUrn } }),
+    }
+  );
 
   if (!initRes.ok) {
     throw new Error("LinkedIn image upload init failed");
@@ -102,8 +96,9 @@ export async function linkedinUploadImage(
     throw new Error("LinkedIn image upload init did not return uploadUrl or image URN");
   }
 
-  // Step 2: Upload binary image
-  const uploadRes = await fetch(uploadUrl, {
+  // Step 2: Upload binary image to the provider-returned URL (SSRF-safe)
+  const accessToken = await getValidAccessToken(serviceConnectionId);
+  const uploadRes = await safeFetch(uploadUrl, {
     method: "PUT",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -116,6 +111,5 @@ export async function linkedinUploadImage(
     throw new Error("LinkedIn image binary upload failed");
   }
 
-  // Step 3: Return image URN
   return imageUrn;
 }

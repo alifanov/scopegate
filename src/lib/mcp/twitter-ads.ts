@@ -1,27 +1,14 @@
-import { getValidTwitterAccessToken } from "@/lib/twitter-oauth";
-
-const TWITTER_ADS_BASE_URL = "https://ads-api.x.com/12";
+import { serviceFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch";
 
 export async function twitterAdsFetch(
   serviceConnectionId: string,
   path: string,
-  init?: RequestInit
+  init?: ServiceFetchOptions
 ): Promise<unknown> {
-  const accessToken = await getValidTwitterAccessToken(serviceConnectionId);
-
-  const fullUrl = `${TWITTER_ADS_BASE_URL}${path}`;
-
-  const res = await fetch(fullUrl, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
-  });
+  const res = await serviceFetch(serviceConnectionId, path, init);
 
   if (!res.ok) {
-    console.error(`[ScopeGate] Twitter Ads API error`, { status: res.status });
+    console.error(`[ScopeGate] Twitter Ads API error (${res.status})`);
     throw new Error("Twitter Ads API request failed");
   }
 

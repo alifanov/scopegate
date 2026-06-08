@@ -1,27 +1,12 @@
-import { db } from "@/lib/db";
-import { decrypt } from "@/lib/crypto";
-
-const AHREFS_API_BASE = "https://api.ahrefs.com/v3";
+import { serviceFetch } from "@/lib/mcp/service-fetch";
 
 export async function ahrefsFetch(
   serviceConnectionId: string,
   path: string,
   params?: Record<string, string>
 ): Promise<unknown> {
-  const connection = await db.serviceConnection.findUniqueOrThrow({
-    where: { id: serviceConnectionId },
-  });
-  const apiKey = decrypt(connection.accessToken);
-
-  const query = params
-    ? `?${new URLSearchParams(params).toString()}`
-    : "";
-  const res = await fetch(`${AHREFS_API_BASE}${path}${query}`, {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      Accept: "application/json",
-    },
-  });
+  const query = params ? `?${new URLSearchParams(params).toString()}` : "";
+  const res = await serviceFetch(serviceConnectionId, `${path}${query}`);
 
   if (!res.ok) {
     console.error(`[ScopeGate] Ahrefs API error (${res.status})`);

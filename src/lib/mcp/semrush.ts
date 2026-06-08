@@ -1,5 +1,5 @@
-import { db } from "@/lib/db";
-import { decrypt } from "@/lib/crypto";
+import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
+import { safeFetch } from "@/lib/mcp/safe-fetch";
 
 const SEMRUSH_API_BASE = "https://api.semrush.com";
 
@@ -7,13 +7,10 @@ export async function semrushFetch(
   serviceConnectionId: string,
   params: Record<string, string>
 ): Promise<unknown> {
-  const connection = await db.serviceConnection.findUniqueOrThrow({
-    where: { id: serviceConnectionId },
-  });
-  const apiKey = decrypt(connection.accessToken);
-
+  // SEMrush uses API key as a query parameter
+  const apiKey = await getValidAccessToken(serviceConnectionId);
   const query = new URLSearchParams({ ...params, key: apiKey });
-  const res = await fetch(`${SEMRUSH_API_BASE}/?${query.toString()}`);
+  const res = await safeFetch(`${SEMRUSH_API_BASE}/?${query.toString()}`);
 
   if (!res.ok) {
     console.error(`[ScopeGate] SEMrush API error (${res.status})`);
@@ -21,8 +18,7 @@ export async function semrushFetch(
   }
 
   const text = await res.text();
-  if (text.startsWith("ERROR"))
-    throw new Error(`SEMrush API error`);
+  if (text.startsWith("ERROR")) throw new Error("SEMrush API error");
 
   // Parse CSV response into objects
   const lines = text.trim().split("\n");

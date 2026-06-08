@@ -1,33 +1,17 @@
-import { getValidNotionAccessToken } from "@/lib/notion-oauth";
-
-const NOTION_API_BASE = "https://api.notion.com/v1";
-const NOTION_VERSION = "2022-06-28";
+import { serviceFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch";
 
 export async function notionFetch(
   serviceConnectionId: string,
   path: string,
-  init?: RequestInit
+  init?: ServiceFetchOptions
 ): Promise<unknown> {
-  const accessToken = await getValidNotionAccessToken(serviceConnectionId);
-
-  const res = await fetch(`${NOTION_API_BASE}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-      "Notion-Version": NOTION_VERSION,
-      ...init?.headers,
-    },
-  });
+  const res = await serviceFetch(serviceConnectionId, path, init);
 
   if (!res.ok) {
     console.error(`[ScopeGate] Notion API error (${res.status})`);
     throw new Error("Notion API request failed");
   }
 
-  if (res.status === 204) {
-    return { success: true };
-  }
-
+  if (res.status === 204) return { success: true };
   return res.json();
 }

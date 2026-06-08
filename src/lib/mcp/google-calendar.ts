@@ -1,32 +1,17 @@
-import { getValidAccessToken } from "@/lib/google-oauth";
-
-const CALENDAR_BASE_URL = "https://www.googleapis.com/calendar/v3";
+import { serviceFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch";
 
 export async function googleCalendarFetch(
   serviceConnectionId: string,
   path: string,
-  init?: RequestInit
+  init?: ServiceFetchOptions
 ): Promise<unknown> {
-  const accessToken = await getValidAccessToken(serviceConnectionId);
-
-  const res = await fetch(`${CALENDAR_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
-  });
+  const res = await serviceFetch(serviceConnectionId, path, init);
 
   if (!res.ok) {
     console.error(`[ScopeGate] Google Calendar API error (${res.status})`);
     throw new Error("Google Calendar API request failed");
   }
 
-  // DELETE returns 204 No Content
-  if (res.status === 204) {
-    return { success: true };
-  }
-
+  if (res.status === 204) return { success: true };
   return res.json();
 }

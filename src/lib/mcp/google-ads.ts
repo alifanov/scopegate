@@ -1,4 +1,5 @@
-import { getValidAccessToken } from "@/lib/google-oauth";
+import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
+import { safeFetch } from "@/lib/mcp/safe-fetch";
 import { db } from "@/lib/db";
 
 const GOOGLE_ADS_API_VERSION = "v23";
@@ -18,7 +19,7 @@ export async function listAccessibleCustomers(
   const accessToken = await getValidAccessToken(serviceConnectionId);
   const developerToken = getDeveloperToken();
 
-  const res = await fetch(
+  const res = await safeFetch(
     `${GOOGLE_ADS_BASE_URL}/customers:listAccessibleCustomers`,
     {
       headers: {
@@ -42,7 +43,7 @@ export async function listAccessibleCustomers(
 
   const results = await Promise.allSettled(
     candidateIds.map(async (id) => {
-      const checkRes = await fetch(
+      const checkRes = await safeFetch(
         `${GOOGLE_ADS_BASE_URL}/customers/${id}/googleAds:searchStream`,
         {
           method: "POST",
@@ -142,7 +143,7 @@ export async function googleAdsQuery(
     getGoogleAdsCustomerId(serviceConnectionId),
   ]);
 
-  const res = await fetch(
+  const res = await safeFetch(
     `${GOOGLE_ADS_BASE_URL}/customers/${customerId}/googleAds:searchStream`,
     {
       method: "POST",
@@ -185,7 +186,7 @@ export async function googleAdsMutate(
     getGoogleAdsCustomerId(serviceConnectionId),
   ]);
 
-  const res = await fetch(
+  const res = await safeFetch(
     `${GOOGLE_ADS_BASE_URL}/customers/${customerId}/${resource}:mutate`,
     {
       method: "POST",
@@ -215,7 +216,7 @@ export async function googleAdsApplyRecommendation(
     getGoogleAdsCustomerId(serviceConnectionId),
   ]);
 
-  const res = await fetch(
+  const res = await safeFetch(
     `${GOOGLE_ADS_BASE_URL}/customers/${customerId}/recommendations:apply`,
     {
       method: "POST",
@@ -245,7 +246,7 @@ export async function googleAdsDismissRecommendation(
     getGoogleAdsCustomerId(serviceConnectionId),
   ]);
 
-  const res = await fetch(
+  const res = await safeFetch(
     `${GOOGLE_ADS_BASE_URL}/customers/${customerId}/recommendations:dismiss`,
     {
       method: "POST",

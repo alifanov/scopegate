@@ -1,18 +1,20 @@
-import { getValidMetaAccessToken } from "@/lib/meta-oauth";
+import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
+import { safeFetch } from "@/lib/mcp/safe-fetch";
 
 const META_API_BASE = "https://graph.facebook.com/v21.0";
 
 export async function metaAdsFetch(
   serviceConnectionId: string,
   path: string,
-  init?: RequestInit
+  init?: { method?: string; body?: string; headers?: Record<string, string> }
 ): Promise<unknown> {
-  const accessToken = await getValidMetaAccessToken(serviceConnectionId);
+  const accessToken = await getValidAccessToken(serviceConnectionId);
 
+  // Meta uses token as a query parameter instead of an Authorization header
   const separator = path.includes("?") ? "&" : "?";
   const url = `${META_API_BASE}${path}${separator}access_token=${accessToken}`;
 
-  const res = await fetch(url, {
+  const res = await safeFetch(url, {
     ...init,
     headers: {
       "Content-Type": "application/json",

@@ -1,22 +1,11 @@
-import { getValidHubSpotAccessToken } from "@/lib/hubspot-oauth";
-
-const HUBSPOT_API_BASE = "https://api.hubapi.com";
+import { serviceFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch";
 
 export async function hubspotFetch(
   serviceConnectionId: string,
   path: string,
-  init?: RequestInit
+  init?: ServiceFetchOptions
 ): Promise<unknown> {
-  const accessToken = await getValidHubSpotAccessToken(serviceConnectionId);
-
-  const res = await fetch(`${HUBSPOT_API_BASE}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
-  });
+  const res = await serviceFetch(serviceConnectionId, path, init);
 
   if (!res.ok) {
     console.error(`[ScopeGate] HubSpot API error (${res.status})`);

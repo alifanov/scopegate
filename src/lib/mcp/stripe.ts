@@ -1,33 +1,22 @@
-import { db } from "@/lib/db";
-import { decrypt } from "@/lib/crypto";
-
-const STRIPE_API_BASE = "https://api.stripe.com/v1";
+import { serviceFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch";
 
 export async function stripeFetch(
   serviceConnectionId: string,
   path: string,
-  init?: RequestInit & { formData?: Record<string, string> }
+  init?: ServiceFetchOptions & { formData?: Record<string, string> }
 ): Promise<unknown> {
-  const connection = await db.serviceConnection.findUniqueOrThrow({
-    where: { id: serviceConnectionId },
-  });
-  const apiKey = decrypt(connection.accessToken);
+  const { formData, ...restInit } = init ?? {};
 
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${apiKey}`,
-  };
-
-  let body = init?.body;
-  if (init?.formData) {
-    headers["Content-Type"] = "application/x-www-form-urlencoded";
-    body = new URLSearchParams(init.formData).toString();
+  const overrides: ServiceFetchOptions = { ...restInit };
+  if (formData) {
+    overrides.headers = {
+      ...restInit.headers,
+      "Content-Type": "application/x-www-form-urlencoded",
+    };
+    overrides.body = new URLSearchParams(formData).toString();
   }
 
-  const res = await fetch(`${STRIPE_API_BASE}${path}`, {
-    ...init,
-    body,
-    headers: { ...headers, ...init?.headers },
-  });
+  const res = await serviceFetch(serviceConnectionId, path, overrides);
 
   if (!res.ok) {
     console.error(`[ScopeGate] Stripe API error (${res.status})`);

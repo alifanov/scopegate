@@ -1,20 +1,12 @@
-import { getValidSlackAccessToken } from "@/lib/slack-oauth";
-
-const SLACK_API_BASE = "https://slack.com/api";
+import { serviceFetch } from "@/lib/mcp/service-fetch";
 
 export async function slackFetch(
   serviceConnectionId: string,
   method: string,
   params?: Record<string, unknown>
 ): Promise<unknown> {
-  const accessToken = await getValidSlackAccessToken(serviceConnectionId);
-
-  const res = await fetch(`${SLACK_API_BASE}/${method}`, {
+  const res = await serviceFetch(serviceConnectionId, `/${method}`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json; charset=utf-8",
-    },
     body: params ? JSON.stringify(params) : undefined,
   });
 

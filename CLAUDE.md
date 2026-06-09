@@ -97,8 +97,8 @@ OBSERVABILITY_API_KEY        # SigNoz ingestion key
 - Service credentials (API keys, tokens) are stored encrypted in `ServiceConnection.accessToken` — not in env vars
 - OAuth token 4xx errors (invalid_grant etc.) are expected — `OAuthTokenError` thrown from `oauth-token-lifecycle.ts`, caught in `handler.ts` — not instrumented to avoid false-positive ERROR spans in SigNoz
 - All token refresh logic (proactive + on-demand) for all 11 providers lives in `oauth-token-lifecycle.ts` — do not duplicate in individual tool files
-- `service-fetch.ts` is the unified MCP transport: use `serviceFetch(conn, provider, path, opts)` — handles token retrieval, base URL, provider-specific headers, SSRF protection; `safe-fetch.ts` is the low-level primitive
-- `safe-fetch.ts` lives in `src/lib/mcp/` (not `src/lib/`) — import from `@/lib/mcp/safe-fetch`
+- `service-fetch.ts` is the unified MCP transport: use `serviceFetch(conn, provider, path, opts)` — handles token retrieval, base URL, provider-specific headers, SSRF protection, and emits OTel `CLIENT` spans (`service-fetch <provider>`) with `http.method`, `mcp.provider`, `url.path`, `http.status_code`; `safe-fetch.ts` is the low-level primitive
+- `safe-fetch.ts` lives in `src/lib/mcp/` (not `src/lib/`) — import from `@/lib/mcp/safe-fetch`; timeout errors carry `err.name = "TimeoutError"` — catch by name (e.g. GSC `inspect_url`)
 - MCP endpoint streams SSE; keep-alive pings sent every 30s to prevent proxy timeouts
 - MCP tool execution has a 30s timeout per tool; enforced in `handler.ts`
 - Middleware route-group blocking metrics tracked per-route via `mcp.blocked_requests` OTel counter (in `metrics.ts`)
@@ -108,4 +108,5 @@ OBSERVABILITY_API_KEY        # SigNoz ingestion key
 - OAuth provider helpers live in `src/lib/<provider>-oauth.ts`; shared base logic in `oauth-flow.ts`
 - Google Search Console API responses are cached with retry on 429 and OTel metrics
 - `safe-fetch.ts` uses `node:https` with custom lookup — validates ALL A/AAAA records before connecting, preventing DNS rebinding and multi-record SSRF (TOCTOU-safe); accepts optional `timeout` (ms) to abort slow requests (Threads uses 8 s)
+- Meta Graph API 400 errors: `metaAdsFetch` and `threadsFetch` read `error.code` from the JSON body — codes 190/102 → `OAuthTokenError`; other 4xx → generic error with code in the message; `threadsFetch` annotates the active span with `error.type` for SigNoz grouping
 - HTTP security headers (HSTS, X-Frame-Options, CSP `frame-ancestors 'none'`, nosniff) set globally in `next.config.ts`

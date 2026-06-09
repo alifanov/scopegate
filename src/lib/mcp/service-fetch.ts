@@ -1,6 +1,9 @@
+import { trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import { db } from "@/lib/db";
 import { getValidAccessTokenForConnection } from "@/lib/oauth-token-lifecycle";
 import { safeFetch, type SafeFetchOptions } from "@/lib/mcp/safe-fetch";
+
+const tracer = trace.getTracer("scopegate");
 
 type DbConnection = Awaited<ReturnType<typeof db.serviceConnection.findUniqueOrThrow>>;
 
@@ -95,5 +98,34 @@ export async function serviceFetch(
     ...init?.headers,
   };
 
-  return safeFetch(`${baseUrl}${path}`, { ...init, headers });
+  const method = (init?.method ?? "GET").toUpperCase();
+
+  return tracer.startActiveSpan(
+    `service-fetch ${conn.provider}`,
+    {
+      kind: SpanKind.CLIENT,
+      attributes: {
+        "http.route": `${conn.provider}${path}`,
+        "http.method": method,
+        "mcp.provider": conn.provider,
+        "url.path": path,
+      },
+    },
+    async (span) => {
+      try {
+        const res = await safeFetch(`${baseUrl}${path}`, { ...init, headers });
+        span.setAttribute("http.status_code", res.status);
+        if (res.status >= 400) {
+          span.setStatus({ code: SpanStatusCode.ERROR, message: `HTTP ${res.status}` });
+        }
+        return res;
+      } catch (err) {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error).message });
+        span.recordException(err as Error);
+        throw err;
+      } finally {
+        span.end();
+      }
+    }
+  );
 }

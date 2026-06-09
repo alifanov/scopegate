@@ -130,7 +130,7 @@ export const searchConsoleTools: ToolDefinition[] = [
         );
       } catch (error) {
         if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
-          return { error: "timeout", message: "GSC URL Inspection API не ответил за 5s, попробуйте позже" };
+          return { error: "timeout", message: "GSC URL Inspection API did not respond within 5 s, please try again later" };
         }
         throw error;
       }

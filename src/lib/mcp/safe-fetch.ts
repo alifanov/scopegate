@@ -168,7 +168,9 @@ function makeRequest(
 
     if (timeoutMs) {
       req.setTimeout(timeoutMs, () => {
-        req.destroy(new Error(`Request timed out after ${timeoutMs}ms`));
+        const err = new Error(`Request timed out after ${timeoutMs}ms`);
+        err.name = "TimeoutError";
+        req.destroy(err);
       });
     }
 

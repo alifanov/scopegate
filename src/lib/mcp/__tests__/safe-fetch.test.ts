@@ -255,6 +255,7 @@ describe("safeFetch – SSRF protection", () => {
       expect(mockReq.destroy).toHaveBeenCalledWith(expect.any(Error));
       const destroyErr = mockReq.destroy.mock.calls[0][0] as Error;
       expect(destroyErr.message).toContain("timed out after 100ms");
+      expect(destroyErr.name).toBe("TimeoutError");
 
       // Propagate the error through the "error" event listener
       const errorHandler = mockReq.on.mock.calls.find((c: unknown[]) => c[0] === "error");

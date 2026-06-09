@@ -564,6 +564,10 @@ run_routine() {
 
   local agent_output _stream_file
   local _cost_json="" _tokens_json=""   # JSON fragments for PENDING_LOGS (empty = omit)
+  # Persist the model used for this run so the web UI can break spend down by
+  # model. `model` is set for both claude and codex engines above.
+  local _model_json=""
+  [[ -n "$model" ]] && _model_json=",\"model\":\"${model}\""
   _stream_file=$(mktemp)
   _CLEANUP_FILES+=("$_stream_file")
   if [[ "$engine" == "codex" ]]; then
@@ -622,7 +626,7 @@ run_routine() {
   local ts; ts=$(date -u +%FT%TZ)
   local output_json
   output_json=$(jq -Rsa '.' <<< "$agent_output")
-  PENDING_LOGS+=("{\"routine\":\"${name}\",\"summary\":\"ran ${name} — ${status_str}\",\"output\":${output_json}${_cost_json}${_tokens_json},\"timestamp\":\"${ts}\"}")
+  PENDING_LOGS+=("{\"routine\":\"${name}\",\"summary\":\"ran ${name} — ${status_str}\",\"output\":${output_json}${_model_json}${_cost_json}${_tokens_json},\"timestamp\":\"${ts}\"}")
 
   return $exit_code
 }

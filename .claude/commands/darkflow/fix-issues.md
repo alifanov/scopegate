@@ -23,26 +23,31 @@ Pick exactly **one** open issue with the `status:approved` label, choosing stric
 
 Within the chosen level, take the **oldest** issue (smallest issue number). Concretely:
 
-Issues with `action:reply` are handled exclusively by `mailbox-check` — skip them here.
+Skip issues that are not actually actionable here, even if they still carry `status:approved`:
+- `action:reply` — handled exclusively by `mailbox-check`.
+- `needs-human` — already parked for a human; re-running only posts duplicate comments.
+- `status:blocked` — failed checks; waits for a human, not another attempt.
 
 ```bash
+# A label set is selectable only if it has none of these blocking labels.
+SELECTABLE='(.labels | map(.name)) as $l
+  | ($l | index("action:reply") | not)
+    and ($l | index("needs-human") | not)
+    and ($l | index("status:blocked") | not)'
 for p in critical high medium low; do
   n=$(gh issue list --state open --label "status:approved" --label "priority:$p" \
         --json number,labels \
-        --jq '[.[] | select(.labels | map(.name) | index("action:reply") | not)]
-              | sort_by(.number) | .[0].number')
+        --jq "[.[] | select(${SELECTABLE})] | sort_by(.number) | .[0].number")
   [[ -n "$n" ]] && break
 done
 # Fallback for status:approved issues with no priority label:
 if [[ -z "$n" ]]; then
   n=$(gh issue list --state open --label "status:approved" \
         --json number,labels \
-        --jq '[.[] | select(
-                (.labels | map(.name) | map(startswith("priority:")) | any) | not
-              ) | select(
-                .labels | map(.name) | index("action:reply") | not
-              )]
-              | sort_by(.number) | .[0].number')
+        --jq "[.[] | select(
+                (.labels | map(.name) | map(startswith(\"priority:\")) | any) | not
+              ) | select(${SELECTABLE})]
+              | sort_by(.number) | .[0].number")
 fi
 ```
 
@@ -80,13 +85,14 @@ Detect the project's tech stack and run all available checks. Stop at the first 
 **If the fix requires human intervention** (examples: missing environment variable, external credentials, third-party service setup, infrastructure change, secret rotation, manual config change that the agent cannot perform):
 - Do NOT attempt the fix
 - Leave a comment on the issue explaining exactly what human action is needed
-- Label the issue `needs-human`
+- **Before commenting, check the existing comments — if you (the bot) already left an equivalent `needs-human` explanation, do NOT post another one; just ensure the labels are correct and stop.**
+- Move the issue out of the queue so the next run does not re-pick it: `gh issue edit $n --add-label needs-human --remove-label status:approved`
 - Stop the run
 
 **If any check fails:**
 - Do NOT merge or push
 - Leave a comment on the issue: what failed and the relevant error output (truncated to ~20 lines)
-- Label the issue `status:blocked`
+- Move the issue out of the queue: `gh issue edit $n --add-label status:blocked --remove-label status:approved`
 - Stop the run
 
 **If all checks pass (or no checks apply), proceed:**

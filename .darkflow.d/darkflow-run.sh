@@ -522,11 +522,21 @@ run_routine() {
     # Flush any webapp-approved issues to GitHub labels before checking the count,
     # otherwise issues approved via the web UI won't have the label yet and get skipped.
     apply_pending_statuses
+    # Count only *actionable* approved issues — exclude those parked for a human
+    # (needs-human / status:blocked) or owned by mailbox-check (action:reply).
+    # Otherwise a queue jammed with only non-actionable issues launches a codex/
+    # claude run every cycle that re-picks the same issue and posts duplicate
+    # comments without ever fixing anything.
     local approved_count
     approved_count=$(gh issue list --state open --label "status:approved" \
-                       --json number --jq 'length' 2>/dev/null || echo "")
+                       --json number,labels \
+                       --jq '[.[] | select((.labels | map(.name)) as $l
+                                | ($l | index("action:reply") | not)
+                                  and ($l | index("needs-human") | not)
+                                  and ($l | index("status:blocked") | not))] | length' \
+                       2>/dev/null || echo "")
     if [[ "$approved_count" == "0" ]]; then
-      log "SKIP   ${name} — no open status:approved issues"
+      log "SKIP   ${name} — no actionable status:approved issues"
       local skip_now skip_ts
       skip_now=$(now_epoch)
       write_state "$name" "$(( skip_now - skip_now % 60 ))"

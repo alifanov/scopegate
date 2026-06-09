@@ -53,6 +53,7 @@ Rule is universal — only the folder changes by data source:
 |---|---|---|
 | Analytics, funnels, retention, metric investigation | `insights/analytics/YYYY-MM-DD.md` | Any HogQL queries, PostHog MCP, funnel analysis |
 | Google Search Console — positions, CTR, impressions, indexing | `insights/search-console/YYYY-MM-DD.md` | Any GSC data review, position checks, indexing audit |
+| SEO audit — technical + on-page (titles, meta, schema, crawlability) | `insights/seo-audit/YYYY-MM-DD.md` | On-page/technical SEO review, meta/heading/schema audit |
 | Paid ads — campaigns, keywords, spend, CPA, ROAS | `insights/ads/YYYY-MM-DD.md` | Any ads account check, campaign optimization |
 | Observability — errors, latency, DB performance | `insights/observability/YYYY-MM-DD.md` | SigNoz/Datadog checks, latency alerts |
 | Security audit — vulnerabilities, code scanning | `insights/security/YYYY-MM-DD.md` | `/darkflow:security-audit`, Dependabot alerts |

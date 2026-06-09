@@ -33,6 +33,7 @@ See also: [`decisions/`](./decisions/) for the ADR explaining why this approach 
 |---|---|
 | `source:posthog` | `docs/insights/analytics/*.md` (PostHog / HogQL) |
 | `source:gsc` | `docs/insights/search-console/*.md` (Google Search Console) |
+| `source:seo` | `docs/insights/seo-audit/*.md` (technical/on-page SEO audit) |
 | `source:ads` | `docs/insights/ads/*.md` (Google Ads) |
 | `source:signoz` | SigNoz observability (`/check-signoz`) |
 | `source:security-review` | Аудит безопасности (`/security-review`) |
@@ -135,6 +136,7 @@ gh label create "status:blocked"     --color "e99695" --description "Забло�
 # source
 gh label create "source:posthog"         --color "5319e7" --description "Из insights/analytics/* (PostHog/HogQL)"
 gh label create "source:gsc"             --color "5319e7" --description "Из insights/search-console/* (GSC)"
+gh label create "source:seo"             --color "5319e7" --description "Из технического/on-page SEO-аудита (gsc-check)"
 gh label create "source:ads"             --color "5319e7" --description "Из insights/ads/* (Google Ads)"
 gh label create "source:signoz"          --color "5319e7" --description "Из SigNoz observability"
 gh label create "source:security-review" --color "5319e7" --description "Из security-аудита"

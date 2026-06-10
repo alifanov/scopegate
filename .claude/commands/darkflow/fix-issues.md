@@ -109,11 +109,14 @@ Skip this step if the fix is purely internal (refactor, test, build config) with
 
 ## Step 6 — Land the fix
 
+**Workspace rule — never create a git worktree:**
+Always work in the project root on the configured base branch — never run `git worktree add` or check work out into a separate directory. The dispatcher runs you in `cwd = project root`; keep it that way. If the PR strategy needs a feature branch, create it **in place** with `git checkout -b <branch>` on top of the configured base branch, then switch back when done — do not spin up a worktree.
+
 **Branch rule — never cherry-pick to main/master on your own:**
-If the `branch=` value from `.darkflow` is `dev`, `develop`, or any non-main/non-master branch, land the fix **only** on that branch. Do NOT cherry-pick, merge, or push to `main` or `master` independently — that is a human decision. Leave the fix in the configured branch and close the issue.
+The base branch is the `branch=` value from `.darkflow` (it may be `main`, `master`, `dev`, `develop`, or anything else — always read it from config, never assume `main`). If it is a non-main/non-master branch, land the fix **only** on that branch. Do NOT cherry-pick, merge, or push to `main` or `master` independently — that is a human decision. Leave the fix in the configured branch and close the issue.
 
 **If `merge_strategy=pr`:**
-Open a pull request targeting the `branch=` value from `.darkflow` with `Closes #N` in the description. Merge the pull request into that branch.
+From the project root, create a feature branch in place with `git checkout -b` based off the `branch=` value from `.darkflow`, implement and commit there, then open a pull request targeting `branch=` with `Closes #N` in the description and merge it into that branch. No worktree — the branch lives in the same working directory.
 
 **If `merge_strategy=direct`:**
 Commit and push directly to the `branch=` value from `.darkflow`.

@@ -33,12 +33,43 @@ const OAUTH_TOKEN_URL_PATTERNS = [
   "graph.threads.net/refresh_access_token",
 ];
 
-// Build route pattern matchers from Next.js App Router file structure at startup.
-// Maps actual URL paths (e.g. /api/mcp/abc123) → route patterns (e.g. /api/mcp/[apiKey]).
-// Falls back gracefully if source files are absent (e.g. production containers).
+// Build route pattern matchers for normalising raw URL paths → Next.js route patterns.
+// Primary source: .next/routes-manifest.json (present in both dev builds and production
+// standalone output). Covers API routes, page routes, and correctly omits route groups.
+// Fallback: walk src/app/ for dev servers that haven't been built yet.
 function buildRouteMatchers(appDir: string): Array<[RegExp, string]> {
   const patterns: Array<[RegExp, string]> = [];
 
+  // Primary: Next.js routes manifest — has correct regex + page for every route
+  try {
+    const manifestPath = path.join(process.cwd(), ".next", "routes-manifest.json");
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as {
+      dynamicRoutes?: Array<{ page: string; regex: string }>;
+      staticRoutes?: Array<{ page: string; regex: string }>;
+    };
+
+    for (const route of [
+      ...(manifest.dynamicRoutes ?? []),
+      ...(manifest.staticRoutes ?? []),
+    ]) {
+      try {
+        patterns.push([new RegExp(route.regex), route.page]);
+      } catch {
+        // skip malformed regex entry
+      }
+    }
+
+    if (patterns.length > 0) {
+      // More-specific routes (more segments) should match before shorter prefixes
+      patterns.sort((a, b) => b[1].split("/").length - a[1].split("/").length);
+      return patterns;
+    }
+  } catch {
+    // manifest absent (pre-build dev server) — fall through to src/app walk
+  }
+
+  // Fallback: walk src/app/ for dev without a completed build.
+  // Strips route groups (e.g. /(auth)/, /(dashboard)/) from patterns.
   function walk(dir: string) {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const fullPath = path.join(dir, entry.name);
@@ -48,7 +79,8 @@ function buildRouteMatchers(appDir: string): Array<[RegExp, string]> {
         const routePattern = fullPath
           .replace(appDir, "")
           .replace(/\/route\.(ts|js)$/, "")
-          .replace(/\\/g, "/");
+          .replace(/\\/g, "/")
+          .replace(/\/\([^)]+\)/g, ""); // strip route groups: /(auth) → ""
 
         const regexStr = routePattern
           .replace(/\[\.\.\.[^\]]+\]/g, "(?:.+)") // [...catchAll] segments
@@ -61,10 +93,9 @@ function buildRouteMatchers(appDir: string): Array<[RegExp, string]> {
 
   try {
     walk(appDir);
-    // Sort descending by segment depth so more-specific routes match first
     patterns.sort((a, b) => b[1].split("/").length - a[1].split("/").length);
   } catch {
-    // src/app not present — pattern normalization disabled, raw paths used
+    // src/app not present either — normalisation disabled, raw paths used
   }
 
   return patterns;

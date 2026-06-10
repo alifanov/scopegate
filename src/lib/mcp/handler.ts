@@ -1,9 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import { getToolsByActions, type ToolDefinition } from "./tools";
 import { db } from "../db";
 import { z } from "zod";
 import { redactParams, sanitizeAuditError } from "./audit-utils";
 import { OAuthTokenError, revokeConnectionWithNotification } from "../oauth-token-lifecycle";
+
+const tracer = trace.getTracer("scopegate");
 
 export function createMcpServerForEndpoint(
   endpointId: string,
@@ -38,77 +41,94 @@ function registerTool(
     tool.description,
     shape,
     async (params) => {
-      const startTime = Date.now();
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`Tool execution timed out after 30s`)), 30_000)
-      );
-      try {
-        const result = await Promise.race([
-          tool.handler(params as Record<string, unknown>, { serviceConnectionId }),
-          timeout,
-        ]);
-        const duration = Date.now() - startTime;
-
-        console.log(
-          JSON.stringify({ tool: tool.name, action: tool.action, status: "success", duration_ms: duration })
-        );
-
-        // Log to audit
-        await db.auditLog.create({
-          data: {
-            endpointId,
-            action: tool.action,
-            params: JSON.parse(JSON.stringify(redactParams(params as Record<string, unknown>))),
-            status: "success",
-            duration,
+      return tracer.startActiveSpan(
+        `mcp.tool ${tool.name}`,
+        {
+          kind: SpanKind.INTERNAL,
+          attributes: {
+            "mcp.tool": tool.name,
+            "mcp.action": tool.action,
+            "http.route": "/api/mcp/[apiKey]",
           },
-        });
-
-        return {
-          content: [
-            { type: "text" as const, text: JSON.stringify(result, null, 2) },
-          ],
-        };
-      } catch (err) {
-        const duration = Date.now() - startTime;
-        const fullError =
-          err instanceof Error ? err.message : "Unknown error";
-
-        console.log(
-          JSON.stringify({ tool: tool.name, action: tool.action, status: "error", duration_ms: duration, error: fullError })
-        );
-        console.error(`[ScopeGate] Tool ${tool.name} failed:`, fullError);
-
-        const isTokenError = err instanceof OAuthTokenError;
-
-        if (isTokenError) {
+        },
+        async (toolSpan) => {
+          const startTime = Date.now();
+          const timeout = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error(`Tool execution timed out after 30s`)), 30_000)
+          );
           try {
-            await revokeConnectionWithNotification(serviceConnectionId, fullError);
-          } catch (updateErr) {
-            console.error("[ScopeGate] Failed to update connection status:", updateErr);
+            const result = await Promise.race([
+              tool.handler(params as Record<string, unknown>, { serviceConnectionId }),
+              timeout,
+            ]);
+            const duration = Date.now() - startTime;
+
+            console.log(
+              JSON.stringify({ tool: tool.name, action: tool.action, status: "success", duration_ms: duration })
+            );
+
+            // Log to audit
+            await db.auditLog.create({
+              data: {
+                endpointId,
+                action: tool.action,
+                params: JSON.parse(JSON.stringify(redactParams(params as Record<string, unknown>))),
+                status: "success",
+                duration,
+              },
+            });
+
+            return {
+              content: [
+                { type: "text" as const, text: JSON.stringify(result, null, 2) },
+              ],
+            };
+          } catch (err) {
+            const duration = Date.now() - startTime;
+            const fullError =
+              err instanceof Error ? err.message : "Unknown error";
+
+            console.log(
+              JSON.stringify({ tool: tool.name, action: tool.action, status: "error", duration_ms: duration, error: fullError })
+            );
+            console.error(`[ScopeGate] Tool ${tool.name} failed:`, fullError);
+
+            const isTokenError = err instanceof OAuthTokenError;
+
+            if (isTokenError) {
+              try {
+                await revokeConnectionWithNotification(serviceConnectionId, fullError);
+              } catch (updateErr) {
+                console.error("[ScopeGate] Failed to update connection status:", updateErr);
+              }
+            } else {
+              toolSpan.setStatus({ code: SpanStatusCode.ERROR, message: fullError });
+            }
+
+            await db.auditLog.create({
+              data: {
+                endpointId,
+                action: tool.action,
+                params: JSON.parse(JSON.stringify(redactParams(params as Record<string, unknown>))),
+                status: "error",
+                error: sanitizeAuditError(fullError),
+                duration,
+              },
+            });
+
+            const userMessage = isTokenError
+              ? "Error: Service connection token expired or invalid. Please reconnect the service."
+              : "Error: Tool execution failed";
+
+            return {
+              content: [{ type: "text" as const, text: userMessage }],
+              isError: true,
+            };
+          } finally {
+            toolSpan.end();
           }
         }
-
-        await db.auditLog.create({
-          data: {
-            endpointId,
-            action: tool.action,
-            params: JSON.parse(JSON.stringify(redactParams(params as Record<string, unknown>))),
-            status: "error",
-            error: sanitizeAuditError(fullError),
-            duration,
-          },
-        });
-
-        const userMessage = isTokenError
-          ? "Error: Service connection token expired or invalid. Please reconnect the service."
-          : "Error: Tool execution failed";
-
-        return {
-          content: [{ type: "text" as const, text: userMessage }],
-          isError: true,
-        };
-      }
+      );
     }
   );
 }

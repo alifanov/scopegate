@@ -16,6 +16,11 @@ const PERMANENT_OAUTH_ERRORS = [
   "unauthorized_client",
   "access_denied",
   "token_revoked",
+  // Meta Graph API OAuth error codes (surfaced as "code=<n>" in the thrown message)
+  "code=190", // access token expired or invalidated
+  "code=102", // session key invalid / user logged out
+  "code=463", // token expired
+  "code=467", // token invalid
 ];
 
 const REFRESH_TIMEOUT_MS = 10_000;

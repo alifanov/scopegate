@@ -352,7 +352,6 @@ export async function refreshForCron(
   if (config.kind === "exchange") {
     const currentToken = decrypt(connection.accessToken);
     const result = await config.doExchange(currentToken);
-    if (result === null) return "skipped"; // graceful fallback (Meta)
     await db.serviceConnection.update({
       where: { id: connection.id },
       data: {

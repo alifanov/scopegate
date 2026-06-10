@@ -18,6 +18,45 @@ export async function markConnectionTokenError(
   });
 }
 
+// Marks a connection as permanently revoked and notifies all project team members.
+// Safe to call on an already-revoked connection — skips both the DB write and notifications.
+export async function revokeConnectionWithNotification(
+  connectionId: string,
+  message: string
+): Promise<void> {
+  const conn = await db.serviceConnection.findUnique({
+    where: { id: connectionId },
+    select: {
+      id: true,
+      status: true,
+      provider: true,
+      accountEmail: true,
+      projectId: true,
+    },
+  });
+  if (!conn || conn.status === "revoked") return;
+
+  await db.serviceConnection.update({
+    where: { id: connectionId },
+    data: { status: "revoked", lastError: message },
+  });
+
+  const teamMembers = await db.teamMember.findMany({
+    where: { projectId: conn.projectId },
+    select: { userId: true },
+  });
+  if (teamMembers.length > 0) {
+    await db.notification.createMany({
+      data: teamMembers.map((m) => ({
+        userId: m.userId,
+        type: "error",
+        title: "Reconnect required",
+        message: `Access to ${conn.provider} (${conn.accountEmail}) has been revoked. Please reconnect the account in project settings.`,
+      })),
+    });
+  }
+}
+
 const STATIC_PROVIDERS = new Set([
   "github", "slack", "notion",
   // API key providers — tokens never expire, just decrypt and use
@@ -274,6 +313,12 @@ export async function getValidAccessToken(connectionId: string): Promise<string>
 }
 
 export async function getValidAccessTokenForConnection(conn: DbConnection): Promise<string> {
+  if (conn.status === "revoked") {
+    throw new OAuthTokenError(
+      `Connection ${conn.id} (${conn.provider}) is revoked — reconnect required`
+    );
+  }
+
   const config = getProviderConfig(conn.provider);
 
   if (config.kind === "static") {

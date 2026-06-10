@@ -3,7 +3,7 @@ import { getToolsByActions, type ToolDefinition } from "./tools";
 import { db } from "../db";
 import { z } from "zod";
 import { redactParams, sanitizeAuditError } from "./audit-utils";
-import { OAuthTokenError, markConnectionTokenError } from "../oauth-token-lifecycle";
+import { OAuthTokenError, revokeConnectionWithNotification } from "../oauth-token-lifecycle";
 
 export function createMcpServerForEndpoint(
   endpointId: string,
@@ -83,7 +83,7 @@ function registerTool(
 
         if (isTokenError) {
           try {
-            await markConnectionTokenError(serviceConnectionId, fullError);
+            await revokeConnectionWithNotification(serviceConnectionId, fullError);
           } catch (updateErr) {
             console.error("[ScopeGate] Failed to update connection status:", updateErr);
           }

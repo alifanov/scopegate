@@ -126,17 +126,31 @@ function makeRequest(
         path: parsed.pathname + (parsed.search ?? ""),
         method,
         headers: headersToRecord(options?.headers),
-        // Pin DNS: always return the already-validated IP, blocking any re-resolution
+        // Pin DNS: always return the already-validated IP, blocking any re-resolution.
+        // Node 20+ enables autoSelectFamily (Happy Eyeballs) by default, which invokes
+        // the custom lookup with `{ all: true }` and expects an ARRAY of { address, family }
+        // records. Returning the legacy 3-arg (address, family) form in that case makes
+        // node:net read `addresses[0].address` off a string → it throws
+        // "Invalid IP address: undefined" and the request fails. Honor `opts.all`.
         lookup: (
           _hostname: string,
-          _opts: LookupOptions,
+          opts: LookupOptions,
           callback: (
             err: NodeJS.ErrnoException | null,
             address: string,
             family: number
           ) => void
         ) => {
-          callback(null, pinnedIp, pinnedFamily);
+          if (opts?.all) {
+            (
+              callback as unknown as (
+                err: NodeJS.ErrnoException | null,
+                addresses: { address: string; family: number }[]
+              ) => void
+            )(null, [{ address: pinnedIp, family: pinnedFamily }]);
+          } else {
+            callback(null, pinnedIp, pinnedFamily);
+          }
         },
       },
       (res) => {

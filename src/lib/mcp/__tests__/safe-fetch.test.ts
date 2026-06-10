@@ -316,4 +316,34 @@ describe("safeFetch – SSRF protection", () => {
       );
     });
   });
+
+  describe("pinned DNS lookup honors autoSelectFamily (Happy Eyeballs)", () => {
+    // Node 20+ defaults autoSelectFamily=true, calling the custom lookup with
+    // { all: true } and expecting an ARRAY of { address, family }. Returning the
+    // legacy (address, family) form there throws "Invalid IP address: undefined".
+    async function captureLookup() {
+      mockDns({ address: "93.184.216.34", family: 4 });
+      mockHttpsResponse(200);
+      await safeFetch("https://example.com/api");
+      const opts = (mockHttpsRequest as unknown as { mock: { calls: unknown[][] } })
+        .mock.calls[0][0] as { lookup: (...a: unknown[]) => void };
+      return opts.lookup;
+    }
+
+    it("returns an array of records when opts.all is true", async () => {
+      const lookupFn = await captureLookup();
+      const cb = vi.fn();
+      lookupFn("example.com", { all: true }, cb);
+      expect(cb).toHaveBeenCalledWith(null, [
+        { address: "93.184.216.34", family: 4 },
+      ]);
+    });
+
+    it("returns the legacy (address, family) form when opts.all is falsy", async () => {
+      const lookupFn = await captureLookup();
+      const cb = vi.fn();
+      lookupFn("example.com", {}, cb);
+      expect(cb).toHaveBeenCalledWith(null, "93.184.216.34", 4);
+    });
+  });
 });

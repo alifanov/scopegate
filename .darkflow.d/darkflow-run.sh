@@ -487,6 +487,106 @@ validate_gh_token() {
   return 0
 }
 
+# ── Uptime cheap pre-flight ───────────────────────────────────────────────────
+# A plain curl probe is enough to confirm a healthy site, so the (Sonnet) agent
+# is only worth launching when the site is actually down/broken or the probe is
+# inconclusive. uptime_preflight() returns 0 when the site is verifiably healthy
+# (or merely slow/degraded) and has already written the snapshot + metrics here —
+# the caller then SKIPS the agent. It returns 1 to escalate to the agent: site is
+# down (agent files the critical issue) or the check can't decide (no site_url,
+# no curl, DNS failure, …). Sets _UPTIME_SUMMARY / _UPTIME_ESCALATE_REASON.
+_UPTIME_SUMMARY=""
+_UPTIME_ESCALATE_REASON=""
+
+uptime_write_snapshot() {
+  local url="$1" http_code="$2" latency_ms="$3" latency_s="$4" status="$5"
+
+  mkdir -p "$METRICS_DIR"
+  cat > "${METRICS_DIR}/uptime.json" <<EOF
+{
+  "url": "${url}",
+  "httpCode": ${http_code},
+  "latencyMs": ${latency_ms},
+  "status": "${status}"
+}
+EOF
+
+  local snap_dir="${PROJECT_ROOT}/docs/insights/uptime"
+  local snap_date snap_time snap_file
+  snap_date=$(date +%F); snap_time=$(date +%H:%M)
+  snap_file="${snap_dir}/${snap_date}.md"
+  mkdir -p "$snap_dir"
+  if [[ ! -f "$snap_file" ]]; then
+    {
+      printf '# Uptime Check — %s\n\n' "$snap_date"
+      printf '**Target:** %s\n\n' "$url"
+      printf '## Checks\n'
+      printf '| Time | DNS | HTTP code | Body | Latency | Result | Issue |\n'
+      printf '|---|---|---|---|---|---|---|\n'
+    } > "$snap_file"
+  fi
+  printf '| %s | ok | %s | ok | %ss | %s | — |\n' \
+    "$snap_time" "$http_code" "$latency_s" "$status" >> "$snap_file"
+}
+
+uptime_preflight() {
+  _UPTIME_SUMMARY=""
+  _UPTIME_ESCALATE_REASON=""
+
+  command -v curl &>/dev/null || { _UPTIME_ESCALATE_REASON="curl not available"; return 1; }
+
+  local url; url=$(darkflow_val "site_url" "")
+  [[ -z "$url" ]] && { _UPTIME_ESCALATE_REASON="no site_url configured — agent will auto-discover"; return 1; }
+
+  local host_only
+  host_only=$(printf '%s' "$url" | sed -E 's#^https?://##; s#/.*$##; s#:.*$##')
+  if ! { getent hosts "$host_only" || nslookup "$host_only" || host "$host_only"; } >/dev/null 2>&1; then
+    _UPTIME_ESCALATE_REASON="DNS does not resolve for ${host_only}"
+    return 1
+  fi
+
+  local body_file; body_file=$(mktemp)
+  _CLEANUP_FILES+=("$body_file")
+  local curl_w="" curl_rc=0
+  curl_w=$(curl -sS -A "darkflow-uptime/1.0" -L --max-time 25 -o "$body_file" \
+    -w 'http_code=%{http_code} time_total=%{time_total}' "$url" 2>/dev/null) || curl_rc=$?
+
+  local rc=1   # default: escalate to the agent
+  if [[ "$curl_rc" != "0" ]]; then
+    _UPTIME_ESCALATE_REASON="curl failed (rc=${curl_rc}: connection/TLS/timeout)"
+  else
+    local http_code time_total
+    http_code=$(sed -E 's/.*http_code=([0-9]+).*/\1/' <<< "$curl_w"); http_code=${http_code:-0}
+    time_total=$(sed -E 's/.*time_total=([0-9.]+).*/\1/' <<< "$curl_w"); time_total=${time_total:-0}
+    if [[ ! "$http_code" =~ ^(2|3)[0-9][0-9]$ ]]; then
+      _UPTIME_ESCALATE_REASON="HTTP ${http_code}"
+    else
+      local body_size; body_size=$(wc -c < "$body_file" 2>/dev/null | tr -d ' '); body_size=${body_size:-0}
+      if (( body_size < 200 )); then
+        _UPTIME_ESCALATE_REASON="empty/short body (${body_size} bytes)"
+      elif grep -qiE '502 Bad Gateway|503 Service|504 Gateway|Application error|This site can.?t be reached|Welcome to nginx' "$body_file"; then
+        _UPTIME_ESCALATE_REASON="error marker in body"
+      else
+        local status="ok" latency_ms latency_s
+        latency_ms=$(awk "BEGIN{printf \"%d\", ${time_total}*1000}")
+        latency_s=$(awk "BEGIN{printf \"%.1f\", ${time_total}}")
+        awk "BEGIN{exit !(${time_total} > 10)}" && status="degraded"
+        uptime_write_snapshot "$url" "$http_code" "$latency_ms" "$latency_s" "$status"
+        if [[ "$status" == "degraded" ]]; then
+          _UPTIME_SUMMARY="uptime degraded — HTTP ${http_code}, slow ${latency_s}s"
+        else
+          _UPTIME_SUMMARY="uptime ok — HTTP ${http_code}, ${latency_s}s"
+        fi
+        rc=0
+      fi
+    fi
+  fi
+
+  rm -f "$body_file"
+  _CLEANUP_FILES=("${_CLEANUP_FILES[@]/$body_file}")
+  return $rc
+}
+
 run_routine() {
   local name="$1" model="$2" permission_mode="$3" engine="${4:-claude}"
   local now exit_code=0
@@ -544,6 +644,23 @@ run_routine() {
       PENDING_LOGS+=("{\"routine\":\"${name}\",\"summary\":\"skipped fix-issues — no approved issues\",\"timestamp\":\"${skip_ts}\"}")
       return 0
     fi
+  fi
+
+  # Uptime cheap pre-flight: a curl probe confirms a healthy site without paying
+  # for an agent run. Only escalate to the (Sonnet) agent when the site is down/
+  # broken or the probe can't decide — that's when its diagnosis + auto-approved
+  # critical issue is actually needed. Runs before semaphore_acquire so a healthy
+  # skip never consumes a concurrency slot.
+  if [[ "$name" == "uptime-check" ]]; then
+    if uptime_preflight; then
+      local up_now; up_now=$(now_epoch)
+      write_state "$name" "$(( up_now - up_now % 60 ))"
+      local up_ts; up_ts=$(date -u +%FT%TZ)
+      PENDING_LOGS+=("{\"routine\":\"${name}\",\"summary\":\"${_UPTIME_SUMMARY} (cheap probe, no agent run)\",\"timestamp\":\"${up_ts}\"}")
+      log "SKIP   ${name} — ${_UPTIME_SUMMARY} (cheap probe, no agent run)"
+      return 0
+    fi
+    log "ESCALATE ${name} — ${_UPTIME_ESCALATE_REASON}; launching agent for diagnosis"
   fi
 
   if ! semaphore_acquire; then

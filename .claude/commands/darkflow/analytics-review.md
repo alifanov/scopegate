@@ -53,6 +53,8 @@ Add all recommendations as GitHub Issues to the remote GitHub repository of this
 
 Do NOT create recommendations about paid ads — that is handled by `/darkflow:ads-review`.
 
+Do NOT create PostHog alerts, insights, dashboards, or any other PostHog artifacts. PostHog access is read-only here: only query data. All recommendations go out as GitHub Issues — never as PostHog alerts on changes/anomalies.
+
 Write an analytics snapshot to `docs/insights/analytics/YYYY-MM-DD.md` before posting recommendations.
 
 Language for all GitHub issues and output: the `language=` value from `.darkflow`.

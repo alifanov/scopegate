@@ -2,6 +2,8 @@ Check whether this project's website is actually up: resolve DNS, hit the URL, v
 
 This is an **active health check**: when the site is healthy it does nothing but write a snapshot. When the site is broken it files a critical, auto-approved issue describing exactly what failed (DNS, HTTP status, or empty/error body) so the fix can start without waiting for human triage.
 
+> **Note — cheap pre-flight.** The dispatcher (`darkflow-run.sh`) runs a fast bash `curl` probe *before* launching this agent. On the common happy path (site returns 2xx with a real body) it writes the snapshot + metrics itself and **skips this agent entirely** — so on healthy runs you are not invoked at all. This agent runs only when the probe finds the site down/broken or can't decide (no `site_url`, DNS failure, etc.). When you *are* invoked, perform the full check below from scratch (the probe is only a coarse filter) and file the issue.
+
 ## Step 1 — Read project config
 
 Run `bash .darkflow.d/get-config.sh` to pull the latest project settings from the Web UI and refresh the local `.darkflow` cache (silently falls back to cache if the server is unreachable).

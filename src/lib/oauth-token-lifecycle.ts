@@ -51,8 +51,10 @@ type ProviderConfig =
   | {
       kind: "exchange";
       bufferMs: number;
-      // Returns null to signal graceful fallback (Meta); throws to signal failure (Threads)
-      doExchange: (currentToken: string) => Promise<StandardTokenResponse | null>;
+      // Throws OAuthTokenError on failure. The cron path (refreshForCron) lets the
+      // throw drive the circuit breaker (status/backoff); the on-demand path
+      // (getValidAccessTokenForConnection) catches it and falls back to the current token.
+      doExchange: (currentToken: string) => Promise<StandardTokenResponse>;
     };
 
 function getProviderConfig(provider: string): ProviderConfig {
@@ -207,21 +209,36 @@ function getProviderConfig(provider: string): ProviderConfig {
       kind: "exchange",
       bufferMs: 24 * 60 * 60 * 1000,
       doExchange: async (currentToken) => {
-        try {
-          const params = new URLSearchParams({
-            grant_type: "fb_exchange_token",
-            client_id: appId,
-            client_secret: appSecret,
-            fb_exchange_token: currentToken,
-          });
-          const res = await fetch(
-            `https://graph.facebook.com/v21.0/oauth/access_token?${params}`
+        const params = new URLSearchParams({
+          grant_type: "fb_exchange_token",
+          client_id: appId,
+          client_secret: appSecret,
+          fb_exchange_token: currentToken,
+        });
+        const res = await fetch(
+          `https://graph.facebook.com/v21.0/oauth/access_token?${params}`
+        );
+        if (!res.ok) {
+          // Surface the Meta Graph API error code (e.g. 190 = token expired/invalidated)
+          // so the cron's circuit breaker can classify it as permanent and revoke.
+          let code: number | undefined;
+          let detail = "";
+          try {
+            const body = (await res.json()) as {
+              error?: { code?: number; message?: string };
+            };
+            code = body.error?.code;
+            detail = body.error?.message ?? "";
+          } catch {
+            // non-JSON error body — fall through with status only
+          }
+          throw new OAuthTokenError(
+            `Meta token exchange failed (${res.status})` +
+              (code != null ? ` code=${code}` : "") +
+              (detail ? `: ${detail}` : "")
           );
-          if (!res.ok) return null;
-          return res.json() as Promise<StandardTokenResponse>;
-        } catch {
-          return null;
         }
+        return res.json() as Promise<StandardTokenResponse>;
       },
     };
   }
@@ -272,8 +289,14 @@ export async function getValidAccessTokenForConnection(conn: DbConnection): Prom
 
   if (config.kind === "exchange") {
     const currentToken = decrypt(conn.accessToken);
-    const result = await config.doExchange(currentToken);
-    if (result === null) return currentToken; // graceful fallback (Meta)
+    let result: StandardTokenResponse;
+    try {
+      result = await config.doExchange(currentToken);
+    } catch {
+      // On-demand resilience: fall back to the current token if the exchange
+      // fails. The cron path (refreshForCron) owns status/backoff via the breaker.
+      return currentToken;
+    }
     await db.serviceConnection.update({
       where: { id: conn.id },
       data: {
@@ -317,8 +340,8 @@ export type CronConnection = {
 };
 
 // Performs a proactive token refresh for cron use. Resets consecutiveFailures on success.
-// Returns "skipped" for static tokens or when graceful exchange falls back.
-// Throws on refresh failure — callers are expected to handle error state.
+// Returns "skipped" for static tokens (nothing to refresh).
+// Throws on refresh/exchange failure — callers apply error state + backoff (circuit breaker).
 export async function refreshForCron(
   connection: CronConnection
 ): Promise<RefreshForCronOutcome> {

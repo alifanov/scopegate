@@ -564,7 +564,7 @@ uptime_preflight() {
       local body_size; body_size=$(wc -c < "$body_file" 2>/dev/null | tr -d ' '); body_size=${body_size:-0}
       if (( body_size < 200 )); then
         _UPTIME_ESCALATE_REASON="empty/short body (${body_size} bytes)"
-      elif grep -qiE '502 Bad Gateway|503 Service|504 Gateway|Application error|This site can.?t be reached|Welcome to nginx' "$body_file"; then
+      elif grep -qiE 'Bad Gateway|Gateway Time-?out|Service Unavailable|no (available )?server( available)?|Application error|This site can.?t be reached|Welcome to nginx' "$body_file"; then
         _UPTIME_ESCALATE_REASON="error marker in body"
       else
         local status="ok" latency_ms latency_s
@@ -585,6 +585,146 @@ uptime_preflight() {
   rm -f "$body_file"
   _CLEANUP_FILES=("${_CLEANUP_FILES[@]/$body_file}")
   return $rc
+}
+
+# ── Mailbox cheap pre-flight ──────────────────────────────────────────────────
+# The mailbox-check agent only has work when there is incoming mail to triage OR
+# approved reply issues to send. Both are cheap to count without an LLM: a
+# read-only IMAP UNSEEN search (`fetch.py --count`) and a `gh issue list`.
+# Returns 0 (caller SKIPS the agent) only when both are zero or the mailbox is
+# not configured. Returns 1 to escalate: mail waiting, replies pending, or the
+# probe can't decide (IMAP error, missing python3). Sets _MAILBOX_SUMMARY /
+# _MAILBOX_ESCALATE_REASON, and _MAILBOX_CONFIG_ERROR when the routine is enabled
+# but unconfigured (a misconfiguration the caller logs as an error).
+_MAILBOX_SUMMARY=""
+_MAILBOX_ESCALATE_REASON=""
+_MAILBOX_CONFIG_ERROR=false
+
+# Files a single needs-human issue telling the human to configure (or disable)
+# the mailbox routine. Deduped: never opens a second one while the first is open.
+# Best-effort — silently degrades to just a summary when gh/jq are unavailable.
+# Sets _MAILBOX_SUMMARY.
+mailbox_file_config_issue() {
+  if ! command -v gh &>/dev/null || ! command -v jq &>/dev/null; then
+    _MAILBOX_SUMMARY="mailbox routine enabled but not configured (MAILBOX_* missing) — gh/jq unavailable to file a needs-human issue"
+    return 0
+  fi
+
+  local existing
+  existing=$(gh issue list --state open \
+               --label "needs-human" --label "source:mailbox" \
+               --search "Configure mailbox integration in:title" \
+               --json number --jq 'length' 2>/dev/null || echo "")
+  if [[ "$existing" =~ ^[1-9][0-9]*$ ]]; then
+    _MAILBOX_SUMMARY="mailbox routine enabled but not configured — needs-human issue already open"
+    return 0
+  fi
+
+  local url num
+  url=$(gh issue create \
+    --title "Configure mailbox integration (MAILBOX_* in .env.darkflow)" \
+    --label "needs-human,source:mailbox,priority:high" \
+    --body "$(cat <<'BODY'
+## Mailbox routine is enabled but not configured
+
+The `mailbox-check` routine is scheduled and running, but `MAILBOX_IMAP_HOST` is
+empty in `.env.darkflow` — so it can neither read incoming mail nor send replies.
+Every scheduled run is currently a no-op.
+
+## What to do
+
+Add the mailbox credentials to `.env.darkflow` (git-ignored) in the project root:
+
+```
+MAILBOX_IMAP_HOST=imap.example.com
+MAILBOX_IMAP_PORT=993
+MAILBOX_IMAP_USER=you@example.com
+MAILBOX_IMAP_PASSWORD=...
+MAILBOX_SMTP_HOST=smtp.example.com
+MAILBOX_SMTP_PORT=465
+MAILBOX_SMTP_USER=you@example.com
+MAILBOX_SMTP_PASSWORD=...
+```
+
+Or, if you don't want the mailbox integration, disable the routine instead: set
+`enabled: false` for `mailbox-check` in `.darkflow.d/routines.yml`.
+
+## Acceptance criteria
+
+- [ ] `.env.darkflow` has the `MAILBOX_*` vars **or** `mailbox-check` is disabled
+- [ ] `mailbox-check` no longer reports "not configured"
+BODY
+)" 2>/dev/null) || url=""
+
+  num=$(printf '%s' "$url" | grep -oE '[0-9]+$' || true)
+  if [[ -n "$num" ]]; then
+    _MAILBOX_SUMMARY="mailbox routine enabled but not configured — filed needs-human issue #${num}"
+  else
+    _MAILBOX_SUMMARY="mailbox routine enabled but not configured — failed to file needs-human issue (check gh auth)"
+  fi
+}
+
+mailbox_preflight() {
+  _MAILBOX_SUMMARY=""
+  _MAILBOX_ESCALATE_REASON=""
+  _MAILBOX_CONFIG_ERROR=false
+
+  # 1. Approved reply issues waiting to be sent (cheap; needs no IMAP).
+  if command -v gh &>/dev/null && command -v jq &>/dev/null; then
+    local reply_count
+    reply_count=$(gh issue list --state open \
+                    --label "status:approved" --label "source:mailbox" --label "action:reply" \
+                    --json number --jq 'length' 2>/dev/null || echo "")
+    if [[ "$reply_count" =~ ^[1-9][0-9]*$ ]]; then
+      _MAILBOX_ESCALATE_REASON="${reply_count} approved reply(ies) to send"
+      return 1
+    fi
+  fi
+
+  # 2. Probe the inbox in a subshell so sourced MAILBOX_* creds never leak into
+  #    the dispatcher's environment or other routines.
+  local probe
+  probe=$(
+    set +e
+    set -a
+    [[ -f "${PROJECT_ROOT}/.env.darkflow" ]] && . "${PROJECT_ROOT}/.env.darkflow" 2>/dev/null
+    set +a
+    if [[ -z "${MAILBOX_IMAP_HOST:-}" ]]; then echo "UNCONFIGURED"; exit 0; fi
+    command -v python3 >/dev/null 2>&1 || { echo "NOPY"; exit 0; }
+    out=$(python3 "${PROJECT_ROOT}/.darkflow.d/mailbox/fetch.py" --count 2>/dev/null)
+    if [[ "$out" =~ ^[0-9]+$ ]]; then echo "COUNT:${out}"; else echo "ERR"; fi
+  )
+
+  case "$probe" in
+    UNCONFIGURED)
+      # Routine is enabled but has no credentials — a misconfiguration the human
+      # must fix. File a deduped needs-human issue and flag it as an error so the
+      # caller logs it loudly. Still skip the agent (it can do nothing here).
+      _MAILBOX_CONFIG_ERROR=true
+      mailbox_file_config_issue
+      return 0
+      ;;
+    NOPY)
+      _MAILBOX_ESCALATE_REASON="python3 unavailable — cannot probe inbox"
+      return 1
+      ;;
+    ERR)
+      _MAILBOX_ESCALATE_REASON="IMAP unseen-count failed (server/credentials)"
+      return 1
+      ;;
+    COUNT:0)
+      _MAILBOX_SUMMARY="no new mail, no replies pending"
+      return 0
+      ;;
+    COUNT:*)
+      _MAILBOX_ESCALATE_REASON="${probe#COUNT:} new message(s) in inbox"
+      return 1
+      ;;
+    *)
+      _MAILBOX_ESCALATE_REASON="inconclusive mailbox probe"
+      return 1
+      ;;
+  esac
 }
 
 run_routine() {
@@ -661,6 +801,25 @@ run_routine() {
       return 0
     fi
     log "ESCALATE ${name} — ${_UPTIME_ESCALATE_REASON}; launching agent for diagnosis"
+  fi
+
+  # Mailbox cheap pre-flight: skip the agent when there's no incoming mail and no
+  # approved replies to send. Runs before semaphore_acquire so an idle skip never
+  # consumes a concurrency slot.
+  if [[ "$name" == "mailbox-check" ]]; then
+    if mailbox_preflight; then
+      local mb_now; mb_now=$(now_epoch)
+      write_state "$name" "$(( mb_now - mb_now % 60 ))"
+      local mb_ts; mb_ts=$(date -u +%FT%TZ)
+      PENDING_LOGS+=("{\"routine\":\"${name}\",\"summary\":\"${_MAILBOX_SUMMARY} (cheap probe, no agent run)\",\"timestamp\":\"${mb_ts}\"}")
+      if $_MAILBOX_CONFIG_ERROR; then
+        log "ERROR  ${name} — ${_MAILBOX_SUMMARY}"
+      else
+        log "SKIP   ${name} — ${_MAILBOX_SUMMARY} (cheap probe, no agent run)"
+      fi
+      return 0
+    fi
+    log "ESCALATE ${name} — ${_MAILBOX_ESCALATE_REASON}; launching agent"
   fi
 
   if ! semaphore_acquire; then

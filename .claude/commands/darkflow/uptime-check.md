@@ -64,7 +64,7 @@ curl -sS -A "darkflow-uptime/1.0" -L --max-time 25 \
 
 Inspect `/tmp/uptime_body.html`:
 - Body is empty or < 200 bytes → status **down**, reason `empty_body`.
-- Body contains an obvious failure marker (case-insensitive): `502 Bad Gateway`, `503 Service`, `504 Gateway`, `Application error`, `This site can't be reached`, default `Welcome to nginx`, an unstyled framework error stack, or a maintenance page when none is expected → status **down**, reason `error_page` (quote the marker found).
+- Body contains an obvious failure marker (case-insensitive): `Bad Gateway`, `Gateway Timeout`, `Service Unavailable`, `no available server` / `no server available` (Traefik/Coolify when the backend is down — note these can come with an HTTP **200**), `Application error`, `This site can't be reached`, default `Welcome to nginx`, an unstyled framework error stack, or a maintenance page when none is expected → status **down**, reason `error_page` (quote the marker found).
 - Otherwise → status **ok**. Note the `<title>` for the snapshot.
 
 ## Step 4 — File a critical issue if down

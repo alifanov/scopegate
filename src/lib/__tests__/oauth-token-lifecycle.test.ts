@@ -16,6 +16,24 @@ vi.mock("@/lib/crypto", () => ({
   decrypt: (v: string) => v.replace(/^enc\(|\)$/g, ""),
 }));
 
+const mockSpan = {
+  setAttribute: vi.fn(),
+  setStatus: vi.fn(),
+  recordException: vi.fn(),
+  end: vi.fn(),
+};
+
+vi.mock("@opentelemetry/api", () => ({
+  trace: {
+    getTracer: () => ({
+      startActiveSpan: (_name: string, _options: unknown, callback: (span: typeof mockSpan) => unknown) =>
+        callback(mockSpan),
+    }),
+  },
+  SpanKind: { CLIENT: 2 },
+  SpanStatusCode: { ERROR: 2 },
+}));
+
 import { refreshForCron, getValidAccessTokenForConnection, OAuthTokenError } from "../oauth-token-lifecycle";
 import { db } from "@/lib/db";
 
@@ -39,6 +57,10 @@ describe("metaAds token exchange", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.mocked(db.serviceConnection.update).mockReset();
+    mockSpan.setAttribute.mockClear();
+    mockSpan.setStatus.mockClear();
+    mockSpan.recordException.mockClear();
+    mockSpan.end.mockClear();
     Object.assign(process.env, META_ENV);
   });
 
@@ -58,6 +80,9 @@ describe("metaAds token exchange", () => {
     await expect(refreshForCron(baseConn)).rejects.toThrow(/code=190/);
     // must NOT silently persist anything on failure
     expect(db.serviceConnection.update).not.toHaveBeenCalled();
+    expect(mockSpan.setAttribute).toHaveBeenCalledWith("http.status_code", 400);
+    expect(mockSpan.setAttribute).toHaveBeenCalledWith("error.code", 190);
+    expect(mockSpan.setAttribute).toHaveBeenCalledWith("error.type", "190");
   });
 
   it("getValidAccessTokenForConnection falls back to the current token on exchange failure (on-demand resilience)", async () => {

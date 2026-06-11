@@ -13,7 +13,7 @@ If `.darkflow` is missing, continue with the defaults.
 
 ## Step 2 — Pick the next issue
 
-Pick exactly **one** open issue with the `status:approved` label, choosing strictly by priority. Walk the priority labels in this order and stop at the first level that has any issues:
+Pick exactly **one** open issue with the `status:approved` label, choosing strictly by priority. The priority order, highest first, is:
 
 1. `priority:critical`
 2. `priority:high`
@@ -21,37 +21,35 @@ Pick exactly **one** open issue with the `status:approved` label, choosing stric
 4. `priority:low`
 5. `status:approved` without any `priority:*` label (treat as lowest)
 
-Within the chosen level, take the **oldest** issue (smallest issue number). Concretely:
+The canonical labels are `critical/high/medium/low`, but some agents tag issues with the equivalent `p0/p1/p2/p3` scheme (`p0`=critical, `p1`=high, `p2`=medium, `p3`=low). Treat those as **aliases** — an issue must never be stranded just because it carries `priority:p2` instead of `priority:medium`. Within a level, take the **oldest** issue (smallest number).
 
 Skip issues that are not actually actionable here, even if they still carry `status:approved`:
 - `action:reply` — handled exclusively by `mailbox-check`.
 - `needs-human` — already parked for a human; re-running only posts duplicate comments.
 - `status:blocked` — failed checks; waits for a human, not another attempt.
 
+Rank every selectable issue and take the single best one — one query, no per-level loop:
+
 ```bash
-# A label set is selectable only if it has none of these blocking labels.
-SELECTABLE='(.labels | map(.name)) as $l
-  | ($l | index("action:reply") | not)
-    and ($l | index("needs-human") | not)
-    and ($l | index("status:blocked") | not)'
-for p in critical high medium low; do
-  n=$(gh issue list --state open --label "status:approved" --label "priority:$p" \
-        --json number,labels \
-        --jq "[.[] | select(${SELECTABLE})] | sort_by(.number) | .[0].number")
-  [[ -n "$n" ]] && break
-done
-# Fallback for status:approved issues with no priority label:
-if [[ -z "$n" ]]; then
-  n=$(gh issue list --state open --label "status:approved" \
-        --json number,labels \
-        --jq "[.[] | select(
-                (.labels | map(.name) | map(startswith(\"priority:\")) | any) | not
-              ) | select(${SELECTABLE})]
-              | sort_by(.number) | .[0].number")
-fi
+n=$(gh issue list --state open --label "status:approved" \
+      --json number,labels \
+      --jq '
+        def prio($l):
+          if   ($l|index("priority:critical")) or ($l|index("priority:p0")) then 0
+          elif ($l|index("priority:high"))     or ($l|index("priority:p1")) then 1
+          elif ($l|index("priority:medium"))   or ($l|index("priority:p2")) then 2
+          elif ($l|index("priority:low"))      or ($l|index("priority:p3")) then 3
+          else 4 end;
+        [ .[]
+          | (.labels | map(.name)) as $l
+          | select(($l | index("action:reply")   | not)
+               and ($l | index("needs-human")    | not)
+               and ($l | index("status:blocked") | not))
+          | {number, rank: prio($l)} ]
+        | sort_by([.rank, .number]) | .[0].number // empty')
 ```
 
-If `$n` is empty after all levels, stop — skip the run.
+If `$n` is empty, stop — skip the run.
 
 ## Step 3 — Read the issue
 

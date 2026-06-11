@@ -235,8 +235,8 @@ export async function POST(request: Request) {
               return members.map((m) => ({
                 userId: m.userId,
                 type: "error",
-                title: "Требуется повторное подключение",
-                message: `Доступ к ${conn.provider} (${conn.accountEmail}) отозван провайдером. Переподключите аккаунт в настройках проекта.`,
+                title: "Reconnect required",
+                message: `Access to ${conn.provider} (${conn.accountEmail}) was revoked by the provider. Reconnect the account in project settings.`,
               }));
             }),
           });

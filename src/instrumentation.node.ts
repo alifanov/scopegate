@@ -5,6 +5,11 @@ import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentation
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
+import {
+  BatchSpanProcessor,
+  type Span,
+  type SpanProcessor,
+} from "@opentelemetry/sdk-trace-base";
 import { metrics, type Counter } from "@opentelemetry/api";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
@@ -29,9 +34,54 @@ const OAUTH_TOKEN_URL_PATTERNS = [
   "github.com/login/oauth/access_token",
   "twitter.com/oauth2/token",
   "api.twitter.com/2/oauth2",
+  "graph.facebook.com/v21.0/oauth/access_token",
   "graph.threads.net/oauth/access_token",
   "graph.threads.net/refresh_access_token",
 ];
+
+const SENSITIVE_QUERY_PARAM_PATTERN =
+  /([?&])(access_token|client_secret|fb_exchange_token)=([^&]*)/g;
+
+function redactSensitiveUrlValues(value: string): string {
+  return value.replace(SENSITIVE_QUERY_PARAM_PATTERN, "$1$2=REDACTED");
+}
+
+class SensitiveUrlSpanProcessor implements SpanProcessor {
+  onStart(span: Span): void {
+    this.redactSpan(span);
+  }
+
+  onEnding(span: Span): void {
+    this.redactSpan(span);
+  }
+
+  private redactSpan(span: Span): void {
+    const redactedName = redactSensitiveUrlValues(span.name);
+    if (redactedName !== span.name) {
+      span.updateName(redactedName);
+    }
+
+    for (const key of ["http.url", "url.full"]) {
+      const value = span.attributes[key];
+      if (typeof value !== "string") continue;
+
+      const redactedValue = redactSensitiveUrlValues(value);
+      if (redactedValue !== value) {
+        span.setAttribute(key, redactedValue);
+      }
+    }
+  }
+
+  onEnd(): void {}
+
+  forceFlush(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  shutdown(): Promise<void> {
+    return Promise.resolve();
+  }
+}
 
 // Build route pattern matchers for normalising raw URL paths → Next.js route patterns.
 // Primary source: .next/routes-manifest.json (present in both dev builds and production
@@ -118,13 +168,18 @@ if (!endpoint) {
 } else {
   console.log(`[OTel] Starting SDK, exporting to ${endpoint}/v1/traces`);
 
+  const traceExporter = new OTLPTraceExporter({
+    url: `${endpoint}/v1/traces`,
+  });
+
   const sdk = new NodeSDK({
     resource: resourceFromAttributes({
       [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME ?? "scopegate",
     }),
-    traceExporter: new OTLPTraceExporter({
-      url: `${endpoint}/v1/traces`,
-    }),
+    spanProcessors: [
+      new SensitiveUrlSpanProcessor(),
+      new BatchSpanProcessor(traceExporter),
+    ],
     metricReaders: [
       new PeriodicExportingMetricReader({
         exporter: new OTLPMetricExporter({
@@ -177,7 +232,7 @@ if (!endpoint) {
               const method = (request as { method: string }).method;
               const path = (request as { path: string }).path;
               // Strip sensitive query params from all URL attributes before recording.
-              const sanitizedPath = path.replace(/([?&])access_token=[^&]*/g, "$1access_token=REDACTED");
+              const sanitizedPath = redactSensitiveUrlValues(path);
               const sanitizedUrl = `${(request as { origin: string }).origin}${sanitizedPath}`;
               span.updateName(`${method} ${host}`);
               span.setAttribute("peer.service", host);

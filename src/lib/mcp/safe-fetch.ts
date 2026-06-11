@@ -1,6 +1,7 @@
 import { lookup as dnsLookup } from "dns/promises";
 import type { LookupOptions } from "node:dns";
 import https from "node:https";
+import { trace } from "@opentelemetry/api";
 
 const MAX_REDIRECTS = 5;
 
@@ -102,6 +103,20 @@ function headersToRecord(h: RequestInit["headers"]): Record<string, string> {
   }
   if (Array.isArray(h)) return Object.fromEntries(h) as Record<string, string>;
   return h as Record<string, string>;
+}
+
+function annotateRequestError(err: unknown): void {
+  if (!(err instanceof Error)) return;
+
+  const span = trace.getActiveSpan();
+  if (!span) return;
+
+  const errno = err as NodeJS.ErrnoException;
+  const errorType = errno.code ?? err.name;
+  span.setAttribute("error.message", err.message);
+  span.setAttribute("error.name", err.name);
+  if (errorType) span.setAttribute("error.type", errorType);
+  if (errno.code) span.setAttribute("error.code", errno.code);
 }
 
 // Makes the HTTPS request, connecting to `pinnedIp` while keeping the original
@@ -216,7 +231,13 @@ export async function safeFetch(
   }
 
   const { parsed, pinnedIp, pinnedFamily } = await assertSafeUrl(url);
-  const res = await makeRequest(parsed, options, pinnedIp, pinnedFamily);
+  let res: Response;
+  try {
+    res = await makeRequest(parsed, options, pinnedIp, pinnedFamily);
+  } catch (err) {
+    annotateRequestError(err);
+    throw err;
+  }
 
   if (res.status >= 300 && res.status < 400) {
     const location = res.headers.get("location");

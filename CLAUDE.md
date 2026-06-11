@@ -111,5 +111,5 @@ OBSERVABILITY_API_KEY        # SigNoz ingestion key
 - OAuth provider helpers live in `src/lib/<provider>-oauth.ts`; shared base logic in `oauth-flow.ts`
 - Google Search Console API responses are cached with retry on 429 and OTel metrics
 - `safe-fetch.ts` uses `node:https` with custom lookup — validates ALL A/AAAA records before connecting, preventing DNS rebinding and multi-record SSRF (TOCTOU-safe); accepts optional `timeout` (ms) to abort slow requests (Threads uses 8 s); lookup honors `opts.all: true` (Node 20+ autoSelectFamily / Happy Eyeballs) — returns array of `{address, family}` to avoid "Invalid IP address: undefined" crash on node:22-slim
-- Meta Graph API 400 errors: `metaAdsFetch` and `threadsFetch` read `error.code` from the JSON body — codes 190/102 → `OAuthTokenError`; other 4xx → generic error with code in the message; `threadsFetch` annotates the active span with `error.type` for SigNoz grouping
+- Meta Graph API 400 errors: token-exchange failures are traced as sanitized `GET graph.facebook.com` spans with `error.code`/`error.type`; `metaAdsFetch` and `threadsFetch` read `error.code` from the JSON body — codes 190/102 → `OAuthTokenError`; other 4xx → generic error with code in the message.
 - HTTP security headers (HSTS, X-Frame-Options, CSP `frame-ancestors 'none'`, nosniff) set globally in `next.config.ts`

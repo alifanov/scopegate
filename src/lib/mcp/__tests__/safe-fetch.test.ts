@@ -14,6 +14,16 @@ vi.mock("node:https", () => ({
   },
 }));
 
+const mockActiveSpan = {
+  setAttribute: vi.fn(),
+};
+
+vi.mock("@opentelemetry/api", () => ({
+  trace: {
+    getActiveSpan: vi.fn(() => mockActiveSpan),
+  },
+}));
+
 import { lookup } from "dns/promises";
 import https from "node:https";
 import { safeFetch } from "../safe-fetch";
@@ -262,6 +272,18 @@ describe("safeFetch – SSRF protection", () => {
       (errorHandler![1] as (e: Error) => void)(destroyErr);
 
       await expect(fetchPromise).rejects.toThrow("timed out after 100ms");
+      expect(mockActiveSpan.setAttribute).toHaveBeenCalledWith(
+        "error.message",
+        "Request timed out after 100ms"
+      );
+      expect(mockActiveSpan.setAttribute).toHaveBeenCalledWith(
+        "error.name",
+        "TimeoutError"
+      );
+      expect(mockActiveSpan.setAttribute).toHaveBeenCalledWith(
+        "error.type",
+        "TimeoutError"
+      );
     });
 
     it("does not call req.setTimeout when timeout option is absent", async () => {
@@ -296,6 +318,37 @@ describe("safeFetch – SSRF protection", () => {
   });
 
   describe("successful requests", () => {
+    it("annotates connection errors on the active telemetry span", async () => {
+      mockDns({ address: "93.184.216.34", family: 4 });
+
+      const mockReq = {
+        on: vi.fn().mockReturnThis(),
+        write: vi.fn(),
+        end: vi.fn(),
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (mockHttpsRequest as any).mockImplementationOnce(
+        (_opts: unknown, _cb?: unknown) => mockReq
+      );
+
+      const fetchPromise = safeFetch("https://example.com/api");
+      await vi.waitFor(() => expect(mockReq.on).toHaveBeenCalledWith("error", expect.any(Function)));
+
+      const err = new Error("socket hang up") as NodeJS.ErrnoException;
+      err.code = "ECONNRESET";
+      const errorHandler = mockReq.on.mock.calls.find((c: unknown[]) => c[0] === "error");
+      (errorHandler![1] as (e: Error) => void)(err);
+
+      await expect(fetchPromise).rejects.toThrow("socket hang up");
+      expect(mockActiveSpan.setAttribute).toHaveBeenCalledWith(
+        "error.message",
+        "socket hang up"
+      );
+      expect(mockActiveSpan.setAttribute).toHaveBeenCalledWith("error.name", "Error");
+      expect(mockActiveSpan.setAttribute).toHaveBeenCalledWith("error.type", "ECONNRESET");
+      expect(mockActiveSpan.setAttribute).toHaveBeenCalledWith("error.code", "ECONNRESET");
+    });
+
     it("returns response with correct status", async () => {
       mockDns({ address: "93.184.216.34", family: 4 });
       mockHttpsResponse(200, { "content-type": "image/jpeg" });

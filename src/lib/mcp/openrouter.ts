@@ -1,11 +1,12 @@
 import { serviceFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch";
 
-const CREDITS_CACHE_TTL_MS = 3_600_000; // 1 hour
+const CREDITS_CACHE_TTL_MS = 5 * 60 * 1000;
 
 const creditsCache = new Map<
   string,
   { value: unknown; expiresAt: number }
 >();
+const creditsRefreshes = new Map<string, Promise<unknown>>();
 
 export async function openRouterFetch(
   serviceConnectionId: string,
@@ -31,18 +32,32 @@ export async function getOpenRouterCredits(
     return cached.value;
   }
 
-  try {
-    const value = await openRouterFetch(serviceConnectionId, "/credits");
-    creditsCache.set(serviceConnectionId, {
-      value,
-      expiresAt: Date.now() + CREDITS_CACHE_TTL_MS,
-    });
-    return value;
-  } catch (err) {
-    // Graceful degradation: return stale cached value if available
-    if (cached) {
-      return cached.value;
-    }
-    throw err;
+  if (cached) {
+    void refreshOpenRouterCredits(serviceConnectionId).catch(() => undefined);
+    return cached.value;
   }
+
+  return refreshOpenRouterCredits(serviceConnectionId);
+}
+
+async function refreshOpenRouterCredits(
+  serviceConnectionId: string
+): Promise<unknown> {
+  const pending = creditsRefreshes.get(serviceConnectionId);
+  if (pending) return pending;
+
+  const refresh = openRouterFetch(serviceConnectionId, "/credits")
+    .then((value) => {
+      creditsCache.set(serviceConnectionId, {
+        value,
+        expiresAt: Date.now() + CREDITS_CACHE_TTL_MS,
+      });
+      return value;
+    })
+    .finally(() => {
+      creditsRefreshes.delete(serviceConnectionId);
+    });
+
+  creditsRefreshes.set(serviceConnectionId, refresh);
+  return refresh;
 }

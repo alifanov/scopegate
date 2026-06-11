@@ -1,6 +1,6 @@
 # Dark Flow project config — managed by install.sh
-version=2.62.0
-installed=2026-06-10
+version=2.63.0
+installed=2026-06-11
 language=Russian
 branch=master
 merge_strategy=direct

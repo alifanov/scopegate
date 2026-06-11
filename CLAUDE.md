@@ -96,17 +96,20 @@ OBSERVABILITY_API_KEY        # SigNoz ingestion key
 - `BETTER_AUTH_SECRET` doubles as the key for AES-256-GCM token encryption (`crypto.ts`) and HMAC-SHA256 OAuth state signing (`oauth-state.ts`)
 - Service credentials (API keys, tokens) are stored encrypted in `ServiceConnection.accessToken` — not in env vars
 - OAuth token 4xx errors (invalid_grant etc.) are expected — `OAuthTokenError` thrown from `oauth-token-lifecycle.ts`, caught in `handler.ts` — not instrumented to avoid false-positive ERROR spans in SigNoz
+- On `OAuthTokenError`: `handler.ts` calls `revokeConnectionWithNotification(connectionId, msg)` — sets connection `status="revoked"` and sends an in-app notification to all project team members; `markConnectionTokenError` still exists but is no longer called by handler
 - All token refresh logic (proactive + on-demand) for all 11 providers lives in `oauth-token-lifecycle.ts` — do not duplicate in individual tool files
 - `service-fetch.ts` is the unified MCP transport: use `serviceFetch(conn, provider, path, opts)` — handles token retrieval, base URL, provider-specific headers, SSRF protection, and emits OTel `CLIENT` spans (`service-fetch <provider>`) with `http.method`, `mcp.provider`, `url.path`, `http.status_code`; `safe-fetch.ts` is the low-level primitive
 - `safe-fetch.ts` lives in `src/lib/mcp/` (not `src/lib/`) — import from `@/lib/mcp/safe-fetch`; timeout errors carry `err.name = "TimeoutError"` — catch by name (e.g. GSC `inspect_url`)
 - MCP endpoint streams SSE; keep-alive pings sent every 30s to prevent proxy timeouts
 - MCP tool execution has a 30s timeout per tool; enforced in `handler.ts`
 - Middleware route-group blocking metrics tracked per-route via `mcp.blocked_requests` OTel counter (in `metrics.ts`)
-- MCP `http.route="/api/mcp/[apiKey]"` is set explicitly via `trace.getActiveSpan()` in `route.ts` — production build has no `src/app/`, so framework-level route normalization returns the raw path with the API key instead of the pattern
+- OTel route normalization (`instrumentation.node.ts`) uses `.next/routes-manifest.json` as primary source (present in production standalone output); falls back to `src/app/` walk for dev servers without a completed build — route groups (e.g. `/(auth)/`) are stripped from the fallback paths
+- MCP `http.route="/api/mcp/[apiKey]"` is still set explicitly via `trace.getActiveSpan()` in `route.ts` as belt-and-suspenders — routes-manifest.json covers it but the explicit set ensures correctness regardless of build state
+- Each MCP tool call is wrapped in an `mcp.tool <toolName>` OTel span (SERVER kind) in `handler.ts` — visible in SigNoz traces
 - Prisma queries are traced via `PrismaInstrumentation` from `@prisma/instrumentation` — visible in SigNoz DB spans
 - `RateLimitBucket` model provides atomic rate limiting (replaced `auditLog.count` pattern)
 - OAuth provider helpers live in `src/lib/<provider>-oauth.ts`; shared base logic in `oauth-flow.ts`
 - Google Search Console API responses are cached with retry on 429 and OTel metrics
-- `safe-fetch.ts` uses `node:https` with custom lookup — validates ALL A/AAAA records before connecting, preventing DNS rebinding and multi-record SSRF (TOCTOU-safe); accepts optional `timeout` (ms) to abort slow requests (Threads uses 8 s)
+- `safe-fetch.ts` uses `node:https` with custom lookup — validates ALL A/AAAA records before connecting, preventing DNS rebinding and multi-record SSRF (TOCTOU-safe); accepts optional `timeout` (ms) to abort slow requests (Threads uses 8 s); lookup honors `opts.all: true` (Node 20+ autoSelectFamily / Happy Eyeballs) — returns array of `{address, family}` to avoid "Invalid IP address: undefined" crash on node:22-slim
 - Meta Graph API 400 errors: `metaAdsFetch` and `threadsFetch` read `error.code` from the JSON body — codes 190/102 → `OAuthTokenError`; other 4xx → generic error with code in the message; `threadsFetch` annotates the active span with `error.type` for SigNoz grouping
 - HTTP security headers (HSTS, X-Frame-Options, CSP `frame-ancestors 'none'`, nosniff) set globally in `next.config.ts`

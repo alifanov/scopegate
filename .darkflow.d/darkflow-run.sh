@@ -840,10 +840,12 @@ run_routine() {
 
   local agent_output _stream_file
   local _cost_json="" _tokens_json=""   # JSON fragments for PENDING_LOGS (empty = omit)
-  # Persist the model used for this run so the web UI can break spend down by
-  # model. `model` is set for both claude and codex engines above.
+  # Persist the engine + model used for this run so the web UI can break spend
+  # down by command. We prefix the model name with the engine ("claude" or
+  # "codex") so the analytics page distinguishes e.g. claude:sonnet from
+  # codex:gpt-5 instead of collapsing same-named models or showing "unknown".
   local _model_json=""
-  [[ -n "$model" ]] && _model_json=",\"model\":\"${model}\""
+  [[ -n "$model" ]] && _model_json=",\"model\":\"${engine}:${model}\""
   _stream_file=$(mktemp)
   _CLEANUP_FILES+=("$_stream_file")
   if [[ "$engine" == "codex" ]]; then

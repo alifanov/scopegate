@@ -1,6 +1,12 @@
 import { db } from "@/lib/db";
 import { encrypt, decrypt } from "@/lib/crypto";
 import { trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
+import {
+  PROVIDER_REGISTRY,
+  EXCHANGE_PROVIDER_KEYS,
+  type RefreshTokenConfig,
+  type ExchangeTokenConfig,
+} from "@/lib/provider-registry";
 
 export class OAuthTokenError extends Error {
   constructor(message: string) {
@@ -58,22 +64,6 @@ export async function revokeConnectionWithNotification(
   }
 }
 
-const STATIC_PROVIDERS = new Set([
-  "github", "slack", "notion",
-  // API key providers — tokens never expire, just decrypt and use
-  "openRouter", "telegram", "semrush", "ahrefs", "stripe", "airtable", "calendly",
-]);
-const GOOGLE_PROVIDERS = new Set([
-  "gmail",
-  "calendar",
-  "drive",
-  "googleAds",
-  "searchConsole",
-  "youtube",
-  "googleTagManager",
-]);
-// Providers that use the current access token (not a refresh_token) to obtain a new token
-const EXCHANGE_PROVIDERS = new Set(["threads", "metaAds"]);
 const tracer = trace.getTracer("scopegate/oauth-token-lifecycle");
 
 type StandardTokenResponse = {
@@ -171,182 +161,102 @@ type ProviderConfig =
       doExchange: (currentToken: string) => Promise<StandardTokenResponse>;
     };
 
+function buildDoRefresh(
+  displayName: string,
+  t: RefreshTokenConfig
+): (refreshToken: string) => Promise<StandardTokenResponse> {
+  return async (refreshToken: string) => {
+    const clientId = process.env[t.clientIdEnv]!;
+    const clientSecret = process.env[t.clientSecretEnv]!;
+
+    let headers: Record<string, string>;
+    let body: string;
+
+    if (t.authStyle === "basic") {
+      const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+      headers = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: `Basic ${basicAuth}`,
+      };
+      body = new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+      }).toString();
+    } else if (t.bodyFormat === "json") {
+      headers = { "Content-Type": "application/json" };
+      body = JSON.stringify({
+        grant_type: "refresh_token",
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+      });
+    } else {
+      headers = { "Content-Type": "application/x-www-form-urlencoded" };
+      body = new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+        client_id: clientId,
+        client_secret: clientSecret,
+      }).toString();
+    }
+
+    const fetchOpts: RequestInit = { method: "POST", headers, body };
+    if (t.timeoutMs !== undefined) fetchOpts.signal = AbortSignal.timeout(t.timeoutMs);
+
+    const res = await fetch(t.tokenUrl, fetchOpts);
+    if (!res.ok) throw new OAuthTokenError(`${displayName} token refresh failed (${res.status})`);
+
+    const data = (await res.json()) as StandardTokenResponse;
+    if (t.defaultExpiresInMs !== undefined && !data.expires_in) {
+      return { ...data, expires_in: t.defaultExpiresInMs / 1000 };
+    }
+    return data;
+  };
+}
+
 function getProviderConfig(provider: string): ProviderConfig {
-  if (STATIC_PROVIDERS.has(provider)) return { kind: "static" };
+  const def = PROVIDER_REGISTRY.find((p) => p.key === provider);
+  if (!def) throw new Error(`Unknown OAuth provider: ${provider}`);
 
-  if (GOOGLE_PROVIDERS.has(provider)) {
-    const clientId = process.env.GOOGLE_CLIENT_ID!;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET!;
+  const t = def.token;
+
+  if (t.kind === "static") return { kind: "static" };
+
+  if (t.kind === "refresh") {
     return {
       kind: "refresh",
-      bufferMs: 5 * 60 * 1000,
-      doRefresh: async (refreshToken) => {
-        const res = await fetch("https://oauth2.googleapis.com/token", {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams({
-            refresh_token: refreshToken,
-            client_id: clientId,
-            client_secret: clientSecret,
-            grant_type: "refresh_token",
-          }),
-        });
-        if (!res.ok) throw new OAuthTokenError(`Google token refresh failed (${res.status})`);
-        return res.json() as Promise<StandardTokenResponse>;
-      },
+      bufferMs: t.bufferMs,
+      doRefresh: buildDoRefresh(def.displayName, t),
     };
   }
 
-  if (provider === "hubspot") {
-    const clientId = process.env.HUBSPOT_CLIENT_ID!;
-    const clientSecret = process.env.HUBSPOT_CLIENT_SECRET!;
-    return {
-      kind: "refresh",
-      bufferMs: 5 * 60 * 1000,
-      doRefresh: async (refreshToken) => {
-        const res = await fetch("https://api.hubapi.com/oauth/v1/token", {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams({
-            grant_type: "refresh_token",
-            refresh_token: refreshToken,
-            client_id: clientId,
-            client_secret: clientSecret,
-          }),
-        });
-        if (!res.ok) throw new OAuthTokenError(`HubSpot token refresh failed (${res.status})`);
-        return res.json() as Promise<StandardTokenResponse>;
-      },
-    };
-  }
+  // kind === "exchange"
+  const et = t as ExchangeTokenConfig;
 
-  if (provider === "jira") {
-    const clientId = process.env.JIRA_CLIENT_ID!;
-    const clientSecret = process.env.JIRA_CLIENT_SECRET!;
-    return {
-      kind: "refresh",
-      bufferMs: 5 * 60 * 1000,
-      doRefresh: async (refreshToken) => {
-        const res = await fetch("https://auth.atlassian.com/oauth/token", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            grant_type: "refresh_token",
-            client_id: clientId,
-            client_secret: clientSecret,
-            refresh_token: refreshToken,
-          }),
-        });
-        if (!res.ok) throw new OAuthTokenError(`Jira token refresh failed (${res.status})`);
-        return res.json() as Promise<StandardTokenResponse>;
-      },
-    };
-  }
-
-  if (provider === "linkedin") {
-    const clientId = process.env.LINKEDIN_CLIENT_ID!;
-    const clientSecret = process.env.LINKEDIN_CLIENT_SECRET!;
-    return {
-      kind: "refresh",
-      bufferMs: 5 * 60 * 1000,
-      doRefresh: async (refreshToken) => {
-        const res = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams({
-            grant_type: "refresh_token",
-            refresh_token: refreshToken,
-            client_id: clientId,
-            client_secret: clientSecret,
-          }),
-        });
-        if (!res.ok) throw new OAuthTokenError(`LinkedIn token refresh failed (${res.status})`);
-        return res.json() as Promise<StandardTokenResponse>;
-      },
-    };
-  }
-
-  if (provider === "salesforce") {
-    const clientId = process.env.SALESFORCE_CLIENT_ID!;
-    const clientSecret = process.env.SALESFORCE_CLIENT_SECRET!;
-    return {
-      kind: "refresh",
-      bufferMs: 5 * 60 * 1000,
-      doRefresh: async (refreshToken) => {
-        const res = await fetch("https://login.salesforce.com/services/oauth2/token", {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams({
-            grant_type: "refresh_token",
-            refresh_token: refreshToken,
-            client_id: clientId,
-            client_secret: clientSecret,
-          }),
-        });
-        if (!res.ok) throw new OAuthTokenError(`Salesforce token refresh failed (${res.status})`);
-        const data = (await res.json()) as { access_token: string };
-        // Salesforce doesn't return expires_in — assume 2 hours
-        return { access_token: data.access_token, expires_in: 2 * 60 * 60 };
-      },
-    };
-  }
-
-  if (provider === "twitter") {
-    const clientId = process.env.TWITTER_CLIENT_ID!;
-    const clientSecret = process.env.TWITTER_CLIENT_SECRET!;
-    return {
-      kind: "refresh",
-      bufferMs: 5 * 60 * 1000,
-      doRefresh: async (refreshToken) => {
-        const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
-        const res = await fetch("https://api.x.com/2/oauth2/token", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            Authorization: `Basic ${basicAuth}`,
-          },
-          body: new URLSearchParams({
-            grant_type: "refresh_token",
-            refresh_token: refreshToken,
-          }),
-        });
-        if (!res.ok) throw new OAuthTokenError(`Twitter token refresh failed (${res.status})`);
-        return res.json() as Promise<StandardTokenResponse>;
-      },
-    };
-  }
-
-  if (provider === "metaAds") {
+  if (et.exchangeType === "meta") {
     const appId = process.env.META_APP_ID!;
     const appSecret = process.env.META_APP_SECRET!;
     return {
       kind: "exchange",
-      bufferMs: 24 * 60 * 60 * 1000,
-      doExchange: async (currentToken) => {
-        return exchangeMetaToken(currentToken, appId, appSecret);
-      },
+      bufferMs: et.bufferMs,
+      doExchange: (currentToken) => exchangeMetaToken(currentToken, appId, appSecret),
     };
   }
 
-  if (provider === "threads") {
-    return {
-      kind: "exchange",
-      bufferMs: 24 * 60 * 60 * 1000,
-      doExchange: async (currentToken) => {
-        const params = new URLSearchParams({
-          grant_type: "th_refresh_token",
-          access_token: currentToken,
-        });
-        const res = await fetch(
-          `https://graph.threads.net/refresh_access_token?${params}`
-        );
-        if (!res.ok) throw new OAuthTokenError(`Threads token refresh failed (${res.status})`);
-        return res.json() as Promise<StandardTokenResponse>;
-      },
-    };
-  }
-
-  throw new Error(`Unknown OAuth provider: ${provider}`);
+  // threads
+  return {
+    kind: "exchange",
+    bufferMs: et.bufferMs,
+    doExchange: async (currentToken) => {
+      const params = new URLSearchParams({
+        grant_type: "th_refresh_token",
+        access_token: currentToken,
+      });
+      const res = await fetch(`https://graph.threads.net/refresh_access_token?${params}`);
+      if (!res.ok) throw new OAuthTokenError(`Threads token refresh failed (${res.status})`);
+      return res.json() as Promise<StandardTokenResponse>;
+    },
+  };
 }
 
 type DbConnection = Awaited<ReturnType<typeof db.serviceConnection.findUniqueOrThrow>>;
@@ -474,4 +384,4 @@ export async function refreshForCron(
   return "refreshed";
 }
 
-export { EXCHANGE_PROVIDERS };
+export { EXCHANGE_PROVIDER_KEYS as EXCHANGE_PROVIDERS };

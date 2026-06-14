@@ -2,6 +2,7 @@ import { trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import { db } from "@/lib/db";
 import { getValidAccessTokenForConnection } from "@/lib/oauth-token-lifecycle";
 import { safeFetch, type SafeFetchOptions } from "@/lib/mcp/safe-fetch";
+import { PROVIDER_REGISTRY } from "@/lib/provider-registry";
 
 const tracer = trace.getTracer("scopegate");
 
@@ -12,56 +13,9 @@ type ProviderTransportConfig = {
   fixedHeaders?: Record<string, string>;
 };
 
-const TRANSPORT_CONFIGS: Record<string, ProviderTransportConfig> = {
-  slack: { baseUrl: "https://slack.com/api" },
-  github: {
-    baseUrl: "https://api.github.com",
-    fixedHeaders: { Accept: "application/vnd.github.v3+json" },
-  },
-  twitter: { baseUrl: "https://api.x.com/2" },
-  twitterAds: { baseUrl: "https://ads-api.x.com/12" },
-  linkedin: {
-    baseUrl: "https://api.linkedin.com/rest",
-    fixedHeaders: {
-      "X-Restli-Protocol-Version": "2.0.0",
-      "LinkedIn-Version": "202601",
-    },
-  },
-  hubspot: { baseUrl: "https://api.hubapi.com" },
-  jira: {
-    baseUrl: (conn) => {
-      const meta = conn.metadata as Record<string, string> | null;
-      const cloudId = meta?.jiraCloudId;
-      if (!cloudId) throw new Error("Jira cloud ID not found in service connection metadata");
-      return `https://api.atlassian.com/ex/jira/${cloudId}`;
-    },
-  },
-  notion: {
-    baseUrl: "https://api.notion.com/v1",
-    fixedHeaders: { "Notion-Version": "2022-06-28" },
-  },
-  salesforce: {
-    baseUrl: (conn) => {
-      const meta = conn.metadata as Record<string, string> | null;
-      const instanceUrl = meta?.salesforceInstanceUrl;
-      if (!instanceUrl)
-        throw new Error("Salesforce instance URL not found in service connection metadata");
-      return instanceUrl;
-    },
-  },
-  threads: { baseUrl: "https://graph.threads.net/v1.0" },
-  calendar: { baseUrl: "https://www.googleapis.com/calendar/v3" },
-  googleTagManager: { baseUrl: "https://tagmanager.googleapis.com/tagmanager/v2" },
-  youtube: { baseUrl: "https://www.googleapis.com/youtube/v3" },
-  ahrefs: {
-    baseUrl: "https://api.ahrefs.com/v3",
-    fixedHeaders: { Accept: "application/json" },
-  },
-  airtable: { baseUrl: "https://api.airtable.com/v0" },
-  calendly: { baseUrl: "https://api.calendly.com" },
-  stripe: { baseUrl: "https://api.stripe.com/v1" },
-  openRouter: { baseUrl: "https://openrouter.ai/api/v1" },
-};
+const TRANSPORT_CONFIGS: Record<string, ProviderTransportConfig> = Object.fromEntries(
+  PROVIDER_REGISTRY.filter((p) => p.transport !== undefined).map((p) => [p.key, p.transport!])
+);
 
 export type ServiceFetchOptions = Omit<SafeFetchOptions, "headers"> & {
   headers?: Record<string, string>;

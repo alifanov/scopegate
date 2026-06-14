@@ -4,12 +4,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import type { ProjectRole } from "@/generated/prisma/client";
+import { isProjectOwner } from "@/lib/project-roles";
 import { UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 
 interface Member {
   id: string;
-  role: string;
+  role: ProjectRole;
   user: { id: string; email: string; name: string | null };
 }
 
@@ -105,7 +107,7 @@ export function ManageMembers({
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="secondary">{member.role}</Badge>
-              {member.role !== "owner" && (
+              {!isProjectOwner(member.role) && (
                 <Button
                   variant="ghost"
                   size="icon"

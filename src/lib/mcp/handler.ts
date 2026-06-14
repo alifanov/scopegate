@@ -1,9 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import { getToolsByActions, type ToolDefinition } from "./tools";
-import { db } from "../db";
 import { z } from "zod";
-import { redactParams, sanitizeAuditError } from "./audit-utils";
+import { recordAudit } from "../audit";
 import { OAuthTokenError, revokeConnectionWithNotification } from "../oauth-token-lifecycle";
 
 const tracer = trace.getTracer("scopegate");
@@ -67,15 +66,12 @@ function registerTool(
               JSON.stringify({ tool: tool.name, action: tool.action, status: "success", duration_ms: duration })
             );
 
-            // Log to audit
-            await db.auditLog.create({
-              data: {
-                endpointId,
-                action: tool.action,
-                params: JSON.parse(JSON.stringify(redactParams(params as Record<string, unknown>))),
-                status: "success",
-                duration,
-              },
+            await recordAudit({
+              endpointId,
+              action: tool.action,
+              params: params as Record<string, unknown>,
+              status: "success",
+              duration,
             });
 
             return {
@@ -105,15 +101,13 @@ function registerTool(
               toolSpan.setStatus({ code: SpanStatusCode.ERROR, message: fullError });
             }
 
-            await db.auditLog.create({
-              data: {
-                endpointId,
-                action: tool.action,
-                params: JSON.parse(JSON.stringify(redactParams(params as Record<string, unknown>))),
-                status: "error",
-                error: sanitizeAuditError(fullError),
-                duration,
-              },
+            await recordAudit({
+              endpointId,
+              action: tool.action,
+              params: params as Record<string, unknown>,
+              status: "error",
+              error: fullError,
+              duration,
             });
 
             const userMessage = isTokenError

@@ -1,25 +1,49 @@
-import { NextResponse } from "next/server";
+import type { ProjectRole, TeamMember } from "@/generated/prisma/client";
 import { db } from "./db";
+import { isAdmin } from "./admin";
+import { ForbiddenError, NotFoundError } from "./auth-middleware";
+import { PROJECT_ROLE, isProjectOwner } from "./project-roles";
 
-export async function requireProjectMember(userId: string, projectId: string) {
+export { isProjectOwner } from "./project-roles";
+
+export function isProjectMemberRole(
+  role: ProjectRole | null | undefined
+): boolean {
+  return role === PROJECT_ROLE.member;
+}
+
+export async function requireProjectMember(
+  userId: string,
+  projectId: string
+): Promise<TeamMember> {
   const member = await db.teamMember.findUnique({
     where: { userId_projectId: { userId, projectId } },
   });
   if (!member) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    throw new NotFoundError();
   }
   return member;
 }
 
-export async function requireProjectOwner(userId: string, projectId: string) {
+export async function requireProjectOwner(
+  userId: string,
+  projectId: string
+): Promise<TeamMember> {
+  const member = await requireProjectMember(userId, projectId);
+  if (!isProjectOwner(member.role)) {
+    throw new ForbiddenError();
+  }
+  return member;
+}
+
+export async function canManageMembers(
+  userId: string,
+  email: string,
+  projectId: string
+): Promise<boolean> {
+  if (isAdmin(email)) return true;
   const member = await db.teamMember.findUnique({
     where: { userId_projectId: { userId, projectId } },
   });
-  if (!member) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-  if (member.role !== "owner") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-  return member;
+  return isProjectOwner(member?.role);
 }

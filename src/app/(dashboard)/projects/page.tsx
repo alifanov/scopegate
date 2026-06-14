@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ProjectListSkeleton } from "@/components/skeletons";
+import type { ProjectRole } from "@/generated/prisma/client";
 import { Plus, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 
@@ -29,7 +30,7 @@ interface Project {
   name: string;
   createdAt: string;
   _count: { mcpEndpoints: number; serviceConnections: number };
-  teamMembers: { role: string }[];
+  teamMembers: { role: ProjectRole }[];
 }
 
 export default function ProjectsPage() {

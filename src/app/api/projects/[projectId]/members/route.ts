@@ -1,32 +1,23 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth-middleware";
-import { isAdmin } from "@/lib/admin";
-
-async function canManageMembers(
-  userId: string,
-  email: string,
-  projectId: string
-) {
-  if (isAdmin(email)) return true;
-  const member = await db.teamMember.findUnique({
-    where: { userId_projectId: { userId, projectId } },
-  });
-  return member?.role === "owner";
-}
+import { authErrorResponse, requireCurrentUser } from "@/lib/auth-middleware";
+import { canManageMembers } from "@/lib/project-auth";
+import { PROJECT_ROLE } from "@/lib/project-roles";
+import { recordAudit } from "@/lib/audit";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ projectId: string }> }
 ) {
-  const user = await getCurrentUser();
-  if (!user)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { projectId } = await params;
-
-  if (!(await canManageMembers(user.userId, user.email, projectId))) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  let projectId: string;
+  try {
+    const user = await requireCurrentUser();
+    ({ projectId } = await params);
+    if (!(await canManageMembers(user.userId, user.email, projectId))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  } catch (error) {
+    return authErrorResponse(error);
   }
 
   const body = await request.json().catch(() => null);
@@ -51,8 +42,15 @@ export async function POST(
     );
 
   const member = await db.teamMember.create({
-    data: { userId: targetUser.id, projectId, role: "member" },
+    data: { userId: targetUser.id, projectId, role: PROJECT_ROLE.member },
     include: { user: { select: { id: true, email: true, name: true } } },
+  });
+
+  await recordAudit({
+    projectId,
+    action: "member:add",
+    params: { userId: targetUser.id, email },
+    status: "success",
   });
 
   return NextResponse.json({ member }, { status: 201 });

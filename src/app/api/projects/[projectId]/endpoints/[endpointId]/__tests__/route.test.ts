@@ -14,6 +14,7 @@ vi.mock("@/lib/db", () => ({
       deleteMany: vi.fn(),
       createMany: vi.fn(),
     },
+    auditLog: { create: vi.fn() },
   },
 }));
 
@@ -31,6 +32,7 @@ vi.mock("@/lib/project-auth", async (importOriginal) => {
 import { PATCH, DELETE } from "../route";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-middleware";
+import { PROJECT_ROLE } from "@/lib/project-roles";
 
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockTeamMemberFindUnique = vi.mocked(db.teamMember.findUnique);
@@ -40,6 +42,7 @@ const mockEndpointUpdate = vi.mocked(db.mcpEndpoint.update);
 const mockEndpointDelete = vi.mocked(db.mcpEndpoint.delete);
 const mockPermissionDeleteMany = vi.mocked(db.endpointPermission.deleteMany);
 const mockPermissionCreateMany = vi.mocked(db.endpointPermission.createMany);
+const mockAuditLogCreate = vi.mocked(db.auditLog.create);
 
 function makeParams(projectId: string, endpointId: string) {
   return { params: Promise.resolve({ projectId, endpointId }) };
@@ -57,7 +60,11 @@ describe("endpoint route – IDOR (Fix 1) + permission validation (Fix 4)", () =
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetCurrentUser.mockResolvedValue({ userId: "user-1", email: "a@b.com" });
-    mockTeamMemberFindUnique.mockResolvedValue({ id: "tm-1", role: "owner" } as never);
+    mockTeamMemberFindUnique.mockResolvedValue({
+      id: "tm-1",
+      role: PROJECT_ROLE.owner,
+    } as never);
+    mockAuditLogCreate.mockResolvedValue({ id: "audit-1" } as never);
   });
 
   // --- IDOR tests ---
@@ -98,7 +105,10 @@ describe("endpoint route – IDOR (Fix 1) + permission validation (Fix 4)", () =
 
   describe("DELETE – role enforcement", () => {
     it("returns 403 when user is a member (not owner)", async () => {
-      mockTeamMemberFindUnique.mockResolvedValue({ id: "tm-1", role: "member" } as never);
+      mockTeamMemberFindUnique.mockResolvedValue({
+        id: "tm-1",
+        role: PROJECT_ROLE.member,
+      } as never);
 
       const res = await DELETE(
         new Request("http://localhost"),
@@ -157,10 +167,14 @@ describe("endpoint route – IDOR (Fix 1) + permission validation (Fix 4)", () =
       expect(body.error).toContain("Invalid permissions");
       expect(body.error).toContain("foo:bar");
       expect(body.error).toContain("evil:action");
+      expect(mockEndpointUpdate).not.toHaveBeenCalled();
     });
 
     it("returns 403 when user is a member (not owner)", async () => {
-      mockTeamMemberFindUnique.mockResolvedValue({ id: "tm-1", role: "member" } as never);
+      mockTeamMemberFindUnique.mockResolvedValue({
+        id: "tm-1",
+        role: PROJECT_ROLE.member,
+      } as never);
 
       const res = await PATCH(
         makeRequest({ name: "updated" }),

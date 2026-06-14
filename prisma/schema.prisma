@@ -8,13 +8,13 @@ datasource db {
 }
 
 model User {
-  id            String       @id @default(cuid())
-  email         String       @unique
-  emailVerified Boolean      @default(false)
+  id            String         @id @default(cuid())
+  email         String         @unique
+  emailVerified Boolean        @default(false)
   name          String?
   image         String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   sessions      Session[]
   accounts      Account[]
   teamMembers   TeamMember[]
@@ -77,34 +77,39 @@ model Project {
   mcpEndpoints       McpEndpoint[]
 }
 
+enum ProjectRole {
+  member
+  owner
+}
+
 model TeamMember {
-  id        String   @id @default(cuid())
-  role      String   @default("member")
+  id        String      @id @default(cuid())
+  role      ProjectRole @default(member)
   userId    String
   projectId String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
 
   @@unique([userId, projectId])
 }
 
 model ServiceConnection {
-  id           String        @id @default(cuid())
-  provider     String
-  accountEmail String
-  accessToken  String
-  refreshToken String?
-  expiresAt    DateTime?
-  metadata     Json?
+  id                  String        @id @default(cuid())
+  provider            String
+  accountEmail        String
+  accessToken         String
+  refreshToken        String?
+  expiresAt           DateTime?
+  metadata            Json?
   status              String        @default("active")
   lastError           String?
   consecutiveFailures Int           @default(0)
-  projectId    String
-  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  mcpEndpoints McpEndpoint[]
+  projectId           String
+  project             Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  mcpEndpoints        McpEndpoint[]
 
   @@index([expiresAt])
   @@index([provider, expiresAt])
@@ -136,15 +141,18 @@ model EndpointPermission {
 }
 
 model AuditLog {
-  id         String      @id @default(cuid())
-  endpointId String
-  endpoint   McpEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  id         String       @id @default(cuid())
+  endpointId String?
+  projectId  String?
+  endpoint   McpEndpoint? @relation(fields: [endpointId], references: [id], onDelete: SetNull)
   action     String
   params     Json?
   status     String
   error      String?
   duration   Int?
-  createdAt  DateTime    @default(now())
+  createdAt  DateTime     @default(now())
+
+  @@index([projectId])
 }
 
 model RateLimitBucket {

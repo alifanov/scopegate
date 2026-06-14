@@ -1,23 +1,20 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth-middleware";
+import { authErrorResponse, requireCurrentUser } from "@/lib/auth-middleware";
+import { requireProjectMember } from "@/lib/project-auth";
 
 // GET /api/projects/[projectId]/audit
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ projectId: string }> }
 ) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { projectId } = await params;
-  const member = await db.teamMember.findUnique({
-    where: { userId_projectId: { userId: user.userId, projectId } },
-  });
-  if (!member) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  let projectId: string;
+  try {
+    const user = await requireCurrentUser();
+    ({ projectId } = await params);
+    await requireProjectMember(user.userId, projectId);
+  } catch (error) {
+    return authErrorResponse(error);
   }
 
   const url = new URL(request.url);
@@ -27,7 +24,7 @@ export async function GET(
   const endpointId = url.searchParams.get("endpointId");
 
   const where = {
-    endpoint: { projectId },
+    OR: [{ projectId }, { endpoint: { projectId } }],
     ...(status && { status }),
     ...(endpointId && { endpointId }),
   };

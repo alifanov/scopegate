@@ -18,12 +18,13 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { TabContentSkeleton } from "@/components/skeletons";
 import { useProject } from "@/components/project/project-context";
 import { ManageMembers } from "@/components/project/manage-members";
+import type { ProjectRole } from "@/generated/prisma/client";
 import { Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface TeamMember {
   id: string;
-  role: string;
+  role: ProjectRole;
   user: { id: string; email: string; name: string | null };
 }
 

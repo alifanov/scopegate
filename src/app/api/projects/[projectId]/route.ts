@@ -1,27 +1,21 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth-middleware";
-
-async function verifyMembership(userId: string, projectId: string) {
-  return db.teamMember.findUnique({
-    where: { userId_projectId: { userId, projectId } },
-  });
-}
+import { authErrorResponse, requireCurrentUser } from "@/lib/auth-middleware";
+import { requireProjectMember, requireProjectOwner } from "@/lib/project-auth";
+import { recordAudit } from "@/lib/audit";
 
 // GET /api/projects/[projectId]
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ projectId: string }> }
 ) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { projectId } = await params;
-  const member = await verifyMembership(user.userId, projectId);
-  if (!member) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  let projectId: string;
+  try {
+    const user = await requireCurrentUser();
+    ({ projectId } = await params);
+    await requireProjectMember(user.userId, projectId);
+  } catch (error) {
+    return authErrorResponse(error);
   }
 
   const project = await db.project.findUnique({
@@ -41,15 +35,13 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ projectId: string }> }
 ) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { projectId } = await params;
-  const member = await verifyMembership(user.userId, projectId);
-  if (!member || member.role !== "owner") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  let projectId: string;
+  try {
+    const user = await requireCurrentUser();
+    ({ projectId } = await params);
+    await requireProjectOwner(user.userId, projectId);
+  } catch (error) {
+    return authErrorResponse(error);
   }
 
   try {
@@ -57,6 +49,13 @@ export async function PATCH(
     const project = await db.project.update({
       where: { id: projectId },
       data: { name },
+    });
+
+    await recordAudit({
+      projectId,
+      action: "project:update",
+      params: { projectId, name },
+      status: "success",
     });
 
     return NextResponse.json({ project });
@@ -73,17 +72,28 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ projectId: string }> }
 ) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let projectId: string;
+  try {
+    const user = await requireCurrentUser();
+    ({ projectId } = await params);
+    await requireProjectOwner(user.userId, projectId);
+  } catch (error) {
+    return authErrorResponse(error);
   }
 
-  const { projectId } = await params;
-  const member = await verifyMembership(user.userId, projectId);
-  if (!member || member.role !== "owner") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const project = await db.project.findUnique({
+    where: { id: projectId },
+    select: { name: true },
+  });
 
   await db.project.delete({ where: { id: projectId } });
+
+  await recordAudit({
+    projectId,
+    action: "project:delete",
+    params: { projectId, name: project?.name },
+    status: "success",
+  });
+
   return NextResponse.json({ success: true });
 }

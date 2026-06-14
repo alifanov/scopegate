@@ -3,10 +3,50 @@ import { NextResponse } from "next/server";
 import { auth } from "./auth";
 import { isAdmin } from "./admin";
 
-export async function getCurrentUser(): Promise<{
+export type CurrentUser = {
   userId: string;
   email: string;
-} | null> {
+};
+
+export class AuthError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number
+  ) {
+    super(message);
+    this.name = new.target.name;
+  }
+}
+
+export class UnauthorizedError extends AuthError {
+  constructor(message = "Unauthorized") {
+    super(message, 401);
+  }
+}
+
+export class ForbiddenError extends AuthError {
+  constructor(message = "Forbidden") {
+    super(message, 403);
+  }
+}
+
+export class NotFoundError extends AuthError {
+  constructor(message = "Not found") {
+    super(message, 404);
+  }
+}
+
+export function authErrorResponse(error: unknown): NextResponse {
+  if (error instanceof AuthError) {
+    return NextResponse.json(
+      { error: error.message },
+      { status: error.status }
+    );
+  }
+  throw error;
+}
+
+export async function getCurrentUser(): Promise<CurrentUser | null> {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -14,15 +54,18 @@ export async function getCurrentUser(): Promise<{
   return { userId: session.user.id, email: session.user.email };
 }
 
-export async function requireAdmin(): Promise<
-  { userId: string; email: string } | NextResponse
-> {
+export async function requireCurrentUser(): Promise<CurrentUser> {
   const user = await getCurrentUser();
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    throw new UnauthorizedError();
   }
+  return user;
+}
+
+export async function requireAdmin(): Promise<CurrentUser> {
+  const user = await requireCurrentUser();
   if (!isAdmin(user.email)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    throw new ForbiddenError();
   }
   return user;
 }

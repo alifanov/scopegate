@@ -1,21 +1,23 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth-middleware";
+import { authErrorResponse, requireCurrentUser } from "@/lib/auth-middleware";
 import { requireProjectMember, requireProjectOwner } from "@/lib/project-auth";
 import { ALL_ACTIONS } from "@/lib/mcp/permissions";
+import { recordAudit } from "@/lib/audit";
 
 type Params = { params: Promise<{ projectId: string; endpointId: string }> };
 
 // GET /api/projects/[projectId]/endpoints/[endpointId]
 export async function GET(_request: Request, { params }: Params) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let projectId: string;
+  let endpointId: string;
+  try {
+    const user = await requireCurrentUser();
+    ({ projectId, endpointId } = await params);
+    await requireProjectMember(user.userId, projectId);
+  } catch (error) {
+    return authErrorResponse(error);
   }
-
-  const { projectId, endpointId } = await params;
-  const memberOrError = await requireProjectMember(user.userId, projectId);
-  if (memberOrError instanceof NextResponse) return memberOrError;
 
   const endpoint = await db.mcpEndpoint.findFirst({
     where: { id: endpointId, projectId },
@@ -35,14 +37,15 @@ export async function GET(_request: Request, { params }: Params) {
 
 // PATCH /api/projects/[projectId]/endpoints/[endpointId]
 export async function PATCH(request: Request, { params }: Params) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let projectId: string;
+  let endpointId: string;
+  try {
+    const user = await requireCurrentUser();
+    ({ projectId, endpointId } = await params);
+    await requireProjectOwner(user.userId, projectId);
+  } catch (error) {
+    return authErrorResponse(error);
   }
-
-  const { projectId, endpointId } = await params;
-  const memberOrError = await requireProjectOwner(user.userId, projectId);
-  if (memberOrError instanceof NextResponse) return memberOrError;
 
   try {
     const existing = await db.mcpEndpoint.findFirst({
@@ -55,6 +58,18 @@ export async function PATCH(request: Request, { params }: Params) {
     const { name, isActive, rateLimitPerMinute, permissions } =
       await request.json();
 
+    if (permissions) {
+      const invalid = (permissions as string[]).filter(
+        (a: string) => !ALL_ACTIONS.includes(a)
+      );
+      if (invalid.length) {
+        return NextResponse.json(
+          { error: `Invalid permissions: ${invalid.join(", ")}` },
+          { status: 400 }
+        );
+      }
+    }
+
     await db.mcpEndpoint.update({
       where: { id: endpointId },
       data: {
@@ -66,16 +81,6 @@ export async function PATCH(request: Request, { params }: Params) {
 
     // Update permissions if provided
     if (permissions) {
-      const invalid = (permissions as string[]).filter(
-        (a: string) => !ALL_ACTIONS.includes(a)
-      );
-      if (invalid.length) {
-        return NextResponse.json(
-          { error: `Invalid permissions: ${invalid.join(", ")}` },
-          { status: 400 }
-        );
-      }
-
       await db.endpointPermission.deleteMany({ where: { endpointId } });
       await db.endpointPermission.createMany({
         data: (permissions as string[]).map((action) => ({
@@ -90,6 +95,20 @@ export async function PATCH(request: Request, { params }: Params) {
       include: { permissions: true },
     });
 
+    await recordAudit({
+      endpointId,
+      projectId,
+      action: "endpoint:update",
+      params: {
+        endpointId,
+        name,
+        isActive,
+        rateLimitPerMinute,
+        permissions,
+      },
+      status: "success",
+    });
+
     return NextResponse.json({ endpoint: updated });
   } catch {
     return NextResponse.json(
@@ -101,14 +120,15 @@ export async function PATCH(request: Request, { params }: Params) {
 
 // DELETE /api/projects/[projectId]/endpoints/[endpointId]
 export async function DELETE(_request: Request, { params }: Params) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let projectId: string;
+  let endpointId: string;
+  try {
+    const user = await requireCurrentUser();
+    ({ projectId, endpointId } = await params);
+    await requireProjectOwner(user.userId, projectId);
+  } catch (error) {
+    return authErrorResponse(error);
   }
-
-  const { projectId, endpointId } = await params;
-  const memberOrError = await requireProjectOwner(user.userId, projectId);
-  if (memberOrError instanceof NextResponse) return memberOrError;
 
   const existing = await db.mcpEndpoint.findFirst({
     where: { id: endpointId, projectId },
@@ -118,5 +138,17 @@ export async function DELETE(_request: Request, { params }: Params) {
   }
 
   await db.mcpEndpoint.delete({ where: { id: endpointId } });
+
+  await recordAudit({
+    projectId,
+    action: "endpoint:delete",
+    params: {
+      endpointId,
+      name: existing.name,
+      serviceConnectionId: existing.serviceConnectionId,
+    },
+    status: "success",
+  });
+
   return NextResponse.json({ success: true });
 }

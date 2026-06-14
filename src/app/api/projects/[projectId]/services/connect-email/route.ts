@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth-middleware";
+import { authErrorResponse, requireCurrentUser } from "@/lib/auth-middleware";
 import { requireProjectOwner } from "@/lib/project-auth";
 import { encrypt } from "@/lib/crypto";
 import { validateEmailConnection } from "@/lib/mcp/email";
@@ -10,14 +10,14 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ projectId: string }> }
 ) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let projectId: string;
+  try {
+    const user = await requireCurrentUser();
+    ({ projectId } = await params);
+    await requireProjectOwner(user.userId, projectId);
+  } catch (error) {
+    return authErrorResponse(error);
   }
-
-  const { projectId } = await params;
-  const memberOrError = await requireProjectOwner(user.userId, projectId);
-  if (memberOrError instanceof NextResponse) return memberOrError;
 
   let body: Record<string, unknown>;
   try {

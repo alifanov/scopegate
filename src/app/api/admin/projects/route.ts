@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-middleware";
+import { authErrorResponse, requireAdmin } from "@/lib/auth-middleware";
 import { db } from "@/lib/db";
 
 export async function GET() {
-  const result = await requireAdmin();
-  if (result instanceof NextResponse) return result;
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return authErrorResponse(error);
+  }
 
   const projects = await db.project.findMany({
     include: {

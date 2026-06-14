@@ -1,23 +1,24 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth-middleware";
+import { authErrorResponse, requireCurrentUser } from "@/lib/auth-middleware";
 import { requireProjectMember, requireProjectOwner } from "@/lib/project-auth";
 import { generateMcpApiKey } from "@/lib/mcp/api-keys";
 import { ALL_ACTIONS } from "@/lib/mcp/permissions";
+import { recordAudit } from "@/lib/audit";
 
 // GET /api/projects/[projectId]/endpoints
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ projectId: string }> }
 ) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let projectId: string;
+  try {
+    const user = await requireCurrentUser();
+    ({ projectId } = await params);
+    await requireProjectMember(user.userId, projectId);
+  } catch (error) {
+    return authErrorResponse(error);
   }
-
-  const { projectId } = await params;
-  const memberOrError = await requireProjectMember(user.userId, projectId);
-  if (memberOrError instanceof NextResponse) return memberOrError;
 
   const endpoints = await db.mcpEndpoint.findMany({
     where: { projectId },
@@ -37,14 +38,14 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ projectId: string }> }
 ) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let projectId: string;
+  try {
+    const user = await requireCurrentUser();
+    ({ projectId } = await params);
+    await requireProjectOwner(user.userId, projectId);
+  } catch (error) {
+    return authErrorResponse(error);
   }
-
-  const { projectId } = await params;
-  const memberOrError = await requireProjectOwner(user.userId, projectId);
-  if (memberOrError instanceof NextResponse) return memberOrError;
 
   try {
     const { name, serviceConnectionId, permissions, rateLimitPerMinute } =
@@ -95,6 +96,20 @@ export async function POST(
         },
       },
       include: { permissions: true },
+    });
+
+    await recordAudit({
+      endpointId: endpoint.id,
+      projectId,
+      action: "endpoint:create",
+      params: {
+        endpointId: endpoint.id,
+        name,
+        serviceConnectionId,
+        permissions,
+        rateLimitPerMinute: rateLimitPerMinute ?? 60,
+      },
+      status: "success",
     });
 
     return NextResponse.json({ endpoint }, { status: 201 });

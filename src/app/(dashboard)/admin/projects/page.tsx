@@ -11,12 +11,14 @@ import {
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ManageMembers } from "@/components/project/manage-members";
 import { TableSkeleton } from "@/components/skeletons";
+import type { ProjectRole } from "@/generated/prisma/client";
+import { isProjectOwner } from "@/lib/project-roles";
 import { Users } from "lucide-react";
 import { toast } from "sonner";
 
 interface Member {
   id: string;
-  role: string;
+  role: ProjectRole;
   user: { id: string; email: string; name: string | null };
 }
 
@@ -66,7 +68,9 @@ export default function AdminProjectsPage() {
       ) : (
         <div className="space-y-4">
           {projects.map((project) => {
-            const owner = project.teamMembers.find((m) => m.role === "owner");
+            const owner = project.teamMembers.find((m) =>
+              isProjectOwner(m.role)
+            );
             return (
               <Card key={project.id}>
                 <CardHeader>

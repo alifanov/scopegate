@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-middleware";
+import { PROJECT_ROLE } from "@/lib/project-roles";
 
 // GET /api/projects — list projects for current user
 export async function GET() {
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
       data: {
         name,
         teamMembers: {
-          create: { userId: user.userId, role: "owner" },
+          create: { userId: user.userId, role: PROJECT_ROLE.owner },
         },
       },
     });

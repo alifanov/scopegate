@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-middleware";
+import { authErrorResponse, requireAdmin } from "@/lib/auth-middleware";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { headers } from "next/headers";
 
 export async function GET() {
-  const result = await requireAdmin();
-  if (result instanceof NextResponse) return result;
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return authErrorResponse(error);
+  }
 
   const users = await db.user.findMany({
     select: {
@@ -22,8 +25,11 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const result = await requireAdmin();
-  if (result instanceof NextResponse) return result;
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return authErrorResponse(error);
+  }
 
   const body = await request.json();
   const { email, name, password } = body;

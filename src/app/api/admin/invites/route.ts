@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-middleware";
+import { authErrorResponse, requireAdmin } from "@/lib/auth-middleware";
 import { db } from "@/lib/db";
 import { randomBytes } from "crypto";
 
 export async function POST(request: Request) {
-  const result = await requireAdmin();
-  if (result instanceof NextResponse) return result;
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return authErrorResponse(error);
+  }
 
   const body = await request.json().catch(() => ({}));
   const { email } = body;
@@ -24,8 +27,11 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
-  const result = await requireAdmin();
-  if (result instanceof NextResponse) return result;
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return authErrorResponse(error);
+  }
 
   const invites = await db.inviteToken.findMany({
     orderBy: { createdAt: "desc" },

@@ -54,6 +54,8 @@ See also: [`decisions/`](./decisions/) for the ADR explaining why this approach 
 | `priority:low` | серый `#cccccc` | Когда-нибудь / nice-to-have |
 
 > **Правило создания issue:** агенты и рутины создают issue **только для `critical` / `high` / `medium`**. Находки уровня `low` не превращаются в issue — их фиксируют в снимке (`docs/insights/*`). Лейбл `priority:low` остаётся валидным для issue, заведённых вручную.
+>
+> **Enforcement:** правило не держится на одном промпте — диспетчер (`darkflow-run.sh`) перед каждой синхронизацией автоматически закрывает любую открытую issue с `priority:low`, у которой есть рутинный `source:*` (т.е. не `source:manual`). Ручные low-issue и всё, что уже `status:in-progress`, не трогаются.
 
 ### Тип задачи — стандартные GitHub-лейблы
 

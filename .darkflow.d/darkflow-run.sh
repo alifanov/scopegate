@@ -994,6 +994,41 @@ close_rejected_issues() {
   done <<< "$rejected"
 }
 
+# ── Auto-discard routine-created low-priority issues ───────────────────────────
+# Policy (docs/github-issues.md): routines file issues ONLY for
+# critical/high/medium — `low` findings belong in the run snapshot, not the
+# backlog. Agents don't always obey the prompt, so enforce it here: any OPEN
+# issue tagged `priority:low` that carries a routine `source:*` label (i.e. NOT
+# `source:manual`) is commented and closed before it ever reaches the Web UI
+# approval queue. Manually-filed low issues (`source:manual`, or no source at
+# all), anything already `status:in-progress`, and `needs-human` issues (an
+# intentional human-attention channel, separate from the approval queue) are
+# left untouched.
+close_routine_low_issues() {
+  local issues_json="$1"
+  [[ -z "$issues_json" ]] && return 0
+  ! command -v gh &>/dev/null && return 0
+  ! command -v jq &>/dev/null && return 0
+
+  local low
+  low=$(echo "$issues_json" | jq -r '
+    .[] | select(.state == "OPEN")
+        | select(any(.labels[]; .name == "priority:low"))
+        | select(any(.labels[]; (.name | startswith("source:")) and .name != "source:manual"))
+        | select(all(.labels[]; .name != "status:in-progress"))
+        | select(all(.labels[]; .name != "needs-human"))
+        | .number
+  ' 2>/dev/null) || return 0
+  [[ -z "$low" ]] && return 0
+
+  local num
+  while IFS= read -r num; do
+    [[ -z "$num" ]] && continue
+    gh issue comment "$num" --body "Auto-closed by Dark Flow: routines file issues only for critical/high/medium priority — \`low\`-priority findings belong in the run snapshot, not the backlog. Re-open or re-file with a higher priority if this needs action." >/dev/null 2>&1 || true
+    gh issue close "$num" >/dev/null 2>&1 && log "CLOSE #${num} closed (routine-created priority:low)"
+  done <<< "$low"
+}
+
 apply_pending_statuses() {
   local webapp_url repo_url pending_json count
   webapp_url=$(darkflow_val "webapp_url" "")
@@ -1101,6 +1136,7 @@ sync_webapp() {
 
   revive_stuck_issues "$issues"
   close_rejected_issues "$issues"
+  close_routine_low_issues "$issues"
 
   now_iso=$(date -u +%FT%TZ)
 

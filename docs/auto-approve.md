@@ -24,6 +24,7 @@ Auto-approve only removes the *triage* step; the *execution* gate stays intact.
 |---|---|---|---|
 | Security fix | `/darkflow:security-audit` | `source:security-review`, any priority | Static analysis + live app checks |
 | Dependency version update | `/darkflow:vulnerability-check` | `source:vulnerability-report` **and** `area:deps` | Dependabot alerts only |
+| Database index addition | `/darkflow:observability-check` | `source:signoz` **and** `area:db` | Additive index only — query rewrites / N+1 fixes / caching stay proposed |
 
 ### Explicit exclusions
 

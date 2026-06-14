@@ -26,6 +26,10 @@ For each finding:
 
 Create a GitHub issue for each significant finding. Use labels: `status:proposed`, `source:signoz` (or the relevant observability tool), `area:api` / `area:worker` / `area:infra`, `priority:*`, `effort:*`.
 
+**Database findings:** label any database finding `area:db` in addition to the area above.
+
+**Auto-approve — additive index only.** When the finding is purely *adding a database index* (no schema/data change, no query rewrite), create the issue directly as `status:approved` instead of `status:proposed`, and add the line *"Auto-approved — see `docs/auto-approve.md`."* to the issue body. This applies **only** to plain index additions — query rewrites, N+1 fixes, caching, denormalization, and any change that alters behavior or data stay `status:proposed` for human review.
+
 Priority vocabulary: `priority:critical` / `priority:high` / `priority:medium` / `priority:low`. **Only create issues for `critical` / `high` / `medium`** — `low`-priority findings are skipped (record them under Hypotheses in the snapshot instead).
 
 **Issue format (required):**

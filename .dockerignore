@@ -11,3 +11,11 @@ scripts
 .env*
 *.tsbuildinfo
 src/generated
+# Non-build files that don't affect next build output
+*.md
+.darkflow
+skills-lock.json
+components.json
+.mcp.json
+**/__tests__
+*.test.ts

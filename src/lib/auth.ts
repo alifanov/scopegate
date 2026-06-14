@@ -10,6 +10,7 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
+    disableSignUp: true,
     async hashPassword(password: string) {
       return bcrypt.hash(password, 12);
     },

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { headers } from "next/headers";
+import bcrypt from "bcryptjs";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -46,9 +45,34 @@ export async function POST(request: Request) {
   }
 
   try {
-    await auth.api.signUpEmail({
-      headers: await headers(),
-      body: { email, name: name || "", password },
+    const existing = await db.user.findUnique({
+      where: { email: email.toLowerCase() },
+    });
+    if (existing) {
+      return NextResponse.json(
+        { error: "An account with this email already exists" },
+        { status: 400 }
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    const user = await db.user.create({
+      data: {
+        email: email.toLowerCase(),
+        name: name || "",
+        emailVerified: true,
+      },
+    });
+
+    await db.account.create({
+      data: {
+        id: crypto.randomUUID(),
+        accountId: user.id,
+        providerId: "credential",
+        userId: user.id,
+        password: hashedPassword,
+      },
     });
 
     await db.inviteToken.update({

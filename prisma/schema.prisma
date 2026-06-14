@@ -113,7 +113,7 @@ model ServiceConnection {
 model McpEndpoint {
   id                  String               @id @default(cuid())
   name                String
-  apiKey              String               @unique @default(cuid())
+  apiKey              String               @unique
   projectId           String
   serviceConnectionId String
   rateLimitPerMinute  Int                  @default(60)

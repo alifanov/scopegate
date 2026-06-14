@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-middleware";
 import { parseAndVerifyState, parseCookieValue } from "@/lib/oauth-state";
 import { encrypt } from "@/lib/crypto";
+import { createId } from "@paralleldrive/cuid2";
 
 const COOKIE_OPTS = {
   httpOnly: true,
@@ -102,7 +103,7 @@ export interface OAuthCallbackOpts<T extends OAuthTokenResult = OAuthTokenResult
   afterPersist?: (params: AfterPersistParams<T>) => Promise<NextResponse | null>;
 }
 
-async function defaultPersist({
+export async function persistOAuthConnection({
   projectId,
   provider,
   connectionData,
@@ -111,40 +112,72 @@ async function defaultPersist({
 }: PersistParams): Promise<string> {
   const { accountEmail, metadata } = connectionData;
   const expiresAt = connectionData.expiresAt ?? null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const metaField = metadata !== undefined ? { metadata: (metadata ?? undefined) as any } : {};
+  const metadataJson = metadata ? JSON.stringify(metadata) : null;
+  const lockKey = `${projectId}:${provider}:${accountEmail}`;
+  const newId = createId();
 
-  const existing = await db.serviceConnection.findFirst({
-    where: { projectId, provider, accountEmail },
-  });
+  const result = await db.$queryRaw<{ id: string }[]>`
+    WITH lock AS (
+      SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))
+    ),
+    updated AS (
+      UPDATE "ServiceConnection"
+      SET
+        "accessToken" = ${encryptedAccessToken},
+        "refreshToken" = ${encryptedRefreshToken},
+        "expiresAt" = ${expiresAt},
+        "metadata" = COALESCE(${metadataJson}::jsonb, "ServiceConnection"."metadata"),
+        "status" = 'active',
+        "lastError" = NULL,
+        "updatedAt" = NOW()
+      FROM lock
+      WHERE
+        "projectId" = ${projectId}
+        AND "provider" = ${provider}
+        AND "accountEmail" = ${accountEmail}
+      RETURNING "ServiceConnection"."id"
+    ),
+    inserted AS (
+      INSERT INTO "ServiceConnection" (
+        "id",
+        "projectId",
+        "provider",
+        "accountEmail",
+        "accessToken",
+        "refreshToken",
+        "expiresAt",
+        "metadata",
+        "status",
+        "createdAt",
+        "updatedAt"
+      )
+      SELECT
+        ${newId},
+        ${projectId},
+        ${provider},
+        ${accountEmail},
+        ${encryptedAccessToken},
+        ${encryptedRefreshToken},
+        ${expiresAt},
+        ${metadataJson}::jsonb,
+        'active',
+        NOW(),
+        NOW()
+      FROM lock
+      WHERE NOT EXISTS (SELECT 1 FROM updated)
+      RETURNING "id"
+    )
+    SELECT "id" FROM updated
+    UNION ALL
+    SELECT "id" FROM inserted
+    LIMIT 1
+  `;
 
-  if (existing) {
-    await db.serviceConnection.update({
-      where: { id: existing.id },
-      data: {
-        accessToken: encryptedAccessToken,
-        refreshToken: encryptedRefreshToken,
-        expiresAt,
-        ...metaField,
-        status: "active",
-        lastError: null,
-      },
-    });
-    return existing.id;
-  }
+  return result[0].id;
+}
 
-  const created = await db.serviceConnection.create({
-    data: {
-      projectId,
-      provider,
-      accountEmail,
-      accessToken: encryptedAccessToken,
-      refreshToken: encryptedRefreshToken,
-      expiresAt,
-      ...metaField,
-    },
-  });
-  return created.id;
+async function defaultPersist(params: PersistParams): Promise<string> {
+  return persistOAuthConnection(params);
 }
 
 export async function handleOAuthCallback<T extends OAuthTokenResult = OAuthTokenResult>(

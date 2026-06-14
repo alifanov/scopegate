@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-middleware";
 import { requireProjectMember, requireProjectOwner } from "@/lib/project-auth";
+import { generateMcpApiKey } from "@/lib/mcp/api-keys";
 import { ALL_ACTIONS } from "@/lib/mcp/permissions";
 
 // GET /api/projects/[projectId]/endpoints
@@ -83,6 +84,7 @@ export async function POST(
     const endpoint = await db.mcpEndpoint.create({
       data: {
         name,
+        apiKey: generateMcpApiKey(),
         projectId,
         serviceConnectionId,
         rateLimitPerMinute: rateLimitPerMinute ?? 60,

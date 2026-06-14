@@ -2,6 +2,7 @@ import { buildSignedState } from "@/lib/oauth-state";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
+const GOOGLE_TOKEN_TIMEOUT_MS = 10_000;
 
 export const GOOGLE_SCOPES: Record<string, string> = {
   gmail: "https://www.googleapis.com/auth/gmail.modify",
@@ -44,6 +45,7 @@ export async function exchangeCodeForTokens(code: string) {
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    signal: AbortSignal.timeout(GOOGLE_TOKEN_TIMEOUT_MS),
     body: new URLSearchParams({
       code,
       client_id: GOOGLE_CLIENT_ID,

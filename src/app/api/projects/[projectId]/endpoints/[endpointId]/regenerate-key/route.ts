@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-middleware";
 import { requireProjectOwner } from "@/lib/project-auth";
-import { createId } from "@paralleldrive/cuid2";
+import { generateMcpApiKey } from "@/lib/mcp/api-keys";
 
 // POST /api/projects/[projectId]/endpoints/[endpointId]/regenerate-key
 export async function POST(
@@ -27,7 +27,7 @@ export async function POST(
 
   const endpoint = await db.mcpEndpoint.update({
     where: { id: endpointId },
-    data: { apiKey: createId() },
+    data: { apiKey: generateMcpApiKey() },
     select: { id: true, apiKey: true },
   });
 

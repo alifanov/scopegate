@@ -2,6 +2,12 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { trace } from "@opentelemetry/api";
 import { db } from "@/lib/db";
 import { createMcpServerForEndpoint } from "@/lib/mcp/handler";
+import {
+  getClientIp,
+  getInvalidMcpApiKeyRetryAfterSeconds,
+  isInvalidMcpApiKeyBlocked,
+  isInvalidMcpApiKeyRateLimited,
+} from "@/lib/mcp/api-keys";
 import { recordMcpInvalidRequest } from "@/lib/mcp/metrics";
 
 // SSE connections are long-lived by design (MCP Streamable HTTP spec).
@@ -53,6 +59,18 @@ async function handleMcpRequest(
   // SigNoz always aggregates all MCP traffic under a single canonical route.
   trace.getActiveSpan()?.setAttribute("http.route", "/api/mcp/[apiKey]");
 
+  const clientIp = getClientIp(request);
+  if (isInvalidMcpApiKeyBlocked(clientIp)) {
+    recordMcpInvalidRequest("rate_limited");
+    return new Response(JSON.stringify({ error: "Too many invalid API key attempts" }), {
+      status: 429,
+      headers: {
+        "Content-Type": "application/json",
+        "Retry-After": String(getInvalidMcpApiKeyRetryAfterSeconds(clientIp)),
+      },
+    });
+  }
+
   // Look up endpoint by API key
   const endpoint = await db.mcpEndpoint.findUnique({
     where: { apiKey },
@@ -63,6 +81,17 @@ async function handleMcpRequest(
   });
 
   if (!endpoint) {
+    if (isInvalidMcpApiKeyRateLimited(clientIp)) {
+      recordMcpInvalidRequest("rate_limited");
+      return new Response(JSON.stringify({ error: "Too many invalid API key attempts" }), {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": String(getInvalidMcpApiKeyRetryAfterSeconds(clientIp)),
+        },
+      });
+    }
+
     recordMcpInvalidRequest("unauthorized");
     return new Response(JSON.stringify({ error: "Invalid API key" }), {
       status: 401,

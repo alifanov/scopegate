@@ -1,4 +1,4 @@
-import { handleOAuthCallback } from "@/lib/oauth-flow";
+import { handleOAuthCallback, persistOAuthConnection } from "@/lib/oauth-flow";
 import { exchangeCodeForTokens, getGoogleUserEmail, VALID_PROVIDERS } from "@/lib/google-oauth";
 import { encrypt } from "@/lib/crypto";
 import { db } from "@/lib/db";
@@ -34,33 +34,13 @@ export async function GET(request: Request) {
         return created.id;
       }
 
-      const existing = await db.serviceConnection.findFirst({
-        where: { projectId, provider, accountEmail },
+      return persistOAuthConnection({
+        projectId,
+        provider,
+        connectionData,
+        encryptedAccessToken,
+        encryptedRefreshToken,
       });
-      if (existing) {
-        await db.serviceConnection.update({
-          where: { id: existing.id },
-          data: {
-            accessToken: encryptedAccessToken,
-            refreshToken: encryptedRefreshToken,
-            expiresAt: expiresAt ?? null,
-            status: "active",
-            lastError: null,
-          },
-        });
-        return existing.id;
-      }
-      const created = await db.serviceConnection.create({
-        data: {
-          projectId,
-          provider,
-          accountEmail,
-          accessToken: encryptedAccessToken,
-          refreshToken: encryptedRefreshToken,
-          expiresAt: expiresAt ?? null,
-        },
-      });
-      return created.id;
     },
     afterPersist: async ({ connectionId, tokens, connectionData, ctx, clearAndRedirect }) => {
       if (ctx.provider !== "googleAds") return null;

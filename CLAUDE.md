@@ -30,7 +30,7 @@ src/
       projects/[projectId]/  # per-project API
   lib/
     mcp/
-      tools/          # per-service tool files (gmail, linkedin, stripe, etc.)
+      tools/          # per-service tool files (gmail, linkedin, stripe, airtable, calendar, calendly, openrouter, telegram, twitter-ads, …)
         index.ts      # TOOL_DEFINITIONS — aggregates all service tools
         types.ts      # ToolDefinition · ToolContext
       permissions.ts  # per-action permission definitions; PERMISSION_GROUPS derived from PROVIDER_REGISTRY
@@ -40,13 +40,17 @@ src/
       safe-fetch.ts   # SSRF/DNS-rebinding-safe fetch (node:https); validates all A/AAAA records
       <service>.ts    # service-specific helpers (ahrefs, semrush, email, youtube, …)
     auth.ts
+    auth-middleware.ts   # AuthError / ForbiddenError / NotFoundError; requireAuth/requireProject helpers
+    project-auth.ts      # project-level auth guards (verifies team membership)
+    project-roles.ts     # PROJECT_ROLE constants; isProjectOwner()
+    admin.ts             # isAdmin() helper (checks ADMIN_EMAIL env var)
+    audit.ts             # recordAudit() — thin wrapper around mcp/audit-utils
     crypto.ts         # AES-256-GCM encrypt/decrypt (uses BETTER_AUTH_SECRET)
     oauth-flow.ts     # shared handleOAuthStart/handleOAuthCallback base logic
     oauth-state.ts    # HMAC-signed OAuth state (uses BETTER_AUTH_SECRET)
     oauth-token-lifecycle.ts  # unified token refresh for all 26 providers; OAuthTokenError class; derives config from provider-registry
     provider-registry.ts      # PROVIDER_REGISTRY — single source of truth for all 26 providers (token strategy, transport, permissions); add/remove a provider here only
     db.ts             # Prisma client
-    audit-utils.ts    # audit log helpers
     image-utils.ts    # image/video download helpers
     email-parser.ts   # email parsing utilities
     provider-names.ts # OAuth provider display name map

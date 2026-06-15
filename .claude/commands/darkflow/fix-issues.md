@@ -25,8 +25,7 @@ The canonical labels are `critical/high/medium/low`, but some agents tag issues 
 
 Skip issues that are not actually actionable here, even if they still carry `status:approved`:
 - `action:reply` — handled exclusively by `mailbox-check`.
-- `needs-human` — already parked for a human; re-running only posts duplicate comments.
-- `status:blocked` — failed checks; waits for a human, not another attempt.
+- `needs-human` — already parked for a human (failed checks or an external blocker); re-running only posts duplicate comments.
 
 Rank every selectable issue and take the single best one — one query, no per-level loop:
 
@@ -43,8 +42,7 @@ n=$(gh issue list --state open --label "status:approved" \
         [ .[]
           | (.labels | map(.name)) as $l
           | select(($l | index("action:reply")   | not)
-               and ($l | index("needs-human")    | not)
-               and ($l | index("status:blocked") | not))
+               and ($l | index("needs-human")    | not))
           | {number, rank: prio($l)} ]
         | sort_by([.rank, .number]) | .[0].number // empty')
 ```
@@ -90,7 +88,7 @@ Detect the project's tech stack and run all available checks. Stop at the first 
 **If any check fails:**
 - Do NOT merge or push
 - Leave a comment on the issue: what failed and the relevant error output (truncated to ~20 lines)
-- Move the issue out of the queue: `gh issue edit $n --add-label status:blocked --remove-label status:approved`
+- Failed checks need a human to look — the agent can't get past them on its own. Move the issue out of the queue: `gh issue edit $n --add-label needs-human --remove-label status:approved`
 - Stop the run
 
 **If all checks pass (or no checks apply), proceed:**

@@ -932,6 +932,71 @@ check_gh_auth() {
   return 0
 }
 
+# ── Deprecate status:blocked → needs-human ────────────────────────────────────
+# "blocked" used to mean "checks failed, a human must look" — but the agent can
+# do nothing with it, so it is now folded into needs-human. Relabel every open
+# issue still carrying status:blocked so the change sticks in GitHub (the next
+# sync, and any other project, will then see it as needs-human). Reuses the
+# issues_json already fetched by sync_webapp.
+convert_blocked_to_needs_human() {
+  local issues_json="$1"
+  [[ -z "$issues_json" ]] && return 0
+  ! command -v gh &>/dev/null && return 0
+  ! command -v jq &>/dev/null && return 0
+
+  local blocked
+  blocked=$(echo "$issues_json" | jq -r '
+    .[] | select(.state == "OPEN")
+        | select(any(.labels[]; .name == "status:blocked"))
+        | .number
+  ' 2>/dev/null) || return 0
+  [[ -z "$blocked" ]] && return 0
+
+  local num gh_err
+  while IFS= read -r num; do
+    [[ -z "$num" ]] && continue
+    if gh_err=$(gh issue edit "$num" \
+         --remove-label "status:blocked" \
+         --add-label "needs-human" 2>&1 >/dev/null); then
+      log "MIGRATE #${num} status:blocked → needs-human (deprecated)"
+    else
+      log "MIGRATE #${num} failed to relabel: $(echo "$gh_err" | head -2 | tr '\n' ' ')"
+    fi
+  done <<< "$blocked"
+}
+
+# ── Enrich needs-human issues with their GitHub comments ──────────────────────
+# needs-human issues carry an agent comment explaining what a human must do.
+# Fetch those comments (bounded — only for needs-human issues) and attach them
+# to each issue object so the webapp can show them. Echoes the (possibly
+# enriched) issues_json on stdout; on any failure echoes the input unchanged.
+enrich_needs_human_comments() {
+  local issues_json="$1"
+  [[ -z "$issues_json" ]] && { echo "[]"; return 0; }
+  if ! command -v gh &>/dev/null || ! command -v jq &>/dev/null; then
+    echo "$issues_json"; return 0
+  fi
+
+  local nums
+  nums=$(echo "$issues_json" | jq -r '.[] | select(.needsHuman == true) | .number' 2>/dev/null) || {
+    echo "$issues_json"; return 0
+  }
+  [[ -z "$nums" ]] && { echo "$issues_json"; return 0; }
+
+  local comments_map="{}" num c
+  while IFS= read -r num; do
+    [[ -z "$num" ]] && continue
+    c=$(gh issue view "$num" --json comments \
+          --jq '[.comments[] | {author: (.author.login // "unknown"), body: .body, createdAt: .createdAt}]' \
+          2>/dev/null) || c="[]"
+    [[ -z "$c" ]] && c="[]"
+    comments_map=$(jq -c --arg n "$num" --argjson c "$c" '. + {($n): $c}' <<< "$comments_map" 2>/dev/null) || comments_map="{}"
+  done <<< "$nums"
+
+  echo "$issues_json" | jq -c --argjson m "$comments_map" \
+    'map(. + {comments: ($m[(.number|tostring)] // null)})' 2>/dev/null || echo "$issues_json"
+}
+
 # ── Auto-revive stuck in-progress issues ──────────────────────────────────────
 # If an issue has been in status:in-progress for >1h (per updatedAt), treat it
 # as crashed/stalled, drop status:in-progress and set status:approved so the
@@ -1134,6 +1199,7 @@ sync_webapp() {
     return 0
   }
 
+  convert_blocked_to_needs_human "$issues"
   revive_stuck_issues "$issues"
   close_rejected_issues "$issues"
   close_routine_low_issues "$issues"
@@ -1151,12 +1217,16 @@ sync_webapp() {
       body,
       state,
       url,
-      status:     (label_prefix("status:")   // "none"),
+      # "blocked" is deprecated: an agent cannot act on it, so it folds into
+      # needs-human. Drop the blocked status and flag the issue for a human.
+      status:     ((label_prefix("status:") // "none") | if . == "blocked" then "none" else . end),
       priority:   label_prefix("priority:"),
       source:     label_prefix("source:"),
-      needsHuman: has_label("needs-human")
+      needsHuman: (has_label("needs-human") or has_label("status:blocked"))
     })
   ') || { log "WEBAPP skipped (jq parse error)"; PENDING_LOGS=(); return 0; }
+
+  issues_json=$(enrich_needs_human_comments "$issues_json")
 
   # Read project metadata from .darkflow
   local proj_name proj_branch proj_lang proj_merge proj_modules proj_version

@@ -1,0 +1,172 @@
+# Dark Flow — CI gate
+#
+# Runs cheap, deterministic checks (lint + tests) on every push. If a check
+# fails, it opens — or reuses — a single GitHub issue (label `source:ci`) per
+# branch describing the failure. The Dark Flow `fix-ci-issue` worker (running on
+# your machine) then picks the issue up and pushes a fix, retrying up to 3 times
+# before escalating to a human. No AI runs here: GitHub only runs the checks and
+# files the issue, so there is no per-token API cost.
+#
+# Loop:  red CI  →  issue (source:ci)  →  fix-ci-issue worker (≤3 retries)  →  green CI  →  issue auto-closed
+#
+# One open issue is kept per branch (deduped by the stable title "CI failure on
+# <branch>"). The "Close issue on green" step closes it once CI passes again —
+# this is what bounds the retry loop. Issues are filed only on `push` events;
+# pull_request runs just report status (red/green check) without filing issues.
+#
+# Customise:
+#   - Edit the `checks` matrix below to match your stack / commands.
+#   - Set ISSUE_STATUS to "status:proposed" to require human approval in the
+#     web UI before the worker touches it (default "status:approved" = auto-fix).
+#   - To run AFTER an existing build workflow instead of on every push, replace
+#     the `on:` block with the commented `workflow_run` example.
+
+name: darkflow-ci-gate
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+  # Run after another workflow named "build" finishes, instead of on push:
+  # workflow_run:
+  #   workflows: ["build"]
+  #   types: [completed]
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  # How the auto-created issue is labelled. "status:approved" lets the worker
+  # fix it immediately; "status:proposed" routes it through human approval first.
+  ISSUE_STATUS: "status:approved"
+  ISSUE_PRIORITY: "priority:high"
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run checks
+        id: checks
+        shell: bash
+        run: |
+          set -uo pipefail
+          failed=""        # comma list of failed check names
+          report=""         # markdown body fragments
+
+          run_check() {
+            local name="$1"; shift
+            echo "::group::$name"
+            if "$@" 2>&1 | tee /tmp/check.txt; then
+              echo "::endgroup::"
+            else
+              echo "::error::$name failed"
+              echo "::endgroup::"
+              failed="${failed:+$failed, }$name"
+              report="${report}"$'\n\n'"### \`$name\`"$'\n'"\`\`\`"$'\n'"$(tail -n 80 /tmp/check.txt)"$'\n'"\`\`\`"
+            fi
+          }
+
+          # ── Node / pnpm / npm ────────────────────────────────────────────────
+          if [ -f package.json ]; then
+            if [ -f pnpm-lock.yaml ]; then
+              corepack enable >/dev/null 2>&1 || true
+              run_check "install" pnpm install --frozen-lockfile
+              grep -q '"lint"' package.json && run_check "lint" pnpm lint
+              grep -q '"test"' package.json && run_check "test" pnpm test
+            else
+              run_check "install" npm ci
+              grep -q '"lint"' package.json && run_check "lint" npm run lint
+              grep -q '"test"' package.json && run_check "test" npm test
+            fi
+          fi
+
+          # ── Python / ruff / pytest ───────────────────────────────────────────
+          if [ -f pyproject.toml ] || [ -f requirements.txt ]; then
+            if command -v ruff >/dev/null 2>&1 || pip install ruff >/dev/null 2>&1; then
+              run_check "ruff" ruff check .
+            fi
+            if [ -d tests ] || ls test_*.py >/dev/null 2>&1; then
+              pip install pytest >/dev/null 2>&1 || true
+              run_check "pytest" pytest -q
+            fi
+          fi
+
+          {
+            echo "failed=${failed}"
+            echo "report<<__DF_EOF__"
+            echo "${report}"
+            echo "__DF_EOF__"
+          } >> "$GITHUB_OUTPUT"
+
+          # Fail the job so the red status is visible, but the issue step still runs.
+          [ -z "$failed" ] || exit 1
+
+      - name: Open issue on failure
+        # Only file issues for branch pushes — PR runs just report status.
+        if: ${{ failure() && steps.checks.outputs.failed != '' && github.event_name == 'push' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
+          FAILED: ${{ steps.checks.outputs.failed }}
+          REPORT: ${{ steps.checks.outputs.report }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Stable per-branch title so dedup, retry-counting, and close-on-green
+          # all key on the same issue even as the failing-check set changes.
+          TITLE="CI failure on ${BRANCH}"
+
+          # Dedup: keep ONE open issue per branch. If it already exists, just add
+          # a fresh comment with the latest failure instead of opening a new one.
+          existing=$(gh issue list --state open --search "\"${TITLE}\" in:title" \
+            --json number --jq '.[0].number' 2>/dev/null || true)
+
+          body=$(cat <<EOF
+          Automated CI gate detected failing checks: **${FAILED}**
+
+          - Branch: \`${BRANCH}\`
+          - Commit: \`${SHA}\`
+          - CI run: ${RUN_URL}
+          ${REPORT}
+
+          ---
+          _Filed by \`darkflow-ci-gate\`. The \`fix-ci-issue\` worker will pick this up (up to 3 retries, then a human)._
+          EOF
+          )
+
+          if [ -n "${existing:-}" ]; then
+            echo "Issue #${existing} already open for this branch — adding a comment."
+            gh issue comment "${existing}" --body "Still failing on \`${SHA}\`: **${FAILED}** — ${RUN_URL}"
+          else
+            gh issue create \
+              --title "${TITLE}" \
+              --label "source:ci,${ISSUE_STATUS},${ISSUE_PRIORITY}" \
+              --body "${body}"
+          fi
+
+      - name: Close issue on green
+        # When checks pass on a branch push, close any open CI-failure issue for
+        # this branch. This bounds the retry loop and clears the queue.
+        if: ${{ success() && github.event_name == 'push' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TITLE="CI failure on ${BRANCH}"
+          open=$(gh issue list --state open --search "\"${TITLE}\" in:title" \
+            --json number --jq '.[].number' 2>/dev/null || true)
+          for n in ${open}; do
+            echo "CI green on ${BRANCH} — closing #${n}."
+            gh issue close "${n}" \
+              --comment "✅ CI is green again on \`${SHA}\` (${RUN_URL}) — closing."
+          done

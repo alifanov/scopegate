@@ -12,6 +12,10 @@ pnpm lint           # eslint
 make df-run         # Dark Flow routine dispatcher (every 60s)
 ```
 
+## Commits & CI
+
+**Do NOT run `pnpm build` before or after commits.** The Dark Flow CI gate (`.github/workflows/darkflow-ci-gate.yml`) runs `install` → `lint` → `test` on every push/PR and verifies the build there, auto-filing a `source:ci` issue on failure. This **overrides** the global "always run `pnpm build` before committing" rule. Failing checks → `source:ci` issue → the `fix-ci-issue` worker pushes a fix (retries up to 3x, then `needs-human`); CI closes the issue on green. Running `pnpm lint`/`pnpm test` locally for fast feedback is fine but not required.
+
 ## Architecture
 
 Next.js 16 App Router · Prisma 7 + PostgreSQL · Auth: better-auth · MCP server: Hono at `/api/mcp/[apiKey]` · OTel → SigNoz.

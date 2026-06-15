@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Record Meta token-exchange 400s in sanitized OpenTelemetry spans with `error.code` and `error.type` attributes for SigNoz grouping.
 - Redact OAuth `access_token`, `client_secret`, and `fb_exchange_token` query values from OpenTelemetry span names and URL attributes before exporting traces.
 - Serve cached OpenRouter credits immediately in MCP tools and refresh stale values in the background so slow or unavailable credits checks do not block execution.
+- Cap Threads publish container and publish requests with separate short timeouts, with a partial-success response before the MCP execution budget is exhausted.
 
 ## [0.15.0] - 2026-02-26
 

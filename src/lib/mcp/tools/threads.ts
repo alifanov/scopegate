@@ -2,6 +2,15 @@ import { z } from 'zod';
 import { threadsFetch } from '../threads';
 import type { ToolDefinition } from './types';
 
+const THREADS_PUBLISH_TOTAL_BUDGET_MS = 20_000;
+const THREADS_TEXT_CONTAINER_TIMEOUT_MS = 4_000;
+const THREADS_MEDIA_CONTAINER_TIMEOUT_MS = 5_000;
+const THREADS_PUBLISH_TIMEOUT_MS = 3_000;
+
+function hasPublishMedia(params: Record<string, unknown>) {
+  return params.media_type === "IMAGE" || params.media_type === "VIDEO";
+}
+
 export const threadsTools: ToolDefinition[] = [
   // ─── Threads tools ────────────────────────────────────────────────────
   {
@@ -57,6 +66,7 @@ export const threadsTools: ToolDefinition[] = [
       quote_post_id: z.string().optional().describe("ID of post to quote"),
     }),
     handler: async (params, context) => {
+      const startedAt = Date.now();
       // Step 1: Create media container
       const body: Record<string, string> = {
         media_type: params.media_type as string,
@@ -74,8 +84,21 @@ export const threadsTools: ToolDefinition[] = [
         {
           method: "POST",
           body: JSON.stringify(body),
+          timeout: hasPublishMedia(params)
+            ? THREADS_MEDIA_CONTAINER_TIMEOUT_MS
+            : THREADS_TEXT_CONTAINER_TIMEOUT_MS,
         }
       )) as { id: string };
+
+      const elapsedMs = Date.now() - startedAt;
+      if (elapsedMs >= THREADS_PUBLISH_TOTAL_BUDGET_MS) {
+        return {
+          status: "partial_success",
+          creation_id: containerResult.id,
+          message:
+            "Threads media container was created, but publishing was skipped because the request exceeded the safe execution budget. Retry publishing with this creation_id.",
+        };
+      }
 
       // Step 2: Publish
       const publishResult = await threadsFetch(
@@ -84,6 +107,7 @@ export const threadsTools: ToolDefinition[] = [
         {
           method: "POST",
           body: JSON.stringify({ creation_id: containerResult.id }),
+          timeout: THREADS_PUBLISH_TIMEOUT_MS,
         }
       );
 

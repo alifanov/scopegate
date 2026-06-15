@@ -25,6 +25,7 @@ The canonical labels are `critical/high/medium/low`, but some agents tag issues 
 
 Skip issues that are not actually actionable here, even if they still carry `status:approved`:
 - `action:reply` — handled exclusively by `mailbox-check`.
+- `source:ci` — handled exclusively by `fix-ci-issue` (it has its own bounded-retry logic); picking it here would bypass the retry cap.
 - `needs-human` — already parked for a human (failed checks or an external blocker); re-running only posts duplicate comments.
 
 Rank every selectable issue and take the single best one — one query, no per-level loop:
@@ -42,6 +43,7 @@ n=$(gh issue list --state open --label "status:approved" \
         [ .[]
           | (.labels | map(.name)) as $l
           | select(($l | index("action:reply")   | not)
+               and ($l | index("source:ci")      | not)
                and ($l | index("needs-human")    | not))
           | {number, rank: prio($l)} ]
         | sort_by([.rank, .number]) | .[0].number // empty')
@@ -77,6 +79,8 @@ Detect the project's tech stack and run all available checks. Stop at the first 
 | Rust | `cargo clippy` → `cargo test` → `cargo build` |
 | Go | `go vet ./...` → `go test ./...` → `go build ./...` |
 | Other | Check for `Makefile` targets `lint`, `test`, `build` and run those that exist |
+
+**Skip the `build` step when the CI gate is active.** If `.darkflow`'s `modules=` includes `ci-gate` (or `.github/workflows/darkflow-ci-gate.yml` exists), do **not** run `build` locally — the CI gate verifies the build on push/PR. Still run `lint` and `test`.
 
 **If the fix requires human intervention** (examples: missing environment variable, external credentials, third-party service setup, infrastructure change, secret rotation, manual config change that the agent cannot perform):
 - Do NOT attempt the fix

@@ -75,6 +75,7 @@ _jq() {
 
 name=$(_jq '.name');            [[ -n "$name" ]]            && _set_val "name"             "$name"
 slug=$(_jq '.slug');            [[ -n "$slug" ]]            && _set_val "slug"             "$slug"
+domain=$(_jq '.domain');        [[ -n "$domain" ]]          && _set_val "domain"           "$domain"
 branch=$(_jq '.branch');        [[ -n "$branch" ]]          && _set_val "branch"           "$branch"
 language=$(_jq '.language');    [[ -n "$language" ]]        && _set_val "language"         "$language"
 merge=$(_jq '.mergeStrategy');  [[ -n "$merge" ]]           && _set_val "merge_strategy"   "$merge"

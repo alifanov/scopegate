@@ -1277,8 +1277,9 @@ sync_webapp() {
   issues_json=$(enrich_needs_human_comments "$issues_json")
 
   # Read project metadata from .darkflow
-  local proj_name proj_branch proj_lang proj_merge proj_modules proj_version
+  local proj_name proj_domain proj_branch proj_lang proj_merge proj_modules proj_version
   proj_name=$(darkflow_val "name" "$(basename "$PROJECT_ROOT")")
+  proj_domain=$(darkflow_val "domain" "")
   proj_branch=$(darkflow_val "branch" "main")
   proj_lang=$(darkflow_val "language" "English")
   proj_merge=$(darkflow_val "merge_strategy" "pr")
@@ -1337,6 +1338,7 @@ sync_webapp() {
   payload=$(jq -n \
     --arg repoUrl    "$repo_url" \
     --arg name       "$proj_name" \
+    --arg domain     "$proj_domain" \
     --arg branch     "$proj_branch" \
     --arg language   "$proj_lang" \
     --arg merge      "$proj_merge" \
@@ -1353,6 +1355,7 @@ sync_webapp() {
     '{
       repoUrl:          $repoUrl,
       name:             $name,
+      domain:           $domain,
       branch:           $branch,
       language:         $language,
       mergeStrategy:    $merge,

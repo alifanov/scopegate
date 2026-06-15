@@ -1094,6 +1094,52 @@ close_routine_low_issues() {
   done <<< "$low"
 }
 
+# ── Backfill missing priority labels ──────────────────────────────────────────
+# Invariant (docs/github-issues.md): every issue MUST carry a priority:* label so
+# it sorts and triages correctly in the Web UI approval queue. Slash commands set
+# it from prose instructions, but LLM agents don't comply 100% of the time, so a
+# large share of issues historically landed with no priority — sorting last and
+# showing "—" in the queue. Enforce the invariant deterministically here: any OPEN
+# issue with no priority:* label gets `priority:medium` (the safe default — it
+# stays visible in the queue, unlike `low` which routines auto-discard). Echoes
+# the issues JSON back with the label injected for the numbers we relabelled, so
+# the parse below and the webapp sync reflect reality without a second gh fetch.
+backfill_missing_priority() {
+  local issues_json="$1"
+  [[ -z "$issues_json" ]] && { printf '%s' "$issues_json"; return 0; }
+  if ! command -v gh &>/dev/null || ! command -v jq &>/dev/null; then
+    printf '%s' "$issues_json"; return 0
+  fi
+
+  local missing
+  missing=$(echo "$issues_json" | jq -r '
+    .[] | select(.state == "OPEN")
+        | select(all(.labels[]; (.name | startswith("priority:")) | not))
+        | .number
+  ' 2>/dev/null) || { printf '%s' "$issues_json"; return 0; }
+  [[ -z "$missing" ]] && { printf '%s' "$issues_json"; return 0; }
+
+  local num relabelled=""
+  while IFS= read -r num; do
+    [[ -z "$num" ]] && continue
+    if gh issue edit "$num" --add-label "priority:medium" >/dev/null 2>&1; then
+      log "PRIORITY #${num} backfilled priority:medium (was unset)"
+      relabelled+="${num} "
+    else
+      log "PRIORITY #${num} failed to backfill priority:medium"
+    fi
+  done <<< "$missing"
+
+  # Inject priority:medium only into the issues we actually relabelled on GitHub,
+  # so the in-memory snapshot can never drift from the repo's real labels.
+  echo "$issues_json" | jq -c --arg done "$relabelled" '
+    ($done | split(" ") | map(select(length > 0) | tonumber)) as $nums
+    | map(if (.number as $n | $nums | index($n))
+          then .labels += [{"name": "priority:medium"}]
+          else . end)
+  ' 2>/dev/null || printf '%s' "$issues_json"
+}
+
 apply_pending_statuses() {
   local webapp_url repo_url pending_json count
   webapp_url=$(darkflow_val "webapp_url" "")
@@ -1203,6 +1249,8 @@ sync_webapp() {
   revive_stuck_issues "$issues"
   close_rejected_issues "$issues"
   close_routine_low_issues "$issues"
+  # Guarantee every open issue carries a priority before it reaches the Web UI.
+  issues=$(backfill_missing_priority "$issues")
 
   now_iso=$(date -u +%FT%TZ)
 

@@ -36,7 +36,8 @@ export function Header() {
 
   useEffect(() => {
     if (session?.user) {
-      fetchUnreadCount();
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void fetchUnreadCount();
       const interval = setInterval(fetchUnreadCount, 60_000);
       return () => clearInterval(interval);
     }

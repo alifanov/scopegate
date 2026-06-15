@@ -18,10 +18,15 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-// Mock auth middleware
-vi.mock("@/lib/auth-middleware", () => ({
-  getCurrentUser: vi.fn(),
-}));
+// Mock auth middleware — spread real exports so authErrorResponse works correctly;
+// override requireCurrentUser to avoid Next.js request-scope errors in tests.
+vi.mock("@/lib/auth-middleware", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/auth-middleware")>();
+  return {
+    ...actual,
+    requireCurrentUser: vi.fn(),
+  };
+});
 
 // project-auth uses db directly — the db mock above covers it
 vi.mock("@/lib/project-auth", async (importOriginal) => {
@@ -31,10 +36,10 @@ vi.mock("@/lib/project-auth", async (importOriginal) => {
 
 import { PATCH, DELETE } from "../route";
 import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth-middleware";
+import { requireCurrentUser } from "@/lib/auth-middleware";
 import { PROJECT_ROLE } from "@/lib/project-roles";
 
-const mockGetCurrentUser = vi.mocked(getCurrentUser);
+const mockGetCurrentUser = vi.mocked(requireCurrentUser);
 const mockTeamMemberFindUnique = vi.mocked(db.teamMember.findUnique);
 const mockEndpointFindFirst = vi.mocked(db.mcpEndpoint.findFirst);
 const mockEndpointFindUnique = vi.mocked(db.mcpEndpoint.findUnique);

@@ -19,7 +19,6 @@ See also: [`decisions/`](./decisions/) for the ADR explaining why this approach 
 | `status:proposed` | жёлтый `#fbca04` | Дефолт при создании issue агентом | Агент |
 | `status:approved` | зелёный `#0e8a16` | Человек одобрил — агент может брать в работу | Человек (или Агент для категорий из [`auto-approve.md`](./auto-approve.md)) |
 | `status:rejected` | красный `#b60205` | Не делаем. Закрыть issue с этим лейблом | Человек |
-| `status:needs-info` | лавандовый `#d4c5f9` | Не хватает контекста — агент уточняет в комменте | Человек |
 | `status:in-progress` | синий `#1d76db` | Агент начал работу; оставил коммент со ссылкой на ветку/PR | Агент |
 | `needs-human` | фиолетовый `#8b5cf6` | Агент не может сам — нужно действие человека (доступы, конфиг, упавшие проверки, внешний сервис). Смотри комментарии issue | Агент |
 
@@ -109,9 +108,8 @@ See also: [`decisions/`](./decisions/) for the ADR explaining why this approach 
 
 ### Человек
 
-- Смотрит issue с `status:proposed` → добавляет `status:approved`, `status:rejected`, или `status:needs-info`.
+- Смотрит issue с `status:proposed` → добавляет `status:approved` или `status:rejected`.
 - При `status:rejected` — закрывает issue. Агент **не пересоздаёт** её в следующих снимках без новых данных; в снимке помечает: `Не пересоздаём — отклонено в #N`.
-- При `status:needs-info` — оставляет вопрос в комменте; агент отвечает и переключает обратно на `status:proposed`.
 
 ---
 
@@ -133,7 +131,6 @@ See also: [`decisions/`](./decisions/) for the ADR explaining why this approach 
 gh label create "status:proposed"    --color "fbca04" --description "Рекомендация создана агентом, ожидает решения"
 gh label create "status:approved"    --color "0e8a16" --description "Одобрено — агент может брать в работу"
 gh label create "status:rejected"    --color "b60205" --description "Отклонено — не делаем"
-gh label create "status:needs-info"  --color "d4c5f9" --description "Нужен контекст — агент уточняет в комменте"
 gh label create "status:in-progress" --color "1d76db" --description "Агент начал работу"
 gh label create "needs-human"        --color "8b5cf6" --description "Агент заблокирован — нужно действие человека"
 

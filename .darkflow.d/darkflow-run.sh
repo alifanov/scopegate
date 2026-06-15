@@ -914,7 +914,7 @@ run_routine() {
 # GitHub via `gh issue edit`. Runs right before sync_webapp so the subsequent
 # `gh issue list` reflects the new labels and ingest can clear pendingStatus.
 
-STATUS_LABELS_ALL=(status:proposed status:approved status:rejected status:needs-info status:in-progress status:blocked)
+STATUS_LABELS_ALL=(status:proposed status:approved status:rejected status:in-progress status:blocked)
 
 # ── GitHub auth guard ─────────────────────────────────────────────────────────
 # Returns 0 if gh is authenticated, 1 otherwise (with a log entry).
@@ -1173,11 +1173,10 @@ apply_pending_statuses() {
     remove_args+=(--remove-label "$lbl")
   done
 
-  local i num target comment
+  local i num target
   for ((i=0; i<count; i++)); do
     num=$(echo "$pending_json" | jq -r ".pending[$i].number")
     target=$(echo "$pending_json" | jq -r ".pending[$i].pendingStatus")
-    comment=$(echo "$pending_json" | jq -r ".pending[$i].pendingComment // empty")
     [[ -z "$num" || -z "$target" || "$target" == "null" ]] && continue
     if [[ "$target" == "closed" ]]; then
       gh issue edit "$num" "${remove_args[@]}" --remove-label "needs-human" >/dev/null 2>&1 || true
@@ -1185,11 +1184,6 @@ apply_pending_statuses() {
         log "PENDING #${num} failed to close"
     elif gh_err=$(gh issue edit "$num" "${remove_args[@]}" --add-label "status:${target}" 2>&1 >/dev/null); then
       log "PENDING #${num} → status:${target}"
-      if [[ "$target" == "needs-info" && -n "$comment" ]]; then
-        gh issue comment "$num" --body "$comment" >/dev/null 2>&1 \
-          && log "PENDING #${num} comment posted" \
-          || log "PENDING #${num} failed to post comment"
-      fi
       if [[ "$target" == "rejected" ]]; then
         gh issue close "$num" >/dev/null 2>&1 && log "PENDING #${num} closed (rejected)"
       fi

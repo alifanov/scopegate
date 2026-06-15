@@ -1413,15 +1413,22 @@ send_heartbeat() {
   repo_url=$(_get_repo_url_cached)
   [[ -z "$repo_url" ]] && return 0
 
-  local proj_name proj_hb_version routine_field="null"
+  local proj_name proj_hb_version routine_field="null" config_field="null"
   proj_name=$(darkflow_val "name" "$(basename "$PROJECT_ROOT")")
   proj_hb_version=$(darkflow_val "version" "")
   [[ -n "$routine" ]] && routine_field="\"${routine}\""
 
+  # Report when get-config.sh last successfully pulled settings from the Web UI so
+  # the dashboard can flag projects whose worker hasn't applied the latest config.
+  if [[ -f "${STATE_DIR}/config-synced-at" ]]; then
+    local synced; synced=$(head -1 "${STATE_DIR}/config-synced-at" 2>/dev/null | tr -d '[:space:]')
+    [[ -n "$synced" ]] && config_field="\"${synced}\""
+  fi
+
   curl -fsS -o /dev/null -m 5 \
     -X POST "${webapp_url}/api/worker/heartbeat" \
     -H "Content-Type: application/json" \
-    -d "{\"repoUrl\":\"${repo_url}\",\"status\":\"${status}\",\"routine\":${routine_field},\"name\":\"${proj_name}\",\"darkflowVersion\":\"${proj_hb_version}\"}" \
+    -d "{\"repoUrl\":\"${repo_url}\",\"status\":\"${status}\",\"routine\":${routine_field},\"name\":\"${proj_name}\",\"darkflowVersion\":\"${proj_hb_version}\",\"configSyncedAt\":${config_field}}" \
     2>/dev/null || true
 }
 

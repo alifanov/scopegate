@@ -1,5 +1,5 @@
 # Dark Flow project config — managed by install.sh
-version=2.72.0
+version=2.73.1
 installed=2026-06-15
 language=Russian
 branch=master
@@ -12,3 +12,4 @@ name=scopegate
 webapp_url=http://localhost:5555
 max_concurrent=3
 site_url=https://scopegate.chatindex.app
+domain=scopegate.dev

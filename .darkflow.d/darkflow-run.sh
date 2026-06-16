@@ -691,12 +691,6 @@ mailbox_preflight() {
     # sourced first so .env wins when both define a key.
     [[ -f "${PROJECT_ROOT}/.env.darkflow" ]] && . "${PROJECT_ROOT}/.env.darkflow" 2>/dev/null
     [[ -f "${PROJECT_ROOT}/.env" ]] && . "${PROJECT_ROOT}/.env" 2>/dev/null
-    # Normalize the three naming conventions onto MAILBOX_IMAP_* so the gate below
-    # and fetch.py both see creds (MAILBOX_IMAP_*, MAILBOX_USER/PASSWORD, IMAP_*).
-    export MAILBOX_IMAP_HOST="${MAILBOX_IMAP_HOST:-${IMAP_HOST:-}}"
-    export MAILBOX_IMAP_PORT="${MAILBOX_IMAP_PORT:-${IMAP_PORT:-}}"
-    export MAILBOX_IMAP_USER="${MAILBOX_IMAP_USER:-${MAILBOX_USER:-${IMAP_USER:-}}}"
-    export MAILBOX_IMAP_PASSWORD="${MAILBOX_IMAP_PASSWORD:-${MAILBOX_PASSWORD:-${IMAP_PASSWORD:-}}}"
     set +a
     if [[ -z "${MAILBOX_IMAP_HOST:-}" ]]; then echo "UNCONFIGURED"; exit 0; fi
     command -v python3 >/dev/null 2>&1 || { echo "NOPY"; exit 0; }

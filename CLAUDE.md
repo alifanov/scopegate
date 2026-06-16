@@ -42,6 +42,8 @@ src/
       metrics.ts      # lazy-init OTel counters (mcp.invalid_requests, mcp.blocked_requests)
       service-fetch.ts # unified transport — TRANSPORT_CONFIGS derived from PROVIDER_REGISTRY + SSRF-safe fetch
       safe-fetch.ts   # SSRF/DNS-rebinding-safe fetch (node:https); validates all A/AAAA records
+      image-utils.ts  # image/video download helpers
+      email-parser.ts # email parsing utilities
       <service>.ts    # service-specific helpers (ahrefs, semrush, email, youtube, …)
     auth.ts
     auth-middleware.ts   # AuthError / ForbiddenError / NotFoundError; requireAuth/requireProject helpers
@@ -55,8 +57,6 @@ src/
     oauth-token-lifecycle.ts  # unified token refresh for all 26 providers; OAuthTokenError class; derives config from provider-registry
     provider-registry.ts      # PROVIDER_REGISTRY — single source of truth for all 26 providers (token strategy, transport, permissions); add/remove a provider here only
     db.ts             # Prisma client
-    image-utils.ts    # image/video download helpers
-    email-parser.ts   # email parsing utilities
     provider-names.ts # OAuth provider display name map
   instrumentation.ts        # OTel hook (browser-safe entry point)
   instrumentation.node.ts   # OTel SDK init + PrismaInstrumentation (Node.js only)

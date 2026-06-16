@@ -2,18 +2,57 @@ import { z } from 'zod';
 import { threadsFetch } from '../threads';
 import type { ToolDefinition } from './types';
 
-// Meta processes media containers asynchronously, so the create/publish round-trips
-// routinely take several seconds. The previous 3–5s timeouts fired before Threads
-// responded; these values give Meta enough time while staying under the handler's 30s cap.
+// Meta processes media containers asynchronously: the create call returns a container id
+// immediately, but the container is not publishable until its status becomes FINISHED.
+// Publishing before then is what made the publish step hang and time out. So for media we
+// poll the container status until it is ready, then publish — all inside the handler's 30s cap.
 const THREADS_PUBLISH_TOTAL_BUDGET_MS = 25_000;
 const THREADS_TEXT_CONTAINER_TIMEOUT_MS = 8_000;
-const THREADS_MEDIA_CONTAINER_TIMEOUT_MS = 12_000;
+const THREADS_MEDIA_CONTAINER_TIMEOUT_MS = 10_000;
 const THREADS_PUBLISH_TIMEOUT_MS = 8_000;
+const THREADS_STATUS_POLL_TIMEOUT_MS = 5_000;
+const THREADS_STATUS_POLL_INTERVAL_MS = 1_500;
 
 const THREADS_MAX_TEXT_LENGTH = 500;
 
 function hasPublishMedia(params: Record<string, unknown>) {
   return params.media_type === "IMAGE" || params.media_type === "VIDEO";
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+type ThreadsContainerStatus = {
+  status?: "EXPIRED" | "ERROR" | "FINISHED" | "IN_PROGRESS" | "PUBLISHED";
+  error_message?: string;
+};
+
+// Polls a media container until Meta finishes processing it. Returns true once the
+// container reaches FINISHED, false if the deadline passes while still in progress
+// (the caller then returns partial_success). Throws if Meta reports ERROR/EXPIRED.
+async function waitForContainerReady(
+  serviceConnectionId: string,
+  creationId: string,
+  deadline: number
+): Promise<boolean> {
+  while (Date.now() < deadline) {
+    const result = (await threadsFetch(
+      serviceConnectionId,
+      `/${creationId}?fields=status,error_message`,
+      { timeout: THREADS_STATUS_POLL_TIMEOUT_MS }
+    )) as ThreadsContainerStatus;
+
+    if (result.status === "FINISHED") return true;
+    if (result.status === "ERROR" || result.status === "EXPIRED") {
+      throw new Error(
+        `Threads media processing ${result.status.toLowerCase()}: ${result.error_message ?? "unknown error"}`
+      );
+    }
+    if (Date.now() + THREADS_STATUS_POLL_INTERVAL_MS >= deadline) break;
+    await sleep(THREADS_STATUS_POLL_INTERVAL_MS);
+  }
+  return false;
 }
 
 export const threadsTools: ToolDefinition[] = [
@@ -71,7 +110,9 @@ export const threadsTools: ToolDefinition[] = [
       quote_post_id: z.string().optional().describe("ID of post to quote"),
     }),
     handler: async (params, context) => {
-      const startedAt = Date.now();
+      const deadline = Date.now() + THREADS_PUBLISH_TOTAL_BUDGET_MS;
+      const isMedia = hasPublishMedia(params);
+
       // Step 1: Create media container
       const body: Record<string, string> = {
         media_type: params.media_type as string,
@@ -89,23 +130,31 @@ export const threadsTools: ToolDefinition[] = [
         {
           method: "POST",
           body: JSON.stringify(body),
-          timeout: hasPublishMedia(params)
+          timeout: isMedia
             ? THREADS_MEDIA_CONTAINER_TIMEOUT_MS
             : THREADS_TEXT_CONTAINER_TIMEOUT_MS,
         }
       )) as { id: string };
 
-      const elapsedMs = Date.now() - startedAt;
-      if (elapsedMs >= THREADS_PUBLISH_TOTAL_BUDGET_MS) {
-        return {
-          status: "partial_success",
-          creation_id: containerResult.id,
-          message:
-            "Threads media container was created, but publishing was skipped because the request exceeded the safe execution budget. Retry publishing with this creation_id.",
-        };
+      // Step 2 (media only): wait for Meta to finish processing the container before
+      // publishing. Text containers are ready immediately, so they skip polling.
+      if (isMedia) {
+        const ready = await waitForContainerReady(
+          context.serviceConnectionId,
+          containerResult.id,
+          deadline
+        );
+        if (!ready) {
+          return {
+            status: "partial_success",
+            creation_id: containerResult.id,
+            message:
+              "Threads media container was created, but it was still processing when the safe execution budget ran out. Retry publishing with this creation_id once processing finishes.",
+          };
+        }
       }
 
-      // Step 2: Publish
+      // Step 3: Publish
       const publishResult = await threadsFetch(
         context.serviceConnectionId,
         "/me/threads_publish",

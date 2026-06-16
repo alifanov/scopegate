@@ -1,5 +1,5 @@
 # Dark Flow project config — managed by install.sh
-version=2.85.1
+version=2.86.0
 installed=2026-06-16
 language=Russian
 branch=master
@@ -14,3 +14,4 @@ max_concurrent=3
 site_url=https://scopegate.chatindex.app
 domain=scopegate.dev
 posthog_project_id=
+min_priority=medium

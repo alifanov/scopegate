@@ -622,18 +622,18 @@ mailbox_file_config_issue() {
 
   local url num
   url=$(gh issue create \
-    --title "Configure mailbox integration (MAILBOX_* in .env.darkflow)" \
+    --title "Configure mailbox integration (MAILBOX_* in .env)" \
     --label "needs-human,source:mailbox,priority:high" \
     --body "$(cat <<'BODY'
 ## Mailbox routine is enabled but not configured
 
 The `mailbox-check` routine is scheduled and running, but `MAILBOX_IMAP_HOST` is
-empty in `.env.darkflow` — so it can neither read incoming mail nor send replies.
+empty in `.env` — so it can neither read incoming mail nor send replies.
 Every scheduled run is currently a no-op.
 
 ## What to do
 
-Add the mailbox credentials to `.env.darkflow` (git-ignored) in the project root:
+Add the mailbox credentials to `.env` (git-ignored) in the project root:
 
 ```
 MAILBOX_IMAP_HOST=imap.example.com
@@ -651,7 +651,7 @@ Or, if you don't want the mailbox integration, disable the routine instead: set
 
 ## Acceptance criteria
 
-- [ ] `.env.darkflow` has the `MAILBOX_*` vars **or** `mailbox-check` is disabled
+- [ ] `.env` has the `MAILBOX_*` vars **or** `mailbox-check` is disabled
 - [ ] `mailbox-check` no longer reports "not configured"
 BODY
 )" 2>/dev/null) || url=""
@@ -687,7 +687,16 @@ mailbox_preflight() {
   probe=$(
     set +e
     set -a
+    # Creds live in the project's main .env; .env.darkflow is a legacy fallback,
+    # sourced first so .env wins when both define a key.
     [[ -f "${PROJECT_ROOT}/.env.darkflow" ]] && . "${PROJECT_ROOT}/.env.darkflow" 2>/dev/null
+    [[ -f "${PROJECT_ROOT}/.env" ]] && . "${PROJECT_ROOT}/.env" 2>/dev/null
+    # Normalize the three naming conventions onto MAILBOX_IMAP_* so the gate below
+    # and fetch.py both see creds (MAILBOX_IMAP_*, MAILBOX_USER/PASSWORD, IMAP_*).
+    export MAILBOX_IMAP_HOST="${MAILBOX_IMAP_HOST:-${IMAP_HOST:-}}"
+    export MAILBOX_IMAP_PORT="${MAILBOX_IMAP_PORT:-${IMAP_PORT:-}}"
+    export MAILBOX_IMAP_USER="${MAILBOX_IMAP_USER:-${MAILBOX_USER:-${IMAP_USER:-}}}"
+    export MAILBOX_IMAP_PASSWORD="${MAILBOX_IMAP_PASSWORD:-${MAILBOX_PASSWORD:-${IMAP_PASSWORD:-}}}"
     set +a
     if [[ -z "${MAILBOX_IMAP_HOST:-}" ]]; then echo "UNCONFIGURED"; exit 0; fi
     command -v python3 >/dev/null 2>&1 || { echo "NOPY"; exit 0; }

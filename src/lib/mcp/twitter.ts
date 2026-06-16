@@ -1,7 +1,23 @@
-import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
+import { getValidAccessToken, OAuthTokenError } from "@/lib/oauth-token-lifecycle";
 import { serviceFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch";
 
 const TWITTER_UPLOAD_URL = "https://api.x.com/2/media/upload";
+
+// Twitter API v2 error bodies vary: { title, detail, status } or { errors: [{ message | detail }] }.
+// Surface the real reason so failures are diagnosable instead of an opaque "request failed".
+function extractTwitterError(body: unknown): string | undefined {
+  if (!body || typeof body !== "object") return undefined;
+  const b = body as {
+    detail?: string;
+    title?: string;
+    errors?: Array<{ message?: string; detail?: string }>;
+  };
+  if (Array.isArray(b.errors) && b.errors.length) {
+    const msgs = b.errors.map((e) => e?.detail ?? e?.message).filter(Boolean);
+    if (msgs.length) return msgs.join("; ");
+  }
+  return b.detail ?? b.title;
+}
 
 // Cache authenticated user IDs per service connection
 const userIdCache = new Map<string, string>();
@@ -30,8 +46,14 @@ export async function twitterFetch(
   const res = await serviceFetch(serviceConnectionId, path, init);
 
   if (!res.ok) {
-    console.error(`[ScopeGate] Twitter API error (${res.status})`);
-    throw new Error("Twitter API request failed");
+    const detail = extractTwitterError(await res.json().catch(() => undefined));
+    const message = detail
+      ? `Twitter API error (${res.status}): ${detail}`
+      : `Twitter API error (${res.status})`;
+    // 401 = invalid/expired token → trigger reconnect flow. 403 is left as a generic
+    // error on purpose (duplicate tweet, missing scope, suspension) to avoid false revokes.
+    if (res.status === 401) throw new OAuthTokenError(message);
+    throw new Error(message);
   }
 
   if (res.status === 204) {
@@ -62,8 +84,12 @@ export async function twitterUploadMedia(
   });
 
   if (!res.ok) {
-    console.error(`[ScopeGate] Twitter media upload error (${res.status})`);
-    throw new Error("Twitter media upload failed");
+    const detail = extractTwitterError(await res.json().catch(() => undefined));
+    const message = detail
+      ? `Twitter media upload failed (${res.status}): ${detail}`
+      : `Twitter media upload failed (${res.status})`;
+    if (res.status === 401) throw new OAuthTokenError(message);
+    throw new Error(message);
   }
 
   const data = (await res.json()) as { data?: { id?: string } };

@@ -40,7 +40,7 @@ describe("threads_publish_thread", () => {
       {
         method: "POST",
         body: JSON.stringify({ media_type: "TEXT", text: "Hello" }),
-        timeout: 4_000,
+        timeout: 8_000,
       }
     );
     expect(threadsFetch).toHaveBeenNthCalledWith(
@@ -50,7 +50,7 @@ describe("threads_publish_thread", () => {
       {
         method: "POST",
         body: JSON.stringify({ creation_id: "container-1" }),
-        timeout: 3_000,
+        timeout: 8_000,
       }
     );
   });
@@ -80,13 +80,13 @@ describe("threads_publish_thread", () => {
           text: "Image post",
           image_url: "https://example.com/image.jpg",
         }),
-        timeout: 5_000,
+        timeout: 12_000,
       }
     );
   });
 
   it("returns partial success instead of starting publish after the safe budget", async () => {
-    vi.spyOn(Date, "now").mockReturnValueOnce(0).mockReturnValueOnce(20_001);
+    vi.spyOn(Date, "now").mockReturnValueOnce(0).mockReturnValueOnce(25_001);
     vi.mocked(threadsFetch).mockResolvedValueOnce({ id: "container-3" });
 
     await expect(

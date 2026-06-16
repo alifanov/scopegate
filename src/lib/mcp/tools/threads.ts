@@ -2,10 +2,15 @@ import { z } from 'zod';
 import { threadsFetch } from '../threads';
 import type { ToolDefinition } from './types';
 
-const THREADS_PUBLISH_TOTAL_BUDGET_MS = 20_000;
-const THREADS_TEXT_CONTAINER_TIMEOUT_MS = 4_000;
-const THREADS_MEDIA_CONTAINER_TIMEOUT_MS = 5_000;
-const THREADS_PUBLISH_TIMEOUT_MS = 3_000;
+// Meta processes media containers asynchronously, so the create/publish round-trips
+// routinely take several seconds. The previous 3–5s timeouts fired before Threads
+// responded; these values give Meta enough time while staying under the handler's 30s cap.
+const THREADS_PUBLISH_TOTAL_BUDGET_MS = 25_000;
+const THREADS_TEXT_CONTAINER_TIMEOUT_MS = 8_000;
+const THREADS_MEDIA_CONTAINER_TIMEOUT_MS = 12_000;
+const THREADS_PUBLISH_TIMEOUT_MS = 8_000;
+
+const THREADS_MAX_TEXT_LENGTH = 500;
 
 function hasPublishMedia(params: Record<string, unknown>) {
   return params.media_type === "IMAGE" || params.media_type === "VIDEO";
@@ -57,7 +62,7 @@ export const threadsTools: ToolDefinition[] = [
     description: "Create and publish a thread. For text posts, set media_type to TEXT. For images, set to IMAGE with image_url. For videos, set to VIDEO with video_url.",
     action: "threads:publish_thread",
     inputSchema: z.object({
-      text: z.string().optional().describe("Post text (max 500 characters)"),
+      text: z.string().max(THREADS_MAX_TEXT_LENGTH).optional().describe("Post text (max 500 characters)"),
       media_type: z.enum(["TEXT", "IMAGE", "VIDEO"]).describe("Type of media"),
       image_url: z.string().optional().describe("Public URL of the image (for IMAGE type)"),
       video_url: z.string().optional().describe("Public URL of the video (for VIDEO type)"),
@@ -163,7 +168,7 @@ export const threadsTools: ToolDefinition[] = [
     action: "threads:reply_to_thread",
     inputSchema: z.object({
       reply_to_id: z.string().describe("The thread media ID to reply to"),
-      text: z.string().optional().describe("Reply text (max 500 characters)"),
+      text: z.string().max(THREADS_MAX_TEXT_LENGTH).optional().describe("Reply text (max 500 characters)"),
       media_type: z.enum(["TEXT", "IMAGE", "VIDEO"]).describe("Type of media"),
       image_url: z.string().optional().describe("Public URL of the image (for IMAGE type)"),
       video_url: z.string().optional().describe("Public URL of the video (for VIDEO type)"),

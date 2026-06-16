@@ -136,22 +136,21 @@ export const threadsTools: ToolDefinition[] = [
         }
       )) as { id: string };
 
-      // Step 2 (media only): wait for Meta to finish processing the container before
-      // publishing. Text containers are ready immediately, so they skip polling.
-      if (isMedia) {
-        const ready = await waitForContainerReady(
-          context.serviceConnectionId,
-          containerResult.id,
-          deadline
-        );
-        if (!ready) {
-          return {
-            status: "partial_success",
-            creation_id: containerResult.id,
-            message:
-              "Threads media container was created, but it was still processing when the safe execution budget ran out. Retry publishing with this creation_id once processing finishes.",
-          };
-        }
+      // Step 2: wait for the container to reach FINISHED before publishing. Publishing an
+      // unfinished container makes Meta hold the publish request until it times out — this
+      // affects text posts too, not just media, so we always poll.
+      const ready = await waitForContainerReady(
+        context.serviceConnectionId,
+        containerResult.id,
+        deadline
+      );
+      if (!ready) {
+        return {
+          status: "partial_success",
+          creation_id: containerResult.id,
+          message:
+            "Threads container was created, but it was still processing when the safe execution budget ran out. Retry publishing with this creation_id once processing finishes.",
+        };
       }
 
       // Step 3: Publish

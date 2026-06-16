@@ -21,10 +21,11 @@ describe("threads_publish_thread", () => {
     vi.restoreAllMocks();
   });
 
-  it("uses separate short timeouts for text container creation and publish", async () => {
+  it("polls the container until FINISHED before publishing text posts too", async () => {
     vi.mocked(threadsFetch)
-      .mockResolvedValueOnce({ id: "container-1" })
-      .mockResolvedValueOnce({ id: "thread-1" });
+      .mockResolvedValueOnce({ id: "container-1" }) // create container
+      .mockResolvedValueOnce({ status: "FINISHED" }) // status poll
+      .mockResolvedValueOnce({ id: "thread-1" }); // publish
 
     await expect(
       publishThreadTool.handler(
@@ -45,6 +46,12 @@ describe("threads_publish_thread", () => {
     );
     expect(threadsFetch).toHaveBeenNthCalledWith(
       2,
+      "conn-1",
+      "/container-1?fields=status,error_message",
+      { timeout: 5_000 }
+    );
+    expect(threadsFetch).toHaveBeenNthCalledWith(
+      3,
       "conn-1",
       "/me/threads_publish",
       {
@@ -131,7 +138,7 @@ describe("threads_publish_thread", () => {
       status: "partial_success",
       creation_id: "container-3",
       message:
-        "Threads media container was created, but it was still processing when the safe execution budget ran out. Retry publishing with this creation_id once processing finishes.",
+        "Threads container was created, but it was still processing when the safe execution budget ran out. Retry publishing with this creation_id once processing finishes.",
     });
 
     expect(threadsFetch).toHaveBeenCalledTimes(1);

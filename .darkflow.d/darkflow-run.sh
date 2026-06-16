@@ -904,6 +904,12 @@ run_routine() {
   local status_str="ok"
   [[ "$exit_code" != "0" ]] && status_str="exit:${exit_code}"
   log "DONE   ${name} (${status_str})"
+
+  # A crashed fix-issues run leaves its issue stuck in status:in-progress with no
+  # PR. Recover it now instead of waiting the full 1h auto-revive window.
+  if [[ "$name" == "fix-issues" && "$exit_code" != "0" ]]; then
+    recover_crashed_fix_issues
+  fi
   local ts; ts=$(date -u +%FT%TZ)
   local output_json
   output_json=$(jq -Rsa '.' <<< "$agent_output")
@@ -1039,6 +1045,47 @@ revive_stuck_issues() {
       log "REVIVE #${num} failed to relabel: $(echo "$gh_err" | head -2 | tr '\n' ' ')"
     fi
   done <<< "$stuck"
+}
+
+# ── Recover an issue stranded by a crashed fix-issues run ─────────────────────
+# When a fix-issues agent dies mid-run (e.g. the Claude API drops the socket),
+# it has usually already set status:in-progress + posted a "starting work"
+# comment, but never created a branch/PR. The 1h auto-revive (revive_stuck_issues)
+# eventually rescues it, but that's an hour of the issue looking "in progress"
+# with nothing happening. This runs immediately after a non-zero fix-issues exit
+# and reverts any open status:in-progress issue back to status:approved — UNLESS
+# an open PR already references it (then the agent did land work; leave it for a
+# human to merge). fix-issues is single-instance, so a crash strands exactly the
+# issue it was holding.
+recover_crashed_fix_issues() {
+  ! command -v gh &>/dev/null && return 0
+  ! command -v jq &>/dev/null && return 0
+
+  local in_prog
+  in_prog=$(gh issue list --state open --label "status:in-progress" \
+              --json number --jq '.[].number' 2>/dev/null) || return 0
+  [[ -z "$in_prog" ]] && return 0
+
+  # One call: concatenate every open PR's body + title + branch so we can cheaply
+  # tell whether a given issue already has a PR (a landed/partial run we must keep).
+  local pr_refs
+  pr_refs=$(gh pr list --state open --json number,body,title,headRefName \
+              --jq '.[] | ((.body // "") + " " + (.title // "") + " " + (.headRefName // ""))' \
+              2>/dev/null) || pr_refs=""
+
+  local num
+  while IFS= read -r num; do
+    [[ -z "$num" ]] && continue
+    if [[ -n "$pr_refs" ]] && echo "$pr_refs" | grep -Eq "(#${num}([^0-9]|\$)|fix/${num}-)"; then
+      log "RECOVER #${num} has an open PR — leaving status:in-progress for a human"
+      continue
+    fi
+    if gh issue edit "$num" \
+         --remove-label "status:in-progress" \
+         --add-label "status:approved" >/dev/null 2>&1; then
+      log "RECOVER #${num} fix-issues crashed before landing → back to status:approved"
+    fi
+  done <<< "$in_prog"
 }
 
 close_rejected_issues() {

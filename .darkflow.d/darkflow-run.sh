@@ -1109,39 +1109,59 @@ close_rejected_issues() {
   done <<< "$rejected"
 }
 
-# ── Auto-discard routine-created low-priority issues ───────────────────────────
-# Policy (docs/github-issues.md): routines file issues ONLY for
-# critical/high/medium — `low` findings belong in the run snapshot, not the
-# backlog. Agents don't always obey the prompt, so enforce it here: any OPEN
-# issue tagged `priority:low` that carries a routine `source:*` label (i.e. NOT
-# `source:manual`) is commented and closed before it ever reaches the Web UI
-# approval queue. Manually-filed low issues (`source:manual`, or no source at
-# all), anything already `status:in-progress`, and `needs-human` issues (an
-# intentional human-attention channel, separate from the approval queue) are
-# left untouched.
-close_routine_low_issues() {
+# ── Auto-discard routine-created issues below the project's minimum priority ───
+# Policy (docs/github-issues.md): routines file issues only at or above the
+# project's configured `min_priority` (set via the Web UI Settings slider; default
+# `medium`). Findings below that threshold belong in the run snapshot, not the
+# backlog. Agents don't always obey the prompt, so enforce it here: any OPEN issue
+# whose `priority:*` label ranks below the threshold AND carries a routine
+# `source:*` label (i.e. NOT `source:manual`) is commented and closed before it
+# ever reaches the Web UI approval queue. Manually-filed issues (`source:manual`,
+# or no source at all), anything already `status:in-progress`, and `needs-human`
+# issues (an intentional human-attention channel) are left untouched. Issues with
+# no priority:* label yet are also left for backfill_missing_priority() to handle.
+#
+# Rank: critical=0, high=1, medium=2, low=3. "Below threshold" = rank > threshold
+# rank. At the default `medium` (rank 2) this closes only `low` (rank 3),
+# identical to the historical low-only behavior.
+close_routine_below_priority() {
   local issues_json="$1"
   [[ -z "$issues_json" ]] && return 0
   ! command -v gh &>/dev/null && return 0
   ! command -v jq &>/dev/null && return 0
 
-  local low
-  low=$(echo "$issues_json" | jq -r '
+  local threshold threshold_rank
+  threshold=$(darkflow_val "min_priority" "medium")
+  case "$threshold" in
+    critical) threshold_rank=0 ;;
+    high)     threshold_rank=1 ;;
+    medium)   threshold_rank=2 ;;
+    low)      threshold_rank=3 ;;
+    *)        threshold_rank=2; threshold="medium" ;;
+  esac
+  # `low` threshold allows everything through — nothing to close.
+  [[ "$threshold_rank" -ge 3 ]] && return 0
+
+  local below
+  below=$(echo "$issues_json" | jq -r --argjson t "$threshold_rank" '
+    def prank(n): {"priority:critical":0,"priority:high":1,"priority:medium":2,"priority:low":3}[n];
     .[] | select(.state == "OPEN")
-        | select(any(.labels[]; .name == "priority:low"))
         | select(any(.labels[]; (.name | startswith("source:")) and .name != "source:manual"))
         | select(all(.labels[]; .name != "status:in-progress"))
         | select(all(.labels[]; .name != "needs-human"))
-        | .number
+        | . as $i
+        | ([$i.labels[] | prank(.name)] | map(select(. != null)) | min) as $pr
+        | select($pr != null and $pr > $t)
+        | $i.number
   ' 2>/dev/null) || return 0
-  [[ -z "$low" ]] && return 0
+  [[ -z "$below" ]] && return 0
 
   local num
   while IFS= read -r num; do
     [[ -z "$num" ]] && continue
-    gh issue comment "$num" --body "Auto-closed by Dark Flow: routines file issues only for critical/high/medium priority — \`low\`-priority findings belong in the run snapshot, not the backlog. Re-open or re-file with a higher priority if this needs action." >/dev/null 2>&1 || true
-    gh issue close "$num" >/dev/null 2>&1 && log "CLOSE #${num} closed (routine-created priority:low)"
-  done <<< "$low"
+    gh issue comment "$num" --body "Auto-closed by Dark Flow: this project files routine issues only at priority \`${threshold}\` or higher — lower-priority findings belong in the run snapshot, not the backlog. Re-open or re-file with a higher priority if this needs action." >/dev/null 2>&1 || true
+    gh issue close "$num" >/dev/null 2>&1 && log "CLOSE #${num} closed (routine issue below min_priority=${threshold})"
+  done <<< "$below"
 }
 
 # ── Backfill missing priority labels ──────────────────────────────────────────
@@ -1282,8 +1302,8 @@ sync_webapp() {
     return 0
   fi
 
-  issues=$(gh issue list --state all --json number,title,body,state,labels,url,updatedAt --limit 300 2>/dev/null) || {
-    gh_err=$(gh issue list --state all --json number,title,body,state,labels,url,updatedAt --limit 300 2>&1 || true)
+  issues=$(gh issue list --state all --json number,title,body,state,labels,url,updatedAt,createdAt,closedAt --limit 300 2>/dev/null) || {
+    gh_err=$(gh issue list --state all --json number,title,body,state,labels,url,updatedAt,createdAt,closedAt --limit 300 2>&1 || true)
     log "WEBAPP skipped (gh issue list failed: $(echo "$gh_err" | head -2 | tr '\n' ' '))"
     PENDING_LOGS=()
     return 0
@@ -1292,7 +1312,7 @@ sync_webapp() {
   convert_blocked_to_needs_human "$issues"
   revive_stuck_issues "$issues"
   close_rejected_issues "$issues"
-  close_routine_low_issues "$issues"
+  close_routine_below_priority "$issues"
   # Guarantee every open issue carries a priority before it reaches the Web UI.
   issues=$(backfill_missing_priority "$issues")
 
@@ -1309,6 +1329,8 @@ sync_webapp() {
       body,
       state,
       url,
+      createdAt,
+      closedAt,
       # "blocked" is deprecated: an agent cannot act on it, so it folds into
       # needs-human. Drop the blocked status and flag the issue for a human.
       status:     ((label_prefix("status:") // "none") | if . == "blocked" then "none" else . end),

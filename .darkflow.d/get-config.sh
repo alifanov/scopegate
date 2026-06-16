@@ -94,6 +94,7 @@ _apply domain            domain
 _apply branch            branch
 _apply language          language
 _apply mergeStrategy     merge_strategy
+_apply minPriority       min_priority
 _apply posthogProjectId  posthog_project_id
 _apply obsTool           obs_tool
 _apply obsUrl            obs_url

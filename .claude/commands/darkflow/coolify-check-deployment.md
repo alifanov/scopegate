@@ -31,7 +31,7 @@ coolify app deployments list APP_UUID
 ```
 
 - If the latest deployment is in a **failed or error state**: create a `priority:critical` GitHub issue:
-  - Labels: `status:proposed`, `source:infra`, `priority:critical`, `area:infra`
+  - Labels: `status:proposed`, `source:infra`, `priority:critical`
   - Title: "Fix failed deployment: <error summary>"
   - Body: the deployment metadata + identified error. For details of the failed deploy:
     ```bash

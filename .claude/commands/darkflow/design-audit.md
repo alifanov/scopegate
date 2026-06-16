@@ -43,7 +43,7 @@ Language for all GitHub issues and output: the `language=` value from `.darkflow
 /impeccable:optimize
 
 After the performance audit is complete, create a GitHub issue for each significant finding:
-- Labels: `status:proposed`, `source:design`, `area:performance`, priority based on impact:
+- Labels: `status:proposed`, `source:design`, priority based on impact:
   - `priority:high` — LCP > 2.5s, CLS > 0.1, or bundle size regressions blocking interaction
   - `priority:medium` — measurable slowdowns, large unoptimized assets, render-blocking resources
   - **minor / nice-to-have optimizations → do NOT create an issue** — note them under Recommendations in the snapshot only

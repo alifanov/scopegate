@@ -23,15 +23,15 @@ Auto-approve only removes the *triage* step; the *execution* gate stays intact.
 | Category | Producing command | Match criteria | Notes |
 |---|---|---|---|
 | Security fix | `/darkflow:security-audit` | `source:security-review`, any priority | Static analysis + live app checks |
-| Dependency version update | `/darkflow:vulnerability-check` | `source:vulnerability-report` **and** `area:deps` | Dependabot alerts only |
-| Database index addition | `/darkflow:observability-check` | `source:signoz` **and** `area:db` | Additive index only — query rewrites / N+1 fixes / caching stay proposed |
+| Dependency version update | `/darkflow:vulnerability-check` | `source:vulnerability-report`, Dependabot alerts only | Version upgrades only |
+| Database index addition | `/darkflow:observability-check` | `source:signoz`, additive index only | The command applies `status:approved` only for a plain index add — query rewrites / N+1 fixes / caching stay proposed |
 
 ### Explicit exclusions
 
 These remain `status:proposed` (human review required):
 
-- `area:code` — code-scanning / CodeQL findings (may require architectural decisions)
-- `area:secrets` — secret-scanning findings (always require manual key rotation)
+- Code-scanning / CodeQL findings (may require architectural decisions)
+- Secret-scanning findings (always require manual key rotation)
 
 ---
 

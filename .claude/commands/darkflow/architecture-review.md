@@ -14,7 +14,7 @@ If `.darkflow` is missing, continue with the default.
 /improve-codebase-architecture
 
 After the review is complete, create a GitHub issue for each significant finding:
-- Labels: `status:proposed`, `source:manual`, `area:architecture` + area matching the affected module, priority based on impact, `effort:m` or `effort:l`
+- Labels: `status:proposed`, `source:manual`, priority based on impact, `effort:m` or `effort:l`
 - Focus on actionable improvements, not style preferences
 - Do not create issues for findings already tracked in open GitHub issues
 
@@ -24,8 +24,8 @@ Language for all GitHub issues and output: the `language=` value from `.darkflow
 
 Save an architecture snapshot so the Dark Flow worker can forward it to the web UI.
 
-Run `gh issue list --state open --json number,labels --limit 200`, then:
-- Count issues with label `area:architecture` → `openIssues`
+Run `gh issue list --state open --label source:manual --json number,labels --limit 200`, then:
+- Count the returned issues → `openIssues`
 - Derive `status`: `"warning"` if openIssues > 10, `"ok"` otherwise
 
 Write `.darkflow.d/state/metrics/architecture.json` (create parent directories if needed):

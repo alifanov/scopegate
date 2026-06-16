@@ -24,9 +24,7 @@ For each finding:
 - Compare to the previous period (yesterday / last week)
 - Suggest a concrete fix (add index, cache result, paginate query, etc.)
 
-Create a GitHub issue for each significant finding. Use labels: `status:proposed`, `source:signoz` (or the relevant observability tool), `area:api` / `area:worker` / `area:infra`, `priority:*`, `effort:*`.
-
-**Database findings:** label any database finding `area:db` in addition to the area above.
+Create a GitHub issue for each significant finding. Use labels: `status:proposed`, `source:signoz` (or the relevant observability tool), `priority:*`, `effort:*`.
 
 **Auto-approve — additive index only.** When the finding is purely *adding a database index* (no schema/data change, no query rewrite), create the issue directly as `status:approved` instead of `status:proposed`, and add the line *"Auto-approved — see `docs/auto-approve.md`."* to the issue body. This applies **only** to plain index additions — query rewrites, N+1 fixes, caching, denormalization, and any change that alters behavior or data stay `status:proposed` for human review.
 

@@ -111,6 +111,8 @@ OBSERVABILITY_API_KEY        # SigNoz ingestion key
 - `safe-fetch.ts` lives in `src/lib/mcp/` (not `src/lib/`) — import from `@/lib/mcp/safe-fetch`; timeout errors carry `err.name = "TimeoutError"` — catch by name (e.g. GSC `inspect_url`)
 - MCP endpoint streams SSE; keep-alive pings sent every 30s to prevent proxy timeouts
 - MCP tool execution has a 30s timeout per tool; enforced in `handler.ts`
+- `api-keys.ts` — MCP API key helpers: `generateMcpApiKey()` (prefix `sg_`, 32 random bytes), `getClientIp()`, and in-memory rate limiting for invalid keys (30 req/IP per 60s); used in `route.ts` to block brute-force enumeration
+- MCP route exceptions: unhandled errors in `handleMcpRequest` are caught by `reportMcpRouteError()` — records exception on the active OTel span and returns 500 JSON; prevents unhandled rejections from leaking stack traces to the client
 - Middleware route-group blocking metrics tracked per-route via `mcp.blocked_requests` OTel counter (in `metrics.ts`)
 - OTel route normalization (`instrumentation.node.ts`) uses `.next/routes-manifest.json` as primary source (present in production standalone output); falls back to `src/app/` walk for dev servers without a completed build — route groups (e.g. `/(auth)/`) are stripped from the fallback paths
 - MCP `http.route="/api/mcp/[apiKey]"` is still set explicitly via `trace.getActiveSpan()` in `route.ts` as belt-and-suspenders — routes-manifest.json covers it but the explicit set ensures correctness regardless of build state

@@ -96,7 +96,8 @@
       "nodemailer": ">=8.0.5",
       "effect": ">=3.20.0",
       "esbuild": ">=0.28.1",
-      "protobufjs": ">=7.6.3"
+      "protobufjs": ">=7.6.3",
+      "js-yaml": ">=4.2.0"
     }
   },
   "devDependencies": {

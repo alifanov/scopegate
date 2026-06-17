@@ -153,6 +153,26 @@ describe("endpoint route – IDOR (Fix 1) + permission validation (Fix 4)", () =
       const body = await res.json();
       expect(body.success).toBe(true);
     });
+
+    it("records an audit row for the deletion (#116)", async () => {
+      mockEndpointFindFirst.mockResolvedValue({
+        id: "e1",
+        projectId: "p1",
+        name: "ep",
+        serviceConnectionId: "sc1",
+      } as never);
+      mockEndpointDelete.mockResolvedValue({ id: "e1" } as never);
+
+      await DELETE(new Request("http://localhost"), makeParams("p1", "e1"));
+
+      expect(mockAuditLogCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          projectId: "p1",
+          action: "endpoint:delete",
+          status: "success",
+        }),
+      });
+    });
   });
 
   // --- Permission validation tests ---
@@ -216,6 +236,34 @@ describe("endpoint route – IDOR (Fix 1) + permission validation (Fix 4)", () =
           { action: "calendar:list_events", endpointId: "e1" },
           { action: "gmail:read_emails", endpointId: "e1" },
         ],
+      });
+    });
+
+    it("records an audit row capturing the permission change (#116)", async () => {
+      mockEndpointFindFirst.mockResolvedValue({ id: "e1", projectId: "p1" } as never);
+      mockEndpointUpdate.mockResolvedValue({ id: "e1" } as never);
+      mockPermissionDeleteMany.mockResolvedValue({ count: 0 } as never);
+      mockPermissionCreateMany.mockResolvedValue({ count: 1 } as never);
+      mockEndpointFindUnique.mockResolvedValue({
+        id: "e1",
+        permissions: [{ action: "gmail:read_emails" }],
+      } as never);
+
+      await PATCH(
+        makeRequest({ permissions: ["gmail:read_emails"] }),
+        makeParams("p1", "e1")
+      );
+
+      expect(mockAuditLogCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          endpointId: "e1",
+          projectId: "p1",
+          action: "endpoint:update",
+          status: "success",
+          params: expect.objectContaining({
+            permissions: ["gmail:read_emails"],
+          }),
+        }),
       });
     });
   });

@@ -45,7 +45,10 @@ env:
 
 jobs:
   gate:
-    runs-on: ubuntu-latest
+    # Runs on your self-hosted runner (no GitHub-hosted Actions minutes / billing).
+    # The runner must advertise these labels and have node/pnpm/python on PATH.
+    # To use GitHub-hosted runners instead, set: runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - uses: actions/checkout@v4
 
@@ -66,7 +69,12 @@ jobs:
               echo "::error::$name failed"
               echo "::endgroup::"
               failed="${failed:+$failed, }$name"
-              report="${report}"$'\n\n'"### \`$name\`"$'\n'"\`\`\`"$'\n'"$(tail -n 80 /tmp/check.txt)"$'\n'"\`\`\`"
+              report="${report}"$'
+
+'"### \`$name\`"$'
+'"\`\`\`"$'
+'"$(tail -n 80 /tmp/check.txt)"$'
+'"\`\`\`"
             fi
           }
 

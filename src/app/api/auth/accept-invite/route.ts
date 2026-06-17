@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import bcrypt from "bcryptjs";
+import { auth } from "@/lib/auth";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -55,7 +55,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const hashedPassword = await bcrypt.hash(password, 12);
+    // Hash with better-auth's own hasher so the credential is verifiable at
+    // login. Better-auth ignores any custom hasher placed at the wrong config
+    // level and falls back to scrypt, so we must use the same path it uses.
+    const ctx = await auth.$context;
+    const hashedPassword = await ctx.password.hash(password);
 
     const user = await db.user.create({
       data: {

@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Serve cached OpenRouter credits immediately in MCP tools and refresh stale values in the background so slow or unavailable credits checks do not block execution.
 - Cap Threads publish container and publish requests with separate short timeouts, with a partial-success response before the MCP execution budget is exhausted.
 - Update OpenTelemetry packages so inbound W3C baggage parsing uses the fixed `@opentelemetry/core` implementation.
+- Record route-level MCP endpoint exceptions on OpenTelemetry spans and return a sanitized JSON 500 instead of letting unhandled errors escape without context.
 
 ## [0.15.0] - 2026-02-26
 

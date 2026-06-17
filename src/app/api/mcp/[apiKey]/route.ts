@@ -1,5 +1,5 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { trace } from "@opentelemetry/api";
+import { SpanStatusCode, trace } from "@opentelemetry/api";
 import { db } from "@/lib/db";
 import { createMcpServerForEndpoint } from "@/lib/mcp/handler";
 import {
@@ -48,40 +48,43 @@ function withSseKeepAlive(response: Response, intervalMs = 30_000): Response {
   return new Response(readable, { status: response.status, headers: response.headers });
 }
 
+function reportMcpRouteError(err: unknown): Response {
+  const message = err instanceof Error ? err.message : "Unknown MCP route error";
+  const span = trace.getActiveSpan();
+
+  span?.recordException(
+    err instanceof Error ? err : new Error(message)
+  );
+  span?.setStatus({ code: SpanStatusCode.ERROR, message });
+
+  console.error(
+    JSON.stringify({
+      event: "mcp.route_error",
+      route: "/api/mcp/[apiKey]",
+      error: message,
+    })
+  );
+
+  return new Response(JSON.stringify({ error: "MCP request failed" }), {
+    status: 500,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 async function handleMcpRequest(
   request: Request,
   apiKey: string
 ): Promise<Response> {
-  // Explicitly tag the active OTel span with the route pattern.
-  // The http-level requestHook in instrumentation.node.ts also sets this, but in
-  // production (no src/app/ present) normalizeRoute falls back to the raw URL which
-  // embeds the actual API key. Setting it here on the framework-level span ensures
-  // SigNoz always aggregates all MCP traffic under a single canonical route.
-  trace.getActiveSpan()?.setAttribute("http.route", "/api/mcp/[apiKey]");
+  try {
+    // Explicitly tag the active OTel span with the route pattern.
+    // The http-level requestHook in instrumentation.node.ts also sets this, but in
+    // production (no src/app/ present) normalizeRoute falls back to the raw URL which
+    // embeds the actual API key. Setting it here on the framework-level span ensures
+    // SigNoz always aggregates all MCP traffic under a single canonical route.
+    trace.getActiveSpan()?.setAttribute("http.route", "/api/mcp/[apiKey]");
 
-  const clientIp = getClientIp(request);
-  if (isInvalidMcpApiKeyBlocked(clientIp)) {
-    recordMcpInvalidRequest("rate_limited");
-    return new Response(JSON.stringify({ error: "Too many invalid API key attempts" }), {
-      status: 429,
-      headers: {
-        "Content-Type": "application/json",
-        "Retry-After": String(getInvalidMcpApiKeyRetryAfterSeconds(clientIp)),
-      },
-    });
-  }
-
-  // Look up endpoint by API key
-  const endpoint = await db.mcpEndpoint.findUnique({
-    where: { apiKey },
-    include: {
-      permissions: { select: { action: true } },
-      serviceConnection: true,
-    },
-  });
-
-  if (!endpoint) {
-    if (isInvalidMcpApiKeyRateLimited(clientIp)) {
+    const clientIp = getClientIp(request);
+    if (isInvalidMcpApiKeyBlocked(clientIp)) {
       recordMcpInvalidRequest("rate_limited");
       return new Response(JSON.stringify({ error: "Too many invalid API key attempts" }), {
         status: 429,
@@ -92,74 +95,98 @@ async function handleMcpRequest(
       });
     }
 
-    recordMcpInvalidRequest("unauthorized");
-    return new Response(JSON.stringify({ error: "Invalid API key" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
+    // Look up endpoint by API key
+    const endpoint = await db.mcpEndpoint.findUnique({
+      where: { apiKey },
+      include: {
+        permissions: { select: { action: true } },
+        serviceConnection: true,
+      },
     });
-  }
 
-  if (!endpoint.isActive) {
-    recordMcpInvalidRequest("unauthorized");
-    return new Response(
-      JSON.stringify({ error: "Endpoint is deactivated" }),
-      { status: 403, headers: { "Content-Type": "application/json" } }
+    if (!endpoint) {
+      if (isInvalidMcpApiKeyRateLimited(clientIp)) {
+        recordMcpInvalidRequest("rate_limited");
+        return new Response(JSON.stringify({ error: "Too many invalid API key attempts" }), {
+          status: 429,
+          headers: {
+            "Content-Type": "application/json",
+            "Retry-After": String(getInvalidMcpApiKeyRetryAfterSeconds(clientIp)),
+          },
+        });
+      }
+
+      recordMcpInvalidRequest("unauthorized");
+      return new Response(JSON.stringify({ error: "Invalid API key" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (!endpoint.isActive) {
+      recordMcpInvalidRequest("unauthorized");
+      return new Response(
+        JSON.stringify({ error: "Endpoint is deactivated" }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Rate limit check — atomic upsert to avoid races and remove auditLog.count hot-path query.
+    // Bucket key = (endpointId, current UTC minute). Count is incremented before execution.
+    const windowStart = new Date(Math.floor(Date.now() / 60_000) * 60_000);
+    const result = await db.$queryRaw<{ count: number }[]>`
+      INSERT INTO "rate_limit_bucket" ("endpointId", "windowStart", "count")
+      VALUES (${endpoint.id}, ${windowStart}, 1)
+      ON CONFLICT ("endpointId", "windowStart")
+      DO UPDATE SET "count" = "rate_limit_bucket"."count" + 1
+      RETURNING "count"
+    `;
+    const currentCount = Number(result[0]?.count ?? 1);
+
+    if (currentCount > endpoint.rateLimitPerMinute) {
+      recordMcpInvalidRequest("rate_limited");
+      return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
+        status: 429,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const allowedActions = endpoint.permissions.map((p) => p.action);
+    const server = createMcpServerForEndpoint(
+      endpoint.id,
+      endpoint.name,
+      allowedActions,
+      endpoint.serviceConnectionId
     );
-  }
 
-  // Rate limit check — atomic upsert to avoid races and remove auditLog.count hot-path query.
-  // Bucket key = (endpointId, current UTC minute). Count is incremented before execution.
-  const windowStart = new Date(Math.floor(Date.now() / 60_000) * 60_000);
-  const result = await db.$queryRaw<{ count: number }[]>`
-    INSERT INTO "rate_limit_bucket" ("endpointId", "windowStart", "count")
-    VALUES (${endpoint.id}, ${windowStart}, 1)
-    ON CONFLICT ("endpointId", "windowStart")
-    DO UPDATE SET "count" = "rate_limit_bucket"."count" + 1
-    RETURNING "count"
-  `;
-  const currentCount = Number(result[0]?.count ?? 1);
-
-  if (currentCount > endpoint.rateLimitPerMinute) {
-    recordMcpInvalidRequest("rate_limited");
-    return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
-      status: 429,
-      headers: { "Content-Type": "application/json" },
+    // Create stateless transport for this request
+    const transport = new WebStandardStreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
     });
+
+    await server.connect(transport);
+
+    // Clone before the transport consumes the body so we can log it on 400.
+    const requestClone = request.clone();
+    const response = await transport.handleRequest(request);
+
+    if (response.status === 400) {
+      recordMcpInvalidRequest("invalid_format");
+      const bodyPreview = await requestClone.text().catch(() => "<unreadable>");
+      console.log(
+        JSON.stringify({
+          event: "mcp.invalid_request",
+          route: "/api/mcp/[apiKey]",
+          status: 400,
+          body_preview: bodyPreview.slice(0, 500),
+        })
+      );
+    }
+
+    return withSseKeepAlive(response);
+  } catch (err) {
+    return reportMcpRouteError(err);
   }
-
-  const allowedActions = endpoint.permissions.map((p) => p.action);
-  const server = createMcpServerForEndpoint(
-    endpoint.id,
-    endpoint.name,
-    allowedActions,
-    endpoint.serviceConnectionId
-  );
-
-  // Create stateless transport for this request
-  const transport = new WebStandardStreamableHTTPServerTransport({
-    sessionIdGenerator: undefined,
-  });
-
-  await server.connect(transport);
-
-  // Clone before the transport consumes the body so we can log it on 400.
-  const requestClone = request.clone();
-  const response = await transport.handleRequest(request);
-
-  if (response.status === 400) {
-    recordMcpInvalidRequest("invalid_format");
-    const bodyPreview = await requestClone.text().catch(() => "<unreadable>");
-    console.log(
-      JSON.stringify({
-        event: "mcp.invalid_request",
-        route: "/api/mcp/[apiKey]",
-        status: 400,
-        body_preview: bodyPreview.slice(0, 500),
-      })
-    );
-  }
-
-  return withSseKeepAlive(response);
 }
 
 export async function GET(

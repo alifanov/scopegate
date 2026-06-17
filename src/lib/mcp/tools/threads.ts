@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { trace } from '@opentelemetry/api';
 import { threadsFetch } from '../threads';
 import type { ToolDefinition } from './types';
 
@@ -6,9 +7,10 @@ import type { ToolDefinition } from './types';
 // immediately, but the container is not publishable until its status becomes FINISHED.
 // Publishing before then is what made the publish step hang and time out. So for media we
 // poll the container status until it is ready, then publish — all inside the handler's 30s cap.
-const THREADS_PUBLISH_TOTAL_BUDGET_MS = 25_000;
+// Total budget is 14s so that p99 of the tool span stays below 15s.
+const THREADS_PUBLISH_TOTAL_BUDGET_MS = 14_000;
 const THREADS_TEXT_CONTAINER_TIMEOUT_MS = 8_000;
-const THREADS_MEDIA_CONTAINER_TIMEOUT_MS = 10_000;
+const THREADS_MEDIA_CONTAINER_TIMEOUT_MS = 8_000;
 const THREADS_PUBLISH_TIMEOUT_MS = 8_000;
 const THREADS_STATUS_POLL_TIMEOUT_MS = 5_000;
 const THREADS_STATUS_POLL_INTERVAL_MS = 1_500;
@@ -112,8 +114,11 @@ export const threadsTools: ToolDefinition[] = [
     handler: async (params, context) => {
       const deadline = Date.now() + THREADS_PUBLISH_TOTAL_BUDGET_MS;
       const isMedia = hasPublishMedia(params);
+      const span = trace.getActiveSpan();
+      span?.setAttribute("threads.media_type", params.media_type as string);
 
       // Step 1: Create media container
+      span?.setAttribute("threads.step", "create_container");
       const body: Record<string, string> = {
         media_type: params.media_type as string,
       };
@@ -136,13 +141,18 @@ export const threadsTools: ToolDefinition[] = [
         }
       )) as { id: string };
 
+      span?.setAttribute("threads.container_id", containerResult.id);
+
       // Step 2: wait for the container to reach FINISHED before publishing. Publishing an
       // unfinished container makes Meta hold the publish request until it times out — this
       // affects text posts too, not just media, so we always poll.
+      // Reserve THREADS_PUBLISH_TIMEOUT_MS from the deadline for the publish step.
+      span?.setAttribute("threads.step", "wait_container");
+      const pollDeadline = deadline - THREADS_PUBLISH_TIMEOUT_MS;
       const ready = await waitForContainerReady(
         context.serviceConnectionId,
         containerResult.id,
-        deadline
+        pollDeadline
       );
       if (!ready) {
         return {
@@ -153,14 +163,19 @@ export const threadsTools: ToolDefinition[] = [
         };
       }
 
-      // Step 3: Publish
+      // Step 3: Publish — cap timeout against remaining budget so total never exceeds 14s
+      span?.setAttribute("threads.step", "publish");
+      const publishTimeout = Math.min(
+        THREADS_PUBLISH_TIMEOUT_MS,
+        Math.max(1_000, deadline - Date.now())
+      );
       const publishResult = await threadsFetch(
         context.serviceConnectionId,
         "/me/threads_publish",
         {
           method: "POST",
           body: JSON.stringify({ creation_id: containerResult.id }),
-          timeout: THREADS_PUBLISH_TIMEOUT_MS,
+          timeout: publishTimeout,
         }
       );
 
@@ -222,6 +237,9 @@ export const threadsTools: ToolDefinition[] = [
       video_url: z.string().optional().describe("Public URL of the video (for VIDEO type)"),
     }),
     handler: async (params, context) => {
+      const deadline = Date.now() + THREADS_PUBLISH_TOTAL_BUDGET_MS;
+      const isMedia = hasPublishMedia(params);
+
       // Step 1: Create reply container
       const body: Record<string, string> = {
         media_type: params.media_type as string,
@@ -237,16 +255,40 @@ export const threadsTools: ToolDefinition[] = [
         {
           method: "POST",
           body: JSON.stringify(body),
+          timeout: isMedia
+            ? THREADS_MEDIA_CONTAINER_TIMEOUT_MS
+            : THREADS_TEXT_CONTAINER_TIMEOUT_MS,
         }
       )) as { id: string };
 
-      // Step 2: Publish reply
+      // Step 2: Wait for container to be ready before publishing (same hang risk as threads_publish_thread)
+      const pollDeadline = deadline - THREADS_PUBLISH_TIMEOUT_MS;
+      const ready = await waitForContainerReady(
+        context.serviceConnectionId,
+        containerResult.id,
+        pollDeadline
+      );
+      if (!ready) {
+        return {
+          status: "partial_success",
+          creation_id: containerResult.id,
+          message:
+            "Reply container was created, but it was still processing when the safe execution budget ran out. Retry publishing with this creation_id once processing finishes.",
+        };
+      }
+
+      // Step 3: Publish reply — cap timeout against remaining budget
+      const publishTimeout = Math.min(
+        THREADS_PUBLISH_TIMEOUT_MS,
+        Math.max(1_000, deadline - Date.now())
+      );
       return threadsFetch(
         context.serviceConnectionId,
         "/me/threads_publish",
         {
           method: "POST",
           body: JSON.stringify({ creation_id: containerResult.id }),
+          timeout: publishTimeout,
         }
       );
     },

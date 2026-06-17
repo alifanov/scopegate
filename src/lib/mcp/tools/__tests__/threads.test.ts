@@ -88,7 +88,7 @@ describe("threads_publish_thread", () => {
           text: "Image post",
           image_url: "https://example.com/image.jpg",
         }),
-        timeout: 10_000,
+        timeout: 8_000,
       }
     );
     expect(threadsFetch).toHaveBeenNthCalledWith(

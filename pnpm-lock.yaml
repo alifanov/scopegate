@@ -101,7 +101,7 @@ importers:
         specifier: '>=3.20.0'
         version: 3.21.2
       hono:
-        specifier: ~4.12.26
+        specifier: '>=4.12.4'
         version: 4.12.26
       imapflow:
         specifier: ~1.2.13

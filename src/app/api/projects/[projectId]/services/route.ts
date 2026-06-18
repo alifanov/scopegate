@@ -78,7 +78,7 @@ export async function DELETE(
     if (googleProviders.has(service.provider)) {
       await revokeGoogleToken(token);
     } else if (service.provider === "linkedin") {
-      await revokeLinkedInToken(token);
+      await revokeLinkedInToken();
     }
   } catch (err) {
     console.warn("[ScopeGate] Token revocation before disconnect failed:", err);

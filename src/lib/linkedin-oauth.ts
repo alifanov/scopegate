@@ -53,7 +53,7 @@ export async function exchangeLinkedInCodeForTokens(code: string) {
   }>;
 }
 
-export async function revokeLinkedInToken(_token: string): Promise<void> {
+export async function revokeLinkedInToken(): Promise<void> {
   // LinkedIn does not provide a public token revocation API.
   // Tokens are simply deleted from the database on disconnect.
   console.log("[ScopeGate] LinkedIn token revocation: no-op (no revocation API available)");

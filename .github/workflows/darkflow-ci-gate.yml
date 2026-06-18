@@ -69,12 +69,7 @@ jobs:
               echo "::error::$name failed"
               echo "::endgroup::"
               failed="${failed:+$failed, }$name"
-              report="${report}"$'
-
-'"### \`$name\`"$'
-'"\`\`\`"$'
-'"$(tail -n 80 /tmp/check.txt)"$'
-'"\`\`\`"
+              report="${report}"$'\n\n'"### \`$name\`"$'\n'"\`\`\`"$'\n'"$(tail -n 80 /tmp/check.txt)"$'\n'"\`\`\`"
             fi
           }
 

@@ -46,20 +46,27 @@ env:
 jobs:
   gate:
     # Runs on your self-hosted runner (no GitHub-hosted Actions minutes / billing).
-    # The runner needs node + npm on PATH (pnpm is auto-provisioned below) and,
-    # for Python repos, python3 + pip. To use GitHub-hosted runners instead,
-    # set: runs-on: ubuntu-latest
+    # node + pnpm are provisioned into the job by the setup steps below (they do
+    # NOT rely on the runner's login PATH, which `bash --noprofile --norc` never
+    # loads — that was why a bare `corepack enable` failed on self-hosted hosts).
+    # Python repos still need python3 + pip on the runner. To use GitHub-hosted
+    # runners instead, set: runs-on: ubuntu-latest
     runs-on: [self-hosted, Linux, X64]
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Install pnpm
-        if: hashFiles('pnpm-lock.yaml') != ''
+      # Provision pnpm + node into the job regardless of how the host shell is
+      # configured. Guarded by hashFiles so Python-only repos skip the Node setup.
+      - name: Set up pnpm
+        if: ${{ hashFiles('pnpm-lock.yaml') != '' }}
         uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - name: Set up Node.js
+        if: ${{ hashFiles('package.json') != '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       - name: Run checks
         id: checks
@@ -82,30 +89,10 @@ jobs:
             fi
           }
 
-          # Make pnpm available on self-hosted runners. `corepack enable` on its
-          # own often fails silently here: its default shim location sits next to
-          # the (root-owned) node binary, so a non-root runner cannot write it,
-          # and `bash --noprofile --norc` does not load a login PATH. We install
-          # the shim into a user-writable dir and put it on PATH explicitly.
-          ensure_pnpm() {
-            command -v pnpm >/dev/null 2>&1 && return 0
-            local bindir="$HOME/.local/bin"
-            mkdir -p "$bindir"
-            export PATH="$bindir:$PATH"
-            if command -v corepack >/dev/null 2>&1; then
-              corepack enable --install-directory "$bindir" pnpm >/dev/null 2>&1 \
-                || corepack enable >/dev/null 2>&1 || true
-            fi
-            command -v pnpm >/dev/null 2>&1 && return 0
-            # Fallback: global install into a writable prefix (no root needed).
-            npm install -g --prefix "$HOME/.local" pnpm >/dev/null 2>&1 || true
-            command -v pnpm >/dev/null 2>&1
-          }
-
           # ── Node / pnpm / npm ────────────────────────────────────────────────
+          # pnpm + node are already on PATH here (provisioned by the setup steps).
           if [ -f package.json ]; then
             if [ -f pnpm-lock.yaml ]; then
-              ensure_pnpm || echo "::warning::could not provision pnpm — install will fail"
               run_check "install" pnpm install --frozen-lockfile
               grep -q '"lint"' package.json && run_check "lint" pnpm lint
               grep -q '"test"' package.json && run_check "test" pnpm test

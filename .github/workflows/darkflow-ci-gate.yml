@@ -46,27 +46,15 @@ env:
 jobs:
   gate:
     # Runs on your self-hosted runner (no GitHub-hosted Actions minutes / billing).
-    # node + pnpm are provisioned into the job by the setup steps below (they do
-    # NOT rely on the runner's login PATH, which `bash --noprofile --norc` never
-    # loads — that was why a bare `corepack enable` failed on self-hosted hosts).
-    # Python repos still need python3 + pip on the runner. To use GitHub-hosted
-    # runners instead, set: runs-on: ubuntu-latest
+    # The runner must have the toolchain your checks need ON PATH: node + pnpm (or
+    # npm) for JS repos, python3 + pip for Python repos. If you run the runner as a
+    # container (e.g. myoung34/github-runner), bake these into the image — minimal
+    # runner images ship neither node nor pnpm, and downloading them on the fly via
+    # setup-node/action-setup fails there (no tool cache). See docs/ci-runner.md.
+    # To use GitHub-hosted runners instead, set: runs-on: ubuntu-latest
     runs-on: [self-hosted, Linux, X64]
     steps:
       - uses: actions/checkout@v4
-
-      # Provision pnpm + node into the job regardless of how the host shell is
-      # configured. Guarded by hashFiles so Python-only repos skip the Node setup.
-      - name: Set up pnpm
-        if: ${{ hashFiles('pnpm-lock.yaml') != '' }}
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - name: Set up Node.js
-        if: ${{ hashFiles('package.json') != '' }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
 
       - name: Run checks
         id: checks

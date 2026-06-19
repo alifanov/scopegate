@@ -11,6 +11,7 @@ export async function GET(request: Request) {
         accountEmail: userInfo.email,
         expiresAt: new Date(Date.now() + tokens.expires_in * 1000),
         refreshToken: tokens.refresh_token ?? null,
+        metadata: { linkedinMemberUrn: `urn:li:person:${userInfo.sub}` },
       };
     },
   });

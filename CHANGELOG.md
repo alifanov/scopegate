@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Redact OAuth `access_token`, `client_secret`, and `fb_exchange_token` query values from OpenTelemetry span names and URL attributes before exporting traces.
 - Serve cached OpenRouter credits immediately in MCP tools and refresh stale values in the background so slow or unavailable credits checks do not block execution.
 - Cap Threads publish container and publish requests with separate short timeouts, with a partial-success response before the MCP execution budget is exhausted.
+- Cap LinkedIn MCP requests with short timeouts and record `mcp.tool.attempts` so slow create-post calls fail clearly instead of hanging.
 - Update OpenTelemetry packages so inbound W3C baggage parsing uses the fixed `@opentelemetry/core` implementation.
 - Record route-level MCP endpoint exceptions on OpenTelemetry spans and return a sanitized JSON 500 instead of letting unhandled errors escape without context.
 

@@ -1,9 +1,14 @@
+import { trace } from "@opentelemetry/api";
+import { db } from "@/lib/db";
 import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
 import { serviceFetch } from "@/lib/mcp/service-fetch";
-import { safeFetch } from "@/lib/mcp/safe-fetch";
+import { safeFetch, type SafeFetchOptions } from "@/lib/mcp/safe-fetch";
 
 const LINKEDIN_V2_BASE = "https://api.linkedin.com/v2";
 const LINKEDIN_VERSION = "202601";
+export const LINKEDIN_DEFAULT_TIMEOUT_MS = 1_400;
+export const LINKEDIN_CREATE_POST_TIMEOUT_MS = 1_250;
+const LINKEDIN_RETRY_DELAYS_MS = [150, 300];
 const LINKEDIN_FIXED_HEADERS = {
   "X-Restli-Protocol-Version": "2.0.0",
   "LinkedIn-Version": LINKEDIN_VERSION,
@@ -18,51 +23,123 @@ export async function getLinkedInMemberUrn(
   const cached = memberUrnCache.get(serviceConnectionId);
   if (cached) return cached;
 
+  const connection = await db.serviceConnection.findUnique({
+    where: { id: serviceConnectionId },
+    select: { metadata: true },
+  });
+  const metadata = connection?.metadata as Record<string, unknown> | null | undefined;
+  const metadataUrn = metadata?.linkedinMemberUrn;
+  if (typeof metadataUrn === "string" && metadataUrn.startsWith("urn:li:person:")) {
+    memberUrnCache.set(serviceConnectionId, metadataUrn);
+    return metadataUrn;
+  }
+
   const data = (await linkedinFetch(serviceConnectionId, "/userinfo", {
     useV2: true,
   })) as { sub: string };
   const urn = `urn:li:person:${data.sub}`;
   memberUrnCache.set(serviceConnectionId, urn);
+  await db.serviceConnection.update({
+    where: { id: serviceConnectionId },
+    data: {
+      metadata: {
+        ...(metadata ?? {}),
+        linkedinMemberUrn: urn,
+      },
+    },
+  });
   return urn;
+}
+
+type LinkedInFetchOptions = Omit<SafeFetchOptions, "headers"> & {
+  useV2?: boolean;
+  headers?: Record<string, string>;
+  retry?: boolean;
+};
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetriableNetworkError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  if (err.name === "TimeoutError") return false;
+  const code = (err as NodeJS.ErrnoException).code;
+  return code === "ECONNRESET" || code === "ECONNREFUSED" || code === "ENOTFOUND";
+}
+
+function recordLinkedInAttempts(attempts: number): void {
+  trace.getActiveSpan()?.setAttribute("mcp.tool.attempts", attempts);
 }
 
 export async function linkedinFetch(
   serviceConnectionId: string,
   path: string,
-  init?: { useV2?: boolean; method?: string; body?: string; headers?: Record<string, string> }
+  init?: LinkedInFetchOptions
 ): Promise<unknown> {
-  const { useV2, ...restInit } = init ?? {};
+  const { useV2, retry, ...restInit } = init ?? {};
+  const method = (restInit.method ?? "GET").toUpperCase();
+  const maxAttempts = (retry ?? method === "GET") ? LINKEDIN_RETRY_DELAYS_MS.length + 1 : 1;
 
-  let res: Response;
-  if (useV2) {
-    // V2 uses a different base URL — route through safeFetch with manual auth
-    const accessToken = await getValidAccessToken(serviceConnectionId);
-    res = await safeFetch(`${LINKEDIN_V2_BASE}${path}`, {
-      ...restInit,
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-        ...LINKEDIN_FIXED_HEADERS,
-        ...restInit.headers,
-      },
-    });
-  } else {
-    res = await serviceFetch(serviceConnectionId, path, restInit);
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    recordLinkedInAttempts(attempt + 1);
+
+    try {
+      let res: Response;
+      if (useV2) {
+        // V2 uses a different base URL — route through safeFetch with manual auth.
+        const accessToken = await getValidAccessToken(serviceConnectionId);
+        res = await safeFetch(`${LINKEDIN_V2_BASE}${path}`, {
+          timeout: LINKEDIN_DEFAULT_TIMEOUT_MS,
+          ...restInit,
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+            ...LINKEDIN_FIXED_HEADERS,
+            ...restInit.headers,
+          },
+        });
+      } else {
+        res = await serviceFetch(serviceConnectionId, path, {
+          timeout: LINKEDIN_DEFAULT_TIMEOUT_MS,
+          ...restInit,
+        });
+      }
+
+      if (res.status >= 500 && attempt < maxAttempts - 1) {
+        await sleep(LINKEDIN_RETRY_DELAYS_MS[attempt]);
+        continue;
+      }
+
+      if (!res.ok) {
+        console.error(`[ScopeGate] LinkedIn API error (${res.status})`);
+        throw new Error("LinkedIn API request failed");
+      }
+
+      if (res.status === 204 || res.status === 201) {
+        const id = res.headers.get("x-restli-id");
+        return { success: true, ...(id ? { id } : {}) };
+      }
+
+      const text = await res.text();
+      if (!text) return { success: true };
+      return JSON.parse(text);
+    } catch (err) {
+      if (err instanceof Error && err.name === "TimeoutError") {
+        const capMs = restInit.timeout ?? LINKEDIN_DEFAULT_TIMEOUT_MS;
+        throw new Error(
+          `LinkedIn API timed out (>${capMs}ms). The service may be temporarily slow - please try again.`
+        );
+      }
+      if (isRetriableNetworkError(err) && attempt < maxAttempts - 1) {
+        await sleep(LINKEDIN_RETRY_DELAYS_MS[attempt]);
+        continue;
+      }
+      throw err;
+    }
   }
 
-  if (!res.ok) {
-    console.error(`[ScopeGate] LinkedIn API error (${res.status})`);
-    throw new Error("LinkedIn API request failed");
-  }
-
-  if (res.status === 204 || res.status === 201) {
-    const id = res.headers.get("x-restli-id");
-    return { success: true, ...(id ? { id } : {}) };
-  }
-
-  const text = await res.text();
-  if (!text) return { success: true };
-  return JSON.parse(text);
+  throw new Error("LinkedIn API: retry exhausted");
 }
 
 export async function linkedinUploadImage(

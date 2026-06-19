@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { linkedinFetch, getLinkedInMemberUrn, linkedinUploadImage } from '../linkedin';
+import {
+  LINKEDIN_CREATE_POST_TIMEOUT_MS,
+  linkedinFetch,
+  getLinkedInMemberUrn,
+  linkedinUploadImage,
+} from '../linkedin';
 import { downloadImage } from '../image-utils';
 import type { ToolDefinition } from './types';
 
@@ -61,6 +66,7 @@ export const linkedinTools: ToolDefinition[] = [
       return linkedinFetch(context.serviceConnectionId, "/posts", {
         method: "POST",
         body: JSON.stringify(body),
+        timeout: LINKEDIN_CREATE_POST_TIMEOUT_MS,
       });
     },
   },

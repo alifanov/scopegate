@@ -31,6 +31,7 @@ src/
       oauth/          # OAuth callback handlers
       admin/          # invites / projects / users management
       notifications/  # notification API
+      csp-report/     # CSP violation sink → SigNoz OTel span + structured log
       projects/[projectId]/  # per-project API
   lib/
     mcp/
@@ -128,5 +129,6 @@ OBSERVABILITY_API_KEY        # SigNoz ingestion key
 - HTTP security headers (HSTS, X-Frame-Options, CSP `frame-ancestors 'none'`, nosniff) set globally in `next.config.ts`
 - `@opentelemetry/sdk-trace-base` MUST be a direct dep (pinned `~2.8.0` to match the sibling `@opentelemetry/*` packages) — `instrumentation.node.ts` imports `BatchSpanProcessor`/`SpanProcessor`/`Span` from it, and pnpm's strict `node_modules` can't resolve transitive deps, so removing it breaks `next build` with "Module not found". Always change it via `pnpm add -S` so `package.json` and `pnpm-lock.yaml` stay in sync — editing `package.json` by hand causes `ERR_PNPM_OUTDATED_LOCKFILE` on deploy
 - Public self-registration is disabled (`disableSignUp: true` in `auth.ts`) — `POST /api/auth/sign-up/email` returns an error; new users can only join via invite link
-- Invite flow (`/api/auth/accept-invite`) uses direct Prisma calls (`db.user.create` + `db.account.create`) — NOT `auth.api.signUpEmail` (blocked by `disableSignUp`); new users get `emailVerified: true`
+- Invite flow (`/api/auth/accept-invite`) uses direct Prisma calls (`db.user.create` + `db.account.create`) — NOT `auth.api.signUpEmail` (blocked by `disableSignUp`); password hashed via `ctx.password.hash()` (better-auth), not bcrypt directly; new users get `emailVerified: true`
 - To add or remove an OAuth/API-key provider, edit only `src/lib/provider-registry.ts` — `TRANSPORT_CONFIGS`, `PERMISSION_GROUPS`, and `getProviderConfig` are all derived from `PROVIDER_REGISTRY` automatically
+- CSP Report-Only is active (`Content-Security-Policy-Report-Only` in `next.config.ts`); browser violations POSTed to `/api/csp-report` → normalised (supports both `report-uri` and `report-to` wire formats) → SigNoz OTel span; not enforcement — moving to enforce requires promoting to `Content-Security-Policy`

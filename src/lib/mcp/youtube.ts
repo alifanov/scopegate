@@ -1,6 +1,7 @@
 import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
 import { serviceFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch";
 import { safeFetch } from "./safe-fetch";
+import { readBodyWithLimit } from "./media-body";
 
 const MAX_VIDEO_BYTES = 256 * 1024 * 1024; // 256 MB in-memory limit
 
@@ -47,21 +48,8 @@ export async function youtubeUploadVideo(
     throw new Error(`Failed to download video from URL (${videoRes.status}): ${videoRes.statusText}`);
   }
 
-  const contentLengthHeader = videoRes.headers.get("content-length");
-  if (contentLengthHeader && parseInt(contentLengthHeader, 10) > MAX_VIDEO_BYTES) {
-    throw new Error(
-      `Video too large: ${(parseInt(contentLengthHeader, 10) / 1024 / 1024).toFixed(0)}MB. Max: ${MAX_VIDEO_BYTES / 1024 / 1024}MB`
-    );
-  }
-
   const contentType = videoRes.headers.get("content-type") || "video/mp4";
-  const videoBuffer = Buffer.from(await videoRes.arrayBuffer());
-
-  if (videoBuffer.length > MAX_VIDEO_BYTES) {
-    throw new Error(
-      `Video too large: ${(videoBuffer.length / 1024 / 1024).toFixed(0)}MB. Max: ${MAX_VIDEO_BYTES / 1024 / 1024}MB`
-    );
-  }
+  const videoBuffer = await readBodyWithLimit(videoRes, MAX_VIDEO_BYTES, "Video");
 
   // Build metadata body
   const body: Record<string, unknown> = {

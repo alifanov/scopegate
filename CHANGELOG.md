@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Enforce image and YouTube video download size limits while streaming response bodies, including responses without `Content-Length`, to avoid excessive memory use.
 - Return a sanitized 503 for unexpected `/api/auth/*` handler failures and record the exception on the active OpenTelemetry span instead of emitting route-level HTTP 500s.
 - Generate MCP endpoint API keys with CSPRNG tokens and throttle repeated invalid-key attempts before endpoint lookup.
 - Record Meta token-exchange 400s in sanitized OpenTelemetry spans with `error.code` and `error.type` attributes for SigNoz grouping.

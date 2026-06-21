@@ -1,4 +1,5 @@
 import { safeFetch } from "./safe-fetch";
+import { readBodyWithLimit } from "./media-body";
 
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/gif"];
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
@@ -44,14 +45,7 @@ export async function downloadImage(urlOrBase64: string): Promise<DownloadedImag
     );
   }
 
-  const arrayBuffer = await res.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-
-  if (buffer.length > MAX_SIZE_BYTES) {
-    throw new Error(
-      `Image too large: ${(buffer.length / 1024 / 1024).toFixed(1)}MB. Max: 5MB`
-    );
-  }
+  const buffer = await readBodyWithLimit(res, MAX_SIZE_BYTES, "Image");
 
   return { buffer, mimeType: contentType, sizeBytes: buffer.length };
 }

@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authErrorResponse, requireCurrentUser } from "@/lib/auth-middleware";
 import { requireProjectMember, requireProjectOwner } from "@/lib/project-auth";
-import { ALL_ACTIONS } from "@/lib/mcp/permissions";
 import { recordAudit } from "@/lib/audit";
+import {
+  applyEndpointPermissions,
+  EndpointPermissionError,
+} from "@/lib/endpoint-permissions";
 
 type Params = { params: Promise<{ projectId: string; endpointId: string }> };
 
@@ -48,69 +51,27 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 
   try {
-    const existing = await db.mcpEndpoint.findFirst({
-      where: { id: endpointId, projectId },
-    });
-    if (!existing) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-
     const { name, isActive, rateLimitPerMinute, permissions } =
       await request.json();
 
-    if (permissions) {
-      const invalid = (permissions as string[]).filter(
-        (a: string) => !ALL_ACTIONS.includes(a)
-      );
-      if (invalid.length) {
-        return NextResponse.json(
-          { error: `Invalid permissions: ${invalid.join(", ")}` },
-          { status: 400 }
-        );
-      }
-    }
-
-    await db.mcpEndpoint.update({
-      where: { id: endpointId },
-      data: {
-        ...(name !== undefined && { name }),
-        ...(isActive !== undefined && { isActive }),
-        ...(rateLimitPerMinute !== undefined && { rateLimitPerMinute }),
-      },
-    });
-
-    // Update permissions if provided
-    if (permissions) {
-      await db.endpointPermission.deleteMany({ where: { endpointId } });
-      await db.endpointPermission.createMany({
-        data: (permissions as string[]).map((action) => ({
-          action,
-          endpointId,
-        })),
-      });
-    }
-
-    const updated = await db.mcpEndpoint.findUnique({
-      where: { id: endpointId },
-      include: { permissions: true },
-    });
-
-    await recordAudit({
-      endpointId,
+    const updated = await applyEndpointPermissions({
       projectId,
-      action: "endpoint:update",
-      params: {
-        endpointId,
-        name,
-        isActive,
-        rateLimitPerMinute,
-        permissions,
-      },
-      status: "success",
+      endpointId,
+      name,
+      isActive,
+      rateLimitPerMinute,
+      permissions,
     });
 
     return NextResponse.json({ endpoint: updated });
-  } catch {
+  } catch (error) {
+    if (error instanceof EndpointPermissionError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

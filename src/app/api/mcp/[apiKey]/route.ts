@@ -9,6 +9,7 @@ import {
   isInvalidMcpApiKeyRateLimited,
 } from "@/lib/mcp/api-keys";
 import { recordMcpInvalidRequest } from "@/lib/mcp/metrics";
+import { checkRateLimit } from "@/lib/mcp/rate-limit";
 
 // SSE connections are long-lived by design (MCP Streamable HTTP spec).
 // p99 ≈ 299 s is the reverse-proxy idle timeout, not an app bug.
@@ -131,19 +132,12 @@ async function handleMcpRequest(
       );
     }
 
-    // Rate limit check — atomic upsert to avoid races and remove auditLog.count hot-path query.
-    // Bucket key = (endpointId, current UTC minute). Count is incremented before execution.
-    const windowStart = new Date(Math.floor(Date.now() / 60_000) * 60_000);
-    const result = await db.$queryRaw<{ count: number }[]>`
-      INSERT INTO "rate_limit_bucket" ("endpointId", "windowStart", "count")
-      VALUES (${endpoint.id}, ${windowStart}, 1)
-      ON CONFLICT ("endpointId", "windowStart")
-      DO UPDATE SET "count" = "rate_limit_bucket"."count" + 1
-      RETURNING "count"
-    `;
-    const currentCount = Number(result[0]?.count ?? 1);
+    const rateLimit = await checkRateLimit({
+      endpointId: endpoint.id,
+      limitPerMinute: endpoint.rateLimitPerMinute,
+    });
 
-    if (currentCount > endpoint.rateLimitPerMinute) {
+    if (!rateLimit.allowed) {
       recordMcpInvalidRequest("rate_limited");
       return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
         status: 429,

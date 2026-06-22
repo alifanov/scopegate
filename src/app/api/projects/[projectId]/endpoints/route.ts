@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authErrorResponse, requireCurrentUser } from "@/lib/auth-middleware";
 import { requireProjectMember, requireProjectOwner } from "@/lib/project-auth";
-import { generateMcpApiKey } from "@/lib/mcp/api-keys";
-import { ALL_ACTIONS } from "@/lib/mcp/permissions";
-import { recordAudit } from "@/lib/audit";
+import {
+  createProjectEndpoint,
+  EndpointPermissionError,
+} from "@/lib/endpoint-permissions";
 
 // GET /api/projects/[projectId]/endpoints
 export async function GET(
@@ -58,62 +59,23 @@ export async function POST(
       );
     }
 
-    // Validate permissions against whitelist
-    if (permissions) {
-      const invalid = (permissions as string[]).filter(
-        (a: string) => !ALL_ACTIONS.includes(a)
-      );
-      if (invalid.length) {
-        return NextResponse.json(
-          { error: `Invalid permissions: ${invalid.join(", ")}` },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Verify service connection belongs to project
-    const service = await db.serviceConnection.findFirst({
-      where: { id: serviceConnectionId, projectId },
-    });
-    if (!service) {
-      return NextResponse.json(
-        { error: "Service connection not found" },
-        { status: 404 }
-      );
-    }
-
-    const endpoint = await db.mcpEndpoint.create({
-      data: {
-        name,
-        apiKey: generateMcpApiKey(),
-        projectId,
-        serviceConnectionId,
-        rateLimitPerMinute: rateLimitPerMinute ?? 60,
-        permissions: {
-          create: (permissions as string[])?.map((action: string) => ({
-            action,
-          })) ?? [],
-        },
-      },
-      include: { permissions: true },
-    });
-
-    await recordAudit({
-      endpointId: endpoint.id,
+    const endpoint = await createProjectEndpoint({
+      name,
       projectId,
-      action: "endpoint:create",
-      params: {
-        endpointId: endpoint.id,
-        name,
-        serviceConnectionId,
-        permissions,
-        rateLimitPerMinute: rateLimitPerMinute ?? 60,
-      },
-      status: "success",
+      serviceConnectionId,
+      permissions,
+      rateLimitPerMinute,
     });
 
     return NextResponse.json({ endpoint }, { status: 201 });
-  } catch {
+  } catch (error) {
+    if (error instanceof EndpointPermissionError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

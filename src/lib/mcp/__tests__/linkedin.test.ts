@@ -70,9 +70,10 @@ describe("linkedinFetch", () => {
       expect.objectContaining({
         method: "POST",
         timeout: LINKEDIN_CREATE_POST_TIMEOUT_MS,
+        retry: false,
+        onAttempt: expect.any(Function),
       })
     );
-    expect(span.setAttribute).toHaveBeenCalledWith("mcp.tool.attempts", 1);
   });
 
   it("returns a clear LinkedIn timeout error", async () => {
@@ -90,21 +91,23 @@ describe("linkedinFetch", () => {
     );
   });
 
-  it("retries GET responses that fail with 5xx and records the final attempt count", async () => {
-    vi.mocked(serviceFetch)
-      .mockResolvedValueOnce(new Response("{}", { status: 500 }))
-      .mockResolvedValueOnce(new Response("{}", { status: 502 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+  it("delegates GET retries and attempt recording to serviceFetch", async () => {
+    vi.mocked(serviceFetch).mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), { status: 200 })
+    );
 
     await expect(linkedinFetch("conn-1", "/posts/abc")).resolves.toEqual({ ok: true });
 
-    expect(serviceFetch).toHaveBeenCalledTimes(3);
-    expect(serviceFetch).toHaveBeenLastCalledWith(
+    expect(serviceFetch).toHaveBeenCalledTimes(1);
+    expect(serviceFetch).toHaveBeenCalledWith(
       "conn-1",
       "/posts/abc",
-      expect.objectContaining({ timeout: LINKEDIN_DEFAULT_TIMEOUT_MS })
+      expect.objectContaining({
+        timeout: LINKEDIN_DEFAULT_TIMEOUT_MS,
+        retry: true,
+        onAttempt: expect.any(Function),
+      })
     );
-    expect(span.setAttribute).toHaveBeenLastCalledWith("mcp.tool.attempts", 3);
   });
 
   it("uses the stored LinkedIn member URN without calling /userinfo", async () => {

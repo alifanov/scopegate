@@ -1,5 +1,6 @@
 import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
 import { safeFetch, type SafeFetchOptions } from "@/lib/mcp/safe-fetch";
+import { retry, retryAfterDelayMs } from "@/lib/mcp/retry";
 import { metrics, type Histogram } from "@opentelemetry/api";
 
 const WEBMASTERS_BASE_URL = "https://www.googleapis.com/webmasters/v3";
@@ -39,18 +40,13 @@ function isCacheable(method: string | undefined, path: string): boolean {
 }
 
 async function fetchWithRetry(url: string, init: SafeFetchOptions): Promise<Response> {
-  const MAX_RETRIES = 3;
-  let attempt = 0;
-  while (true) {
-    const res = await safeFetch(url, init);
-    if (res.status !== 429 || attempt >= MAX_RETRIES) return res;
-    const retryAfterHeader = res.headers.get("Retry-After");
-    const delayMs = retryAfterHeader
-      ? parseInt(retryAfterHeader, 10) * 1000
-      : Math.min(1000 * Math.pow(2, attempt), 32_000);
-    attempt++;
-    await new Promise((r) => setTimeout(r, delayMs));
-  }
+  return retry(() => safeFetch(url, init), {
+    delaysMs: [1_000, 2_000, 4_000],
+    shouldRetryResult: (res) => res.status === 429,
+    shouldRetryError: () => false,
+    getDelayMs: ({ result, fallbackDelayMs }) =>
+      retryAfterDelayMs(result?.headers.get("Retry-After") ?? null, fallbackDelayMs),
+  });
 }
 
 async function gscFetch(

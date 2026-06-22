@@ -3,14 +3,15 @@ import { db } from "@/lib/db";
 import { getValidAccessTokenForConnection } from "@/lib/oauth-token-lifecycle";
 import { safeFetch, type SafeFetchOptions } from "@/lib/mcp/safe-fetch";
 import { PROVIDER_REGISTRY } from "@/lib/provider-registry";
+import type { TransportDef } from "@/lib/provider-registry";
+import { isRetriableNetworkError, retry as retryOperation } from "@/lib/mcp/retry";
 
 const tracer = trace.getTracer("scopegate");
 
 type DbConnection = Awaited<ReturnType<typeof db.serviceConnection.findUniqueOrThrow>>;
 
-type ProviderTransportConfig = {
+type ProviderTransportConfig = Omit<TransportDef, "baseUrl"> & {
   baseUrl: string | ((conn: DbConnection) => string);
-  fixedHeaders?: Record<string, string>;
 };
 
 const TRANSPORT_CONFIGS: Record<string, ProviderTransportConfig> = Object.fromEntries(
@@ -19,6 +20,8 @@ const TRANSPORT_CONFIGS: Record<string, ProviderTransportConfig> = Object.fromEn
 
 export type ServiceFetchOptions = Omit<SafeFetchOptions, "headers"> & {
   headers?: Record<string, string>;
+  retry?: boolean;
+  onAttempt?: (attempt: number) => void;
 };
 
 /**
@@ -32,6 +35,7 @@ export async function serviceFetch(
   path: string,
   init?: ServiceFetchOptions
 ): Promise<Response> {
+  const { retry: retryOverride, onAttempt, ...fetchInit } = init ?? {};
   const conn = await db.serviceConnection.findUniqueOrThrow({
     where: { id: connectionId },
   });
@@ -49,37 +53,66 @@ export async function serviceFetch(
     Authorization: `Bearer ${accessToken}`,
     "Content-Type": "application/json",
     ...config.fixedHeaders,
-    ...init?.headers,
+    ...fetchInit.headers,
   };
 
-  const method = (init?.method ?? "GET").toUpperCase();
+  const method = (fetchInit.method ?? "GET").toUpperCase();
+  const timeout = fetchInit.timeout ?? config.timeoutMs;
+  const retryConfig = config.retry;
+  const retryApplies =
+    retryConfig !== undefined &&
+    retryOverride !== false &&
+    (retryOverride === true ||
+      !retryConfig.methods ||
+      retryConfig.methods.includes(method));
 
-  return tracer.startActiveSpan(
-    `service-fetch ${conn.provider}`,
-    {
-      kind: SpanKind.CLIENT,
-      attributes: {
-        "http.route": `${conn.provider}${path}`,
-        "http.method": method,
-        "mcp.provider": conn.provider,
-        "url.path": path,
+  const fetchOnce = () =>
+    tracer.startActiveSpan(
+      `service-fetch ${conn.provider}`,
+      {
+        kind: SpanKind.CLIENT,
+        attributes: {
+          "http.route": `${conn.provider}${path}`,
+          "http.method": method,
+          "mcp.provider": conn.provider,
+          "url.path": path,
+        },
       },
-    },
-    async (span) => {
-      try {
-        const res = await safeFetch(`${baseUrl}${path}`, { ...init, headers });
-        span.setAttribute("http.status_code", res.status);
-        if (res.status >= 400) {
-          span.setStatus({ code: SpanStatusCode.ERROR, message: `HTTP ${res.status}` });
+      async (span) => {
+        try {
+          const res = await safeFetch(`${baseUrl}${path}`, {
+            ...fetchInit,
+            timeout,
+            headers,
+          });
+          span.setAttribute("http.status_code", res.status);
+          if (res.status >= 400) {
+            span.setStatus({ code: SpanStatusCode.ERROR, message: `HTTP ${res.status}` });
+          }
+          return res;
+        } catch (err) {
+          span.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error).message });
+          span.recordException(err as Error);
+          throw err;
+        } finally {
+          span.end();
         }
-        return res;
-      } catch (err) {
-        span.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error).message });
-        span.recordException(err as Error);
-        throw err;
-      } finally {
-        span.end();
       }
-    }
-  );
+    );
+
+  if (!retryApplies) {
+    onAttempt?.(1);
+    return fetchOnce();
+  }
+
+  const retryStatuses = retryConfig.statusCodes;
+  return retryOperation(fetchOnce, {
+    delaysMs: retryConfig.delaysMs,
+    onAttempt,
+    shouldRetryResult: (res) =>
+      retryStatuses ? retryStatuses.includes(res.status) : res.status >= 500,
+    shouldRetryError: retryConfig.retryNetworkErrors
+      ? isRetriableNetworkError
+      : () => false,
+  });
 }

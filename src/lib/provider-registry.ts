@@ -30,6 +30,13 @@ export type TokenConfig =
 export type TransportDef = {
   baseUrl: string | ((conn: ConnWithMeta) => string);
   fixedHeaders?: Record<string, string>;
+  timeoutMs?: number;
+  retry?: {
+    delaysMs: readonly number[];
+    methods?: readonly string[];
+    statusCodes?: readonly number[];
+    retryNetworkErrors?: boolean;
+  };
 };
 
 export type ProviderDef = {
@@ -287,6 +294,12 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
     },
     transport: {
       baseUrl: "https://api.linkedin.com/rest",
+      timeoutMs: 1_400,
+      retry: {
+        delaysMs: [150, 300],
+        methods: ["GET"],
+        retryNetworkErrors: true,
+      },
       fixedHeaders: {
         "X-Restli-Protocol-Version": "2.0.0",
         "LinkedIn-Version": "202601",
@@ -667,7 +680,14 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
     displayName: "Threads",
     description: "Access to Threads (by Meta) operations",
     token: { kind: "exchange", bufferMs: 24 * 60 * 60 * 1000, exchangeType: "threads" },
-    transport: { baseUrl: "https://graph.threads.net/v1.0" },
+    transport: {
+      baseUrl: "https://graph.threads.net/v1.0",
+      timeoutMs: 8_000,
+      retry: {
+        delaysMs: [250, 500],
+        retryNetworkErrors: true,
+      },
+    },
     actions: [
       "threads:get_profile",
       "threads:get_threads",

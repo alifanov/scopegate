@@ -96,7 +96,7 @@ export async function youtubeUploadVideo(
       "Content-Type": contentType,
       "Content-Length": String(videoBuffer.length),
     },
-    body: videoBuffer,
+    body: new Uint8Array(videoBuffer),
   });
 
   if (!uploadRes.ok) {

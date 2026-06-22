@@ -1,6 +1,6 @@
 # Dark Flow — CI gate
 #
-# Runs cheap, deterministic checks (lint + tests) on every push. If a check
+# Runs cheap, deterministic checks (typecheck + lint + tests) on every push. If a check
 # fails, it opens — or reuses — a single GitHub issue (label `source:ci`) per
 # branch describing the failure. The Dark Flow `fix-ci-issue` worker (running on
 # your machine) then picks the issue up and pushes a fix, retrying up to 3 times
@@ -82,6 +82,7 @@ jobs:
           if [ -f package.json ]; then
             if [ -f pnpm-lock.yaml ]; then
               run_check "install" pnpm install --frozen-lockfile
+              run_check "build" bash -c "node_modules/.bin/prisma generate && node_modules/.bin/tsc --noEmit"
               grep -q '"lint"' package.json && run_check "lint" pnpm lint
               grep -q '"test"' package.json && run_check "test" pnpm test
             else

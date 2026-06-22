@@ -14,7 +14,7 @@ make df-run         # Dark Flow routine dispatcher (every 60s)
 
 ## Commits & CI
 
-**Do NOT run `pnpm build` before or after commits.** The Dark Flow CI gate (`.github/workflows/darkflow-ci-gate.yml`) runs `install` → `lint` → `test` on every push/PR and verifies the build there, auto-filing a `source:ci` issue on failure. This **overrides** the global "always run `pnpm build` before committing" rule. Failing checks → `source:ci` issue → the `fix-ci-issue` worker pushes a fix (retries up to 3x, then `needs-human`); CI closes the issue on green. Running `pnpm lint`/`pnpm test` locally for fast feedback is fine but not required.
+**Do NOT run `pnpm build` before or after commits.** The Dark Flow CI gate (`.github/workflows/darkflow-ci-gate.yml`) runs `install` → `build` (`prisma generate && tsc --noEmit`) → `lint` → `test` on every push/PR, auto-filing a `source:ci` issue on failure. This **overrides** the global "always run `pnpm build` before committing" rule because `pnpm build` runs migrations and requires a live DB. Failing checks → `source:ci` issue → the `fix-ci-issue` worker pushes a fix (retries up to 3x, then `needs-human`); CI closes the issue on green. Running `pnpm lint`/`pnpm test` locally for fast feedback is fine but not required.
 
 ## Architecture
 
@@ -99,7 +99,7 @@ OBSERVABILITY_API_KEY        # SigNoz ingestion key
 ## Gotchas
 
 - Prisma client output is `src/generated/prisma` — import from there, not `@prisma/client`
-- `pnpm build` runs `prisma migrate deploy`; for DB-less CI use `prisma generate && next build`
+- `pnpm build` runs `prisma migrate deploy`; for DB-less CI use `prisma generate && tsc --noEmit`
 - Docker: multi-stage build (deps → builder → runner); `node:22-slim` (not alpine) — `openssl` installed explicitly for Prisma; Next.js standalone output; runs as non-root `node` user; BuildKit pnpm cache mount
 - Migrations run at container startup (`docker-entrypoint.sh`) from `/prisma-runtime/`, not at build time
 - `docker/prisma.config.ts` is copied to `/prisma-runtime/` in the runner stage — Prisma 7 schema has no `datasource.url` (config-based); without it `migrate deploy` fails with "datasource.url property is required"

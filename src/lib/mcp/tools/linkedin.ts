@@ -1,12 +1,48 @@
+import { trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import { z } from 'zod';
 import {
   LINKEDIN_CREATE_POST_TIMEOUT_MS,
+  LINKEDIN_VERSION,
   linkedinFetch,
   getLinkedInMemberUrn,
   linkedinUploadImage,
 } from '../linkedin';
 import { downloadImage } from '../image-utils';
 import type { ToolDefinition } from './types';
+
+const tracer = trace.getTracer("scopegate");
+
+function traceLinkedInCreatePostPhase<T>(
+  phase: string,
+  fn: () => Promise<T>,
+  attributes?: Record<string, string | number | boolean>
+): Promise<T> {
+  return tracer.startActiveSpan(
+    `linkedin_create_post.${phase}`,
+    {
+      kind: SpanKind.INTERNAL,
+      attributes: {
+        "mcp.tool": "linkedin_create_post",
+        "linkedin.phase": phase,
+        ...attributes,
+      },
+    },
+    async (span) => {
+      try {
+        return await fn();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        span.setStatus({ code: SpanStatusCode.ERROR, message });
+        if (err instanceof Error) {
+          span.recordException(err);
+        }
+        throw err;
+      } finally {
+        span.end();
+      }
+    }
+  );
+}
 
 export const linkedinTools: ToolDefinition[] = [
   // LinkedIn tools
@@ -32,42 +68,79 @@ export const linkedinTools: ToolDefinition[] = [
       if (params.link && params.image_url) {
         throw new Error("Cannot use both 'link' and 'image_url' — LinkedIn posts support one content type at a time.");
       }
-      const authorUrn = await getLinkedInMemberUrn(context.serviceConnectionId);
-      const body: Record<string, unknown> = {
-        author: authorUrn,
-        lifecycleState: "PUBLISHED",
-        visibility: "PUBLIC",
-        commentary: params.text as string,
-        distribution: {
-          feedDistribution: "MAIN_FEED",
-          targetEntities: [],
-          thirdPartyDistributionChannels: [],
+
+      const body = await traceLinkedInCreatePostPhase(
+        "prepare_payload",
+        async () => {
+          const authorUrn = await getLinkedInMemberUrn(context.serviceConnectionId);
+          const payload: Record<string, unknown> = {
+            author: authorUrn,
+            lifecycleState: "PUBLISHED",
+            visibility: "PUBLIC",
+            commentary: params.text as string,
+            distribution: {
+              feedDistribution: "MAIN_FEED",
+              targetEntities: [],
+              thirdPartyDistributionChannels: [],
+            },
+          };
+
+          if (params.link) {
+            payload.content = {
+              article: {
+                source: params.link,
+              },
+            };
+          }
+
+          return payload;
         },
-      };
-      if (params.link) {
-        body.content = {
-          article: {
-            source: params.link,
-          },
-        };
-      } else if (params.image_url) {
-        const image = await downloadImage(params.image_url as string);
-        const imageUrn = await linkedinUploadImage(
-          context.serviceConnectionId,
-          image.buffer,
-          image.mimeType
+        {
+          "linkedin.content_type": params.link ? "link" : params.image_url ? "image" : "text",
+        }
+      );
+
+      if (params.image_url) {
+        const imageUrn = await traceLinkedInCreatePostPhase(
+          "prepare_image",
+          async () => {
+            const image = await downloadImage(params.image_url as string);
+            return linkedinUploadImage(
+              context.serviceConnectionId,
+              image.buffer,
+              image.mimeType
+            );
+          }
         );
+
         body.content = {
           media: {
             id: imageUrn,
           },
         };
       }
-      return linkedinFetch(context.serviceConnectionId, "/posts", {
-        method: "POST",
-        body: JSON.stringify(body),
-        timeout: LINKEDIN_CREATE_POST_TIMEOUT_MS,
-      });
+
+      const response = await traceLinkedInCreatePostPhase(
+        "http_request",
+        () =>
+          linkedinFetch(context.serviceConnectionId, "/posts", {
+            method: "POST",
+            body: JSON.stringify(body),
+            timeout: LINKEDIN_CREATE_POST_TIMEOUT_MS,
+          }),
+        {
+          "http.method": "POST",
+          "url.path": "/posts",
+          "linkedin.api_version": LINKEDIN_VERSION,
+          "linkedin.timeout_ms": LINKEDIN_CREATE_POST_TIMEOUT_MS,
+        }
+      );
+
+      return traceLinkedInCreatePostPhase(
+        "process_response",
+        async () => response,
+        { "linkedin.result_type": typeof response }
+      );
     },
   },
   {

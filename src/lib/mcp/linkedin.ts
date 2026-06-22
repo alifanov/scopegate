@@ -5,7 +5,7 @@ import { serviceFetch } from "@/lib/mcp/service-fetch";
 import { safeFetch, type SafeFetchOptions } from "@/lib/mcp/safe-fetch";
 
 const LINKEDIN_V2_BASE = "https://api.linkedin.com/v2";
-const LINKEDIN_VERSION = "202601";
+export const LINKEDIN_VERSION = "202601";
 export const LINKEDIN_DEFAULT_TIMEOUT_MS = 1_400;
 export const LINKEDIN_CREATE_POST_TIMEOUT_MS = 1_250;
 const LINKEDIN_RETRY_DELAYS_MS = [150, 300];

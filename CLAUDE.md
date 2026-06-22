@@ -43,7 +43,8 @@ src/
       metrics.ts      # lazy-init OTel counters (mcp.invalid_requests, mcp.blocked_requests)
       service-fetch.ts # unified transport — TRANSPORT_CONFIGS derived from PROVIDER_REGISTRY + SSRF-safe fetch
       safe-fetch.ts   # SSRF/DNS-rebinding-safe fetch (node:https); validates all A/AAAA records
-      image-utils.ts  # image/video download helpers
+      image-utils.ts  # image/video download helpers (uses media-body.ts for streaming size limits)
+      media-body.ts   # readBodyWithLimit(res, maxBytes, label) — streaming download with size cap
       email-parser.ts # email parsing utilities
       <service>.ts    # service-specific helpers (ahrefs, semrush, email, youtube, …)
     auth.ts
@@ -132,3 +133,6 @@ OBSERVABILITY_API_KEY        # SigNoz ingestion key
 - Invite flow (`/api/auth/accept-invite`) uses direct Prisma calls (`db.user.create` + `db.account.create`) — NOT `auth.api.signUpEmail` (blocked by `disableSignUp`); password hashed via `ctx.password.hash()` (better-auth), not bcrypt directly; new users get `emailVerified: true`
 - To add or remove an OAuth/API-key provider, edit only `src/lib/provider-registry.ts` — `TRANSPORT_CONFIGS`, `PERMISSION_GROUPS`, and `getProviderConfig` are all derived from `PROVIDER_REGISTRY` automatically
 - CSP Report-Only is active (`Content-Security-Policy-Report-Only` in `next.config.ts`); browser violations POSTed to `/api/csp-report` → normalised (supports both `report-uri` and `report-to` wire formats) → SigNoz OTel span; not enforcement — moving to enforce requires promoting to `Content-Security-Policy`
+- `media-body.ts` — use `readBodyWithLimit(res, maxBytes, label)` for all streaming media downloads; replaces the `arrayBuffer() + Buffer.from()` pattern that loads the full body before checking size; when passing the buffer to fetch `body`, use `new Uint8Array(buffer)` — `Buffer` is not a valid `BodyInit` in newer runtimes and causes a TypeScript build error
+- LinkedIn member URN is persisted in `ServiceConnection.metadata.linkedinMemberUrn` — written on OAuth callback (`oauth/linkedin/callback/route.ts`) and cached in memory; `getLinkedInMemberUrn()` reads from DB metadata first before calling `/userinfo`; do not call `/userinfo` directly to get the URN. `linkedinFetch` has timeout constants (`LINKEDIN_DEFAULT_TIMEOUT_MS = 1_400`, `LINKEDIN_CREATE_POST_TIMEOUT_MS = 1_250`) and retries on network errors (ECONNRESET/ECONNREFUSED/ENOTFOUND) but NOT on `TimeoutError`; records `mcp.tool.attempts` OTel attribute on retried calls
+- Threads OAuth token exchange (`threads-oauth.ts`) is OTel-traced with per-step timeouts: `THREADS_SHORT_TOKEN_TIMEOUT_MS = 5_000` (short-lived token fetch), `THREADS_LONG_TOKEN_TIMEOUT_MS = 650` (long-lived exchange)

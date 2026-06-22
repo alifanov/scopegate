@@ -119,9 +119,11 @@ describe("linkedin_create_post", () => {
   });
 
   it("adds an image preparation span when posting with media", async () => {
+    const imageBuffer = Buffer.from("image");
     vi.mocked(downloadImage).mockResolvedValue({
-      buffer: Buffer.from("image"),
+      buffer: imageBuffer,
       mimeType: "image/png",
+      sizeBytes: imageBuffer.byteLength,
     });
     vi.mocked(linkedinUploadImage).mockResolvedValue("urn:li:image:1");
 

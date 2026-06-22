@@ -1,5 +1,4 @@
 import { buildSignedState } from "@/lib/oauth-state";
-import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
 
 const LINKEDIN_CLIENT_ID = process.env.LINKEDIN_CLIENT_ID!;
 const LINKEDIN_CLIENT_SECRET = process.env.LINKEDIN_CLIENT_SECRET!;
@@ -76,8 +75,4 @@ export async function getLinkedInUserInfo(
     name?: string;
   };
   return data;
-}
-
-export function getValidLinkedInAccessToken(serviceConnectionId: string): Promise<string> {
-  return getValidAccessToken(serviceConnectionId);
 }

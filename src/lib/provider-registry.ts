@@ -822,3 +822,16 @@ export function getProviderDef(key: string): ProviderDef | undefined {
 export const EXCHANGE_PROVIDER_KEYS: ReadonlySet<string> = new Set(
   PROVIDER_REGISTRY.filter((p) => p.token.kind === "exchange").map((p) => p.key)
 );
+
+export type OAuthCallbackRouteKey =
+  | "github"
+  | "google"
+  | "hubspot"
+  | "jira"
+  | "linkedin"
+  | "meta"
+  | "notion"
+  | "salesforce"
+  | "slack"
+  | "threads"
+  | "twitter";

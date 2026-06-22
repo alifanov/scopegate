@@ -1,5 +1,4 @@
 import { buildSignedState } from "@/lib/oauth-state";
-import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
 
 const HUBSPOT_CLIENT_ID = process.env.HUBSPOT_CLIENT_ID!;
 const HUBSPOT_CLIENT_SECRET = process.env.HUBSPOT_CLIENT_SECRET!;
@@ -62,8 +61,4 @@ export async function getHubSpotUserInfo(
     hub_id: number;
     hub_domain: string;
   }>;
-}
-
-export function getValidHubSpotAccessToken(serviceConnectionId: string): Promise<string> {
-  return getValidAccessToken(serviceConnectionId);
 }

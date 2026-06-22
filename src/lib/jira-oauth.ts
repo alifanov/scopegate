@@ -1,5 +1,4 @@
 import { buildSignedState } from "@/lib/oauth-state";
-import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
 
 const JIRA_CLIENT_ID = process.env.JIRA_CLIENT_ID!;
 const JIRA_CLIENT_SECRET = process.env.JIRA_CLIENT_SECRET!;
@@ -74,8 +73,4 @@ export async function getJiraCloudInfo(
     name: resources[0].name,
     url: resources[0].url,
   };
-}
-
-export function getValidJiraAccessToken(serviceConnectionId: string): Promise<string> {
-  return getValidAccessToken(serviceConnectionId);
 }

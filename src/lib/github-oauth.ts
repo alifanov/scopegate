@@ -1,5 +1,4 @@
 import { buildSignedState } from "@/lib/oauth-state";
-import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
 
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID!;
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET!;
@@ -76,8 +75,4 @@ export async function getGitHubUserInfo(
     email: string | null;
     name: string | null;
   }>;
-}
-
-export function getValidGitHubAccessToken(serviceConnectionId: string): Promise<string> {
-  return getValidAccessToken(serviceConnectionId);
 }

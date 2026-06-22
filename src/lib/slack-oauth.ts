@@ -1,5 +1,4 @@
 import { buildSignedState } from "@/lib/oauth-state";
-import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
 
 const SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID!;
 const SLACK_CLIENT_SECRET = process.env.SLACK_CLIENT_SECRET!;
@@ -70,8 +69,4 @@ export async function getSlackTeamInfo(
   };
   if (!data.ok) throw new Error("Failed to fetch Slack team info");
   return { team: data.team || "Slack", user: data.user || "" };
-}
-
-export function getValidSlackAccessToken(serviceConnectionId: string): Promise<string> {
-  return getValidAccessToken(serviceConnectionId);
 }

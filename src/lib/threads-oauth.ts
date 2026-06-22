@@ -1,5 +1,4 @@
 import { buildSignedState } from "@/lib/oauth-state";
-import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
 import { SpanStatusCode, trace } from "@opentelemetry/api";
 
 const THREADS_APP_ID = process.env.THREADS_APP_ID!;
@@ -155,8 +154,4 @@ export async function getThreadsUserInfo(
     username: string;
     name?: string;
   }>;
-}
-
-export function getValidThreadsAccessToken(serviceConnectionId: string): Promise<string> {
-  return getValidAccessToken(serviceConnectionId);
 }

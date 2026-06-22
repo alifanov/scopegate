@@ -1,6 +1,5 @@
 import crypto from "crypto";
 import { buildSignedState } from "@/lib/oauth-state";
-import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
 
 const TWITTER_CLIENT_ID = process.env.TWITTER_CLIENT_ID!;
 const TWITTER_CLIENT_SECRET = process.env.TWITTER_CLIENT_SECRET!;
@@ -101,8 +100,4 @@ export async function getTwitterUserInfo(
 
   const json = (await res.json()) as { data: { id: string; username: string; name: string } };
   return json.data;
-}
-
-export function getValidTwitterAccessToken(serviceConnectionId: string): Promise<string> {
-  return getValidAccessToken(serviceConnectionId);
 }

@@ -51,18 +51,21 @@ function withSseKeepAlive(response: Response, intervalMs = 30_000): Response {
 
 function reportMcpRouteError(err: unknown): Response {
   const message = err instanceof Error ? err.message : "Unknown MCP route error";
+  const errorType = err instanceof Error ? err.constructor.name : "UnknownError";
+  const stack = err instanceof Error ? (err.stack ?? "").split("\n").slice(0, 5).join("\n") : undefined;
   const span = trace.getActiveSpan();
 
-  span?.recordException(
-    err instanceof Error ? err : new Error(message)
-  );
+  span?.recordException(err instanceof Error ? err : new Error(message));
   span?.setStatus({ code: SpanStatusCode.ERROR, message });
+  span?.setAttribute("error.type", errorType);
 
   console.error(
     JSON.stringify({
       event: "mcp.route_error",
       route: "/api/mcp/[apiKey]",
       error: message,
+      error_type: errorType,
+      ...(stack ? { stack } : {}),
     })
   );
 

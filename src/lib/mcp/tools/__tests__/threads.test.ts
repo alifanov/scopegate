@@ -41,14 +41,15 @@ describe("threads_publish_thread", () => {
       {
         method: "POST",
         body: JSON.stringify({ media_type: "TEXT", text: "Hello" }),
-        timeout: 8_000,
+        timeout: 4_500,
+        retry: false,
       }
     );
     expect(threadsFetch).toHaveBeenNthCalledWith(
       2,
       "conn-1",
       "/container-1?fields=status,error_message",
-      { timeout: 5_000 }
+      { timeout: 2_500, retry: false }
     );
     expect(threadsFetch).toHaveBeenNthCalledWith(
       3,
@@ -57,7 +58,8 @@ describe("threads_publish_thread", () => {
       {
         method: "POST",
         body: JSON.stringify({ creation_id: "container-1" }),
-        timeout: 8_000,
+        timeout: 3_500,
+        retry: false,
       }
     );
   });
@@ -88,14 +90,15 @@ describe("threads_publish_thread", () => {
           text: "Image post",
           image_url: "https://example.com/image.jpg",
         }),
-        timeout: 8_000,
+        timeout: 4_500,
+        retry: false,
       }
     );
     expect(threadsFetch).toHaveBeenNthCalledWith(
       2,
       "conn-2",
       "/container-2?fields=status,error_message",
-      { timeout: 5_000 }
+      { timeout: 2_500, retry: false }
     );
     expect(threadsFetch).toHaveBeenNthCalledWith(
       3,
@@ -104,7 +107,8 @@ describe("threads_publish_thread", () => {
       {
         method: "POST",
         body: JSON.stringify({ creation_id: "container-2" }),
-        timeout: 8_000,
+        timeout: 3_500,
+        retry: false,
       }
     );
   });

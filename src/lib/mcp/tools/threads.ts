@@ -7,13 +7,15 @@ import type { ToolDefinition } from './types';
 // immediately, but the container is not publishable until its status becomes FINISHED.
 // Publishing before then is what made the publish step hang and time out. So for media we
 // poll the container status until it is ready, then publish — all inside the handler's 30s cap.
-// Total budget is 14s so that p99 of the tool span stays below 15s.
-const THREADS_PUBLISH_TOTAL_BUDGET_MS = 14_000;
-const THREADS_TEXT_CONTAINER_TIMEOUT_MS = 8_000;
-const THREADS_MEDIA_CONTAINER_TIMEOUT_MS = 8_000;
-const THREADS_PUBLISH_TIMEOUT_MS = 8_000;
-const THREADS_STATUS_POLL_TIMEOUT_MS = 5_000;
-const THREADS_STATUS_POLL_INTERVAL_MS = 1_500;
+// Total budget is 8s to keep p99 < 8s. Retries are disabled on each step: serviceFetch retries
+// (delaysMs: [250, 500]) multiplied the effective per-step timeout by 3x and blew the budget.
+// The poll loop is already its own retry mechanism; the container/publish steps fail fast instead.
+const THREADS_PUBLISH_TOTAL_BUDGET_MS = 8_000;
+const THREADS_TEXT_CONTAINER_TIMEOUT_MS = 4_500;
+const THREADS_MEDIA_CONTAINER_TIMEOUT_MS = 4_500;
+const THREADS_PUBLISH_TIMEOUT_MS = 3_500;
+const THREADS_STATUS_POLL_TIMEOUT_MS = 2_500;
+const THREADS_STATUS_POLL_INTERVAL_MS = 1_000;
 
 const THREADS_MAX_TEXT_LENGTH = 500;
 
@@ -42,7 +44,7 @@ async function waitForContainerReady(
     const result = (await threadsFetch(
       serviceConnectionId,
       `/${creationId}?fields=status,error_message`,
-      { timeout: THREADS_STATUS_POLL_TIMEOUT_MS }
+      { timeout: THREADS_STATUS_POLL_TIMEOUT_MS, retry: false }
     )) as ThreadsContainerStatus;
 
     if (result.status === "FINISHED") return true;
@@ -129,15 +131,19 @@ export const threadsTools: ToolDefinition[] = [
       if (params.link_attachment) body.link_attachment = params.link_attachment as string;
       if (params.quote_post_id) body.quote_post_id = params.quote_post_id as string;
 
+      // ponytail: containerTimeout caps against remaining budget so container+publish ≤ total budget
+      const containerTimeout = Math.min(
+        isMedia ? THREADS_MEDIA_CONTAINER_TIMEOUT_MS : THREADS_TEXT_CONTAINER_TIMEOUT_MS,
+        Math.max(1_000, deadline - Date.now() - THREADS_PUBLISH_TIMEOUT_MS)
+      );
       const containerResult = (await threadsFetch(
         context.serviceConnectionId,
         "/me/threads",
         {
           method: "POST",
           body: JSON.stringify(body),
-          timeout: isMedia
-            ? THREADS_MEDIA_CONTAINER_TIMEOUT_MS
-            : THREADS_TEXT_CONTAINER_TIMEOUT_MS,
+          timeout: containerTimeout,
+          retry: false,
         }
       )) as { id: string };
 
@@ -163,7 +169,7 @@ export const threadsTools: ToolDefinition[] = [
         };
       }
 
-      // Step 3: Publish — cap timeout against remaining budget so total never exceeds 14s
+      // Step 3: Publish — cap timeout against remaining budget so total never exceeds 8s
       span?.setAttribute("threads.step", "publish");
       const publishTimeout = Math.min(
         THREADS_PUBLISH_TIMEOUT_MS,
@@ -176,6 +182,7 @@ export const threadsTools: ToolDefinition[] = [
           method: "POST",
           body: JSON.stringify({ creation_id: containerResult.id }),
           timeout: publishTimeout,
+          retry: false,
         }
       );
 
@@ -249,15 +256,18 @@ export const threadsTools: ToolDefinition[] = [
       if (params.image_url) body.image_url = params.image_url as string;
       if (params.video_url) body.video_url = params.video_url as string;
 
+      const containerTimeout = Math.min(
+        isMedia ? THREADS_MEDIA_CONTAINER_TIMEOUT_MS : THREADS_TEXT_CONTAINER_TIMEOUT_MS,
+        Math.max(1_000, deadline - Date.now() - THREADS_PUBLISH_TIMEOUT_MS)
+      );
       const containerResult = (await threadsFetch(
         context.serviceConnectionId,
         "/me/threads",
         {
           method: "POST",
           body: JSON.stringify(body),
-          timeout: isMedia
-            ? THREADS_MEDIA_CONTAINER_TIMEOUT_MS
-            : THREADS_TEXT_CONTAINER_TIMEOUT_MS,
+          timeout: containerTimeout,
+          retry: false,
         }
       )) as { id: string };
 
@@ -289,6 +299,7 @@ export const threadsTools: ToolDefinition[] = [
           method: "POST",
           body: JSON.stringify({ creation_id: containerResult.id }),
           timeout: publishTimeout,
+          retry: false,
         }
       );
     },

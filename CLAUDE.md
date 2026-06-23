@@ -43,10 +43,14 @@ src/
       metrics.ts      # lazy-init OTel counters (mcp.invalid_requests, mcp.blocked_requests)
       service-fetch.ts # unified transport — TRANSPORT_CONFIGS derived from PROVIDER_REGISTRY + SSRF-safe fetch
       safe-fetch.ts   # SSRF/DNS-rebinding-safe fetch (node:https); validates all A/AAAA records
+      retry.ts        # retryWithDelays(), isRetriableNetworkError(), retryAfterDelayMs(), sleep()
+      rate-limit.ts   # checkRateLimit() — atomic upsert into RateLimitBucket; injectable DB for tests
       image-utils.ts  # image/video download helpers (uses media-body.ts for streaming size limits)
       media-body.ts   # readBodyWithLimit(res, maxBytes, label) — streaming download with size cap
       email-parser.ts # email parsing utilities
       <service>.ts    # service-specific helpers (ahrefs, semrush, email, youtube, …)
+      tools/
+        fetch-tool.ts # createFetchTool() / createFetchTools() — declarative tool factory for REST endpoints
     auth.ts
     auth-middleware.ts   # AuthError / ForbiddenError / NotFoundError; requireAuth/requireProject helpers
     project-auth.ts      # project-level auth guards (verifies team membership)
@@ -56,8 +60,12 @@ src/
     crypto.ts         # AES-256-GCM encrypt/decrypt (uses BETTER_AUTH_SECRET)
     oauth-flow.ts     # shared handleOAuthStart/handleOAuthCallback base logic
     oauth-state.ts    # HMAC-signed OAuth state (uses BETTER_AUTH_SECRET)
+    oauth-callback-config.ts  # OAUTH_CALLBACK_REGISTRY — per-provider config factory (lazy-import)
+    oauth-callback-route.ts   # createOAuthCallbackRoute(routeKey) — collapses OAuth callback boilerplate
     oauth-token-lifecycle.ts  # unified token refresh for all 26 providers; OAuthTokenError class; derives config from provider-registry
-    provider-registry.ts      # PROVIDER_REGISTRY — single source of truth for all 26 providers (token strategy, transport, permissions); add/remove a provider here only
+    token-refresh.ts  # cron token refresh service — PERMANENT_OAUTH_ERRORS, RefreshResult, refreshConnections(); injectable DB/clock for tests
+    endpoint-permissions.ts   # createEndpoint(), updateEndpointPermissions(), getEndpointWithPermissions(), EndpointPermissionError
+    provider-registry.ts      # PROVIDER_REGISTRY — single source of truth for all 26 providers (token strategy, transport, retry, permissions); add/remove a provider here only
     db.ts             # Prisma client
     provider-names.ts # OAuth provider display name map
   instrumentation.ts        # OTel hook (browser-safe entry point)
@@ -136,3 +144,9 @@ OBSERVABILITY_API_KEY        # SigNoz ingestion key
 - `media-body.ts` — use `readBodyWithLimit(res, maxBytes, label)` for all streaming media downloads; replaces the `arrayBuffer() + Buffer.from()` pattern that loads the full body before checking size; when passing the buffer to fetch `body`, use `new Uint8Array(buffer)` — `Buffer` is not a valid `BodyInit` in newer runtimes and causes a TypeScript build error
 - LinkedIn member URN is persisted in `ServiceConnection.metadata.linkedinMemberUrn` — written on OAuth callback (`oauth/linkedin/callback/route.ts`) and cached in memory; `getLinkedInMemberUrn()` reads from DB metadata first before calling `/userinfo`; do not call `/userinfo` directly to get the URN. `linkedinFetch` has timeout constants (`LINKEDIN_DEFAULT_TIMEOUT_MS = 1_400`, `LINKEDIN_CREATE_POST_TIMEOUT_MS = 1_250`) and retries on network errors (ECONNRESET/ECONNREFUSED/ENOTFOUND) but NOT on `TimeoutError`; records `mcp.tool.attempts` OTel attribute on retried calls
 - Threads OAuth token exchange (`threads-oauth.ts`) is OTel-traced with per-step timeouts: `THREADS_SHORT_TOKEN_TIMEOUT_MS = 5_000` (short-lived token fetch), `THREADS_LONG_TOKEN_TIMEOUT_MS = 650` (long-lived exchange)
+- OAuth callbacks collapsed: every `src/app/api/oauth/<provider>/callback/route.ts` is now just `createOAuthCallbackRoute(routeKey)` from `oauth-callback-route.ts`; per-provider exchange/getConnectionData logic lives in `oauth-callback-config.ts`
+- `PROVIDER_REGISTRY` now accepts optional `retry: { delaysMs: number[], retryNetworkErrors?: boolean }` — `service-fetch.ts` reads it to retry 429s (Retry-After-aware) and network errors; currently set for LinkedIn and GSC
+- `mcp/rate-limit.ts` — use `checkRateLimit()` for per-endpoint rate limiting; accepts `database` param for test injection; reads/writes `RateLimitBucket` atomically via `INSERT ... ON CONFLICT DO UPDATE`
+- `endpoint-permissions.ts` — CRUD service extracted from route handlers: `createEndpoint()`, `updateEndpointPermissions()`, `getEndpointWithPermissions()`; throws `EndpointPermissionError` on invalid permissions
+- `token-refresh.ts` — cron refresh service extracted from `api/cron/refresh-tokens/route.ts` for testability: `PERMANENT_OAUTH_ERRORS`, `refreshConnections()`; accepts injectable `database` and `clock` params; `CONSECUTIVE_FAILURES_THRESHOLD = 3` before revoke
+- `mcp/tools/fetch-tool.ts` — `createFetchTool(fetcher, metadata)` / `createFetchTools(fetcher, metadata[])` for declarative REST tool definitions; resolves path templates (e.g. `{id}`) from params

@@ -3,6 +3,7 @@ import { buildSignedState } from "@/lib/oauth-state";
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
 const GOOGLE_TOKEN_TIMEOUT_MS = 10_000;
+const GOOGLE_USERINFO_TIMEOUT_MS = 5_000;
 
 export const GOOGLE_SCOPES: Record<string, string> = {
   gmail: "https://www.googleapis.com/auth/gmail.modify",
@@ -65,7 +66,21 @@ export async function exchangeCodeForTokens(code: string) {
     refresh_token: string;
     expires_in: number;
     token_type: string;
+    id_token?: string;
   }>;
+}
+
+// Decode email from id_token JWT payload — avoids a second network call to /userinfo.
+// Safe: token was just received directly from Google's HTTPS token endpoint.
+export function parseEmailFromIdToken(idToken: string): string | null {
+  try {
+    const payload = JSON.parse(
+      atob(idToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")),
+    ) as { email?: string };
+    return payload.email ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function revokeGoogleToken(token: string): Promise<void> {
@@ -92,6 +107,7 @@ export async function getGoogleUserEmail(
 ): Promise<string> {
   const res = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
     headers: { Authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(GOOGLE_USERINFO_TIMEOUT_MS),
   });
 
   if (!res.ok) {

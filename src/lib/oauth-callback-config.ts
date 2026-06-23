@@ -22,7 +22,7 @@ const OAUTH_CALLBACK_REGISTRY: Record<OAuthCallbackRouteKey, OAuthCallbackFactor
     };
   },
   google: async () => {
-    const { exchangeCodeForTokens, getGoogleUserEmail, VALID_PROVIDERS } = await import(
+    const { exchangeCodeForTokens, getGoogleUserEmail, parseEmailFromIdToken, VALID_PROVIDERS } = await import(
       "@/lib/google-oauth"
     );
     const { persistOAuthConnection } = await import("@/lib/oauth-flow");
@@ -34,7 +34,10 @@ const OAUTH_CALLBACK_REGISTRY: Record<OAuthCallbackRouteKey, OAuthCallbackFactor
       expectedProvider: VALID_PROVIDERS,
       exchange: (code) => exchangeCodeForTokens(code),
       getConnectionData: async (tokens) => {
-        const accountEmail = await getGoogleUserEmail(tokens.access_token);
+        // Prefer id_token (already in hand from token exchange) to avoid a second network call.
+        const accountEmail =
+          (tokens.id_token ? parseEmailFromIdToken(tokens.id_token) : null) ??
+          (await getGoogleUserEmail(tokens.access_token));
         return {
           accountEmail,
           expiresAt: new Date(Date.now() + (tokens.expires_in ?? 0) * 1000),

@@ -66,13 +66,17 @@ function registerTool(
               JSON.stringify({ tool: tool.name, action: tool.action, status: "success", duration_ms: duration })
             );
 
-            await recordAudit({
-              endpointId,
-              action: tool.action,
-              params: params as Record<string, unknown>,
-              status: "success",
-              duration,
-            });
+            try {
+              await recordAudit({
+                endpointId,
+                action: tool.action,
+                params: params as Record<string, unknown>,
+                status: "success",
+                duration,
+              });
+            } catch {
+              // Best-effort — audit write failure must not cancel a successful tool result.
+            }
 
             return {
               content: [
@@ -101,14 +105,20 @@ function registerTool(
               toolSpan.setStatus({ code: SpanStatusCode.ERROR, message: fullError });
             }
 
-            await recordAudit({
-              endpointId,
-              action: tool.action,
-              params: params as Record<string, unknown>,
-              status: "error",
-              error: fullError,
-              duration,
-            });
+            try {
+              await recordAudit({
+                endpointId,
+                action: tool.action,
+                params: params as Record<string, unknown>,
+                status: "error",
+                error: fullError,
+                duration,
+              });
+            } catch {
+              // Audit write failure must not propagate out of the catch block —
+              // the MCP SDK can catch it at the protocol layer but the error
+              // response content would be swallowed, leaving the client hanging.
+            }
 
             const userMessage = isTokenError
               ? "Error: Service connection token expired or invalid. Please reconnect the service."

@@ -49,6 +49,18 @@ function withSseKeepAlive(response: Response, intervalMs = 30_000): Response {
   return new Response(readable, { status: response.status, headers: response.headers });
 }
 
+function isDbError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const name = err.constructor.name;
+  // Prisma driver errors and pg driver errors
+  return (
+    name.startsWith("Prisma") ||
+    name === "DatabaseError" ||
+    name === "PgError" ||
+    ("code" in err && typeof (err as Record<string, unknown>).code === "string" && /^[0-9A-Z]{5}$/.test((err as Record<string, unknown>).code as string))
+  );
+}
+
 function reportMcpRouteError(err: unknown): Response {
   const message = err instanceof Error ? err.message : "Unknown MCP route error";
   const errorType = err instanceof Error ? err.constructor.name : "UnknownError";
@@ -59,18 +71,22 @@ function reportMcpRouteError(err: unknown): Response {
   span?.setStatus({ code: SpanStatusCode.ERROR, message });
   span?.setAttribute("error.type", errorType);
 
+  // DB/infrastructure errors → 503 (not a 500 bug, just transient unavailability)
+  const status = isDbError(err) ? 503 : 500;
+
   console.error(
     JSON.stringify({
       event: "mcp.route_error",
       route: "/api/mcp/[apiKey]",
       error: message,
       error_type: errorType,
+      status,
       ...(stack ? { stack } : {}),
     })
   );
 
-  return new Response(JSON.stringify({ error: "MCP request failed" }), {
-    status: 500,
+  return new Response(JSON.stringify({ error: status === 503 ? "Service temporarily unavailable" : "MCP request failed" }), {
+    status,
     headers: { "Content-Type": "application/json" },
   });
 }
@@ -135,12 +151,25 @@ async function handleMcpRequest(
       );
     }
 
-    const rateLimit = await checkRateLimit({
-      endpointId: endpoint.id,
-      limitPerMinute: endpoint.rateLimitPerMinute,
-    });
+    // ponytail: fail-open on rate-limiter DB error — rate limiting is best-effort
+    let rateLimit: Awaited<ReturnType<typeof checkRateLimit>> | null = null;
+    try {
+      rateLimit = await checkRateLimit({
+        endpointId: endpoint.id,
+        limitPerMinute: endpoint.rateLimitPerMinute,
+      });
+    } catch (rlErr) {
+      console.error(
+        JSON.stringify({
+          event: "mcp.rate_limit_error",
+          route: "/api/mcp/[apiKey]",
+          error: rlErr instanceof Error ? rlErr.message : String(rlErr),
+          error_type: rlErr instanceof Error ? rlErr.constructor.name : "UnknownError",
+        })
+      );
+    }
 
-    if (!rateLimit.allowed) {
+    if (rateLimit && !rateLimit.allowed) {
       recordMcpInvalidRequest("rate_limited");
       return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
         status: 429,

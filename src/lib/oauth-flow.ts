@@ -59,6 +59,7 @@ export interface OAuthTokenResult {
   access_token: string;
   refresh_token?: string | null;
   expires_in?: number | null;
+  id_token?: string | null;
 }
 
 export interface OAuthConnectionData {

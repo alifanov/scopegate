@@ -78,6 +78,8 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "gmail:send_email",
       "gmail:list_labels",
       "gmail:search_emails",
+      "gmail:list_attachments",
+      "gmail:get_attachment",
     ],
   },
   {

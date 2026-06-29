@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { gmailFetch, listGmailMessages, buildRawEmail } from '../gmail';
+import {
+  gmailFetch,
+  listGmailMessages,
+  listGmailAttachments,
+  getGmailAttachment,
+  buildRawEmail,
+} from '../gmail';
 import type { ToolDefinition } from './types';
 
 export const gmailTools: ToolDefinition[] = [
@@ -48,6 +54,36 @@ export const gmailTools: ToolDefinition[] = [
     inputSchema: z.object({}),
     handler: async (_params, context) => {
       return gmailFetch(context.serviceConnectionId, "/users/me/labels");
+    },
+  },
+  {
+    name: "gmail_list_attachments",
+    description: "List attachments (filename, type, size) of a Gmail message",
+    action: "gmail:list_attachments",
+    inputSchema: z.object({
+      messageId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid message ID format"),
+    }),
+    handler: async (params, context) => {
+      return listGmailAttachments(
+        context.serviceConnectionId,
+        params.messageId as string
+      );
+    },
+  },
+  {
+    name: "gmail_get_attachment",
+    description: "Download a Gmail attachment's content as base64",
+    action: "gmail:get_attachment",
+    inputSchema: z.object({
+      messageId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid message ID format"),
+      attachmentId: z.string().regex(/^[a-zA-Z0-9_=-]+$/, "Invalid attachment ID format"),
+    }),
+    handler: async (params, context) => {
+      return getGmailAttachment(
+        context.serviceConnectionId,
+        params.messageId as string,
+        params.attachmentId as string
+      );
     },
   },
   {

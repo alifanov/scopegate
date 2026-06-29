@@ -73,6 +73,63 @@ export async function listGmailMessages(
   return { messages };
 }
 
+type GmailPart = {
+  partId?: string;
+  mimeType?: string;
+  filename?: string;
+  body?: { attachmentId?: string; size?: number };
+  parts?: GmailPart[];
+};
+
+// Walk the (nested) MIME tree and collect parts that are real attachments.
+function collectAttachments(part: GmailPart | undefined): GmailPart[] {
+  if (!part) return [];
+  const here =
+    part.filename && part.body?.attachmentId
+      ? [part]
+      : [];
+  return here.concat((part.parts ?? []).flatMap(collectAttachments));
+}
+
+// List attachments of a single message: filename, mimeType, size, attachmentId.
+export async function listGmailAttachments(
+  connectionId: string,
+  messageId: string
+): Promise<unknown> {
+  const msg = (await gmailFetch(
+    connectionId,
+    `/users/me/messages/${messageId}?format=full`
+  )) as { payload?: GmailPart };
+
+  const attachments = collectAttachments(msg.payload).map((p) => ({
+    attachmentId: p.body!.attachmentId,
+    filename: p.filename,
+    mimeType: p.mimeType,
+    size: p.body!.size,
+  }));
+
+  return { messageId, attachments };
+}
+
+// Fetch one attachment's bytes. Gmail returns base64url; re-encode to standard
+// base64 so callers can decode it with any standard tool.
+export async function getGmailAttachment(
+  connectionId: string,
+  messageId: string,
+  attachmentId: string
+): Promise<unknown> {
+  const att = (await gmailFetch(
+    connectionId,
+    `/users/me/messages/${messageId}/attachments/${attachmentId}`
+  )) as { data?: string; size?: number };
+
+  const dataB64 = att.data
+    ? Buffer.from(att.data, "base64url").toString("base64")
+    : "";
+
+  return { messageId, attachmentId, size: att.size, encoding: "base64", data: dataB64 };
+}
+
 // Build an RFC 2822 message and base64url-encode it for the Gmail send endpoint.
 export function buildRawEmail(to: string, subject: string, body: string): string {
   const mime = [

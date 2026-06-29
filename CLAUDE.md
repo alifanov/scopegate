@@ -9,7 +9,7 @@ pnpm dev            # dev server → localhost:3000
 pnpm build          # prisma generate + migrate deploy + next build (requires live DB)
 pnpm test           # vitest run
 pnpm lint           # eslint
-make df-run         # Dark Flow routine dispatcher (every 60s)
+bash ~/.darkflow/darkflow-run.sh        # Dark Flow routine dispatcher (global worker)
 ```
 
 ## Commits & CI

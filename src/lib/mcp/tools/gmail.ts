@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   gmailFetch,
   listGmailMessages,
+  getGmailMessage,
   listGmailAttachments,
   getGmailAttachment,
   buildRawEmail,
@@ -23,6 +24,23 @@ export const gmailTools: ToolDefinition[] = [
         context.serviceConnectionId,
         (params.maxResults as number) ?? 10,
         params.query as string | undefined
+      );
+    },
+  },
+  {
+    name: "gmail_get_message",
+    description:
+      "Read a single email's body. format='full' returns headers + plain text + HTML; format='text' returns plain text only (no formatting).",
+    action: "gmail:read_emails",
+    inputSchema: z.object({
+      messageId: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid message ID format"),
+      format: z.enum(["full", "text"]).optional().default("full"),
+    }),
+    handler: async (params, context) => {
+      return getGmailMessage(
+        context.serviceConnectionId,
+        params.messageId as string,
+        (params.format as "full" | "text") ?? "full"
       );
     },
   },

@@ -77,9 +77,70 @@ type GmailPart = {
   partId?: string;
   mimeType?: string;
   filename?: string;
-  body?: { attachmentId?: string; size?: number };
+  body?: { attachmentId?: string; size?: number; data?: string };
   parts?: GmailPart[];
 };
+
+// Walk the MIME tree and return the first inline body of `mimeType` (decoded).
+function findBody(part: GmailPart | undefined, mimeType: string): string {
+  if (!part) return "";
+  // Skip attachments (they have a filename); we only want inline text bodies.
+  if (!part.filename && part.mimeType === mimeType && part.body?.data) {
+    return Buffer.from(part.body.data, "base64url").toString("utf-8");
+  }
+  for (const child of part.parts ?? []) {
+    const found = findBody(child, mimeType);
+    if (found) return found;
+  }
+  return "";
+}
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+// Read one message's body. `format="text"` returns plain text only (text/plain,
+// falling back to tag-stripped HTML); `format="full"` adds headers + raw HTML.
+export async function getGmailMessage(
+  connectionId: string,
+  messageId: string,
+  format: "full" | "text" = "full"
+): Promise<unknown> {
+  const msg = (await gmailFetch(
+    connectionId,
+    `/users/me/messages/${messageId}?format=full`
+  )) as GmailMessageMeta & { payload?: GmailPart };
+
+  const html = findBody(msg.payload, "text/html");
+  const plain = findBody(msg.payload, "text/plain");
+  const text = plain || (html ? stripHtml(html) : msg.snippet ?? "");
+
+  if (format === "text") {
+    return { id: msg.id, threadId: msg.threadId, text };
+  }
+
+  return {
+    id: msg.id,
+    threadId: msg.threadId,
+    snippet: msg.snippet,
+    from: header(msg, "From"),
+    to: header(msg, "To"),
+    subject: header(msg, "Subject"),
+    date: header(msg, "Date"),
+    text,
+    html,
+  };
+}
 
 // Walk the (nested) MIME tree and collect parts that are real attachments.
 function collectAttachments(part: GmailPart | undefined): GmailPart[] {

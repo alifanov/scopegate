@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { trace } from '@opentelemetry/api';
 import { threadsFetch } from '../threads';
+import { OAuthTokenError } from '@/lib/oauth-token-lifecycle';
 import type { ToolDefinition } from './types';
 
 // Meta processes media containers asynchronously: the create call returns a container id
@@ -16,6 +17,9 @@ const THREADS_MEDIA_CONTAINER_TIMEOUT_MS = 4_500;
 const THREADS_PUBLISH_TIMEOUT_MS = 3_500;
 const THREADS_STATUS_POLL_TIMEOUT_MS = 2_500;
 const THREADS_STATUS_POLL_INTERVAL_MS = 1_000;
+// After a failed publish response we briefly confirm the container actually went live.
+// Lives outside the 8s publish budget but well within the handler's 30s cap.
+const THREADS_CONFIRM_BUDGET_MS = 3_000;
 
 const THREADS_MAX_TEXT_LENGTH = 500;
 
@@ -57,6 +61,68 @@ async function waitForContainerReady(
     await sleep(THREADS_STATUS_POLL_INTERVAL_MS);
   }
   return false;
+}
+
+// The publish HTTP response is not atomic with Meta committing the post: a timeout or
+// transient network error can fire after the post is already live. If we surfaced that
+// error, the caller would retry and double-post. So we poll the container status — it
+// flips to PUBLISHED once the post exists — and treat that as success. Best-effort:
+// failures during the poll are swallowed; if we can't confirm, the original error stands.
+async function confirmPublished(
+  serviceConnectionId: string,
+  creationId: string
+): Promise<boolean> {
+  const deadline = Date.now() + THREADS_CONFIRM_BUDGET_MS;
+  while (Date.now() < deadline) {
+    try {
+      const result = (await threadsFetch(
+        serviceConnectionId,
+        `/${creationId}?fields=status`,
+        { timeout: THREADS_STATUS_POLL_TIMEOUT_MS, retry: false }
+      )) as ThreadsContainerStatus;
+      if (result.status === "PUBLISHED") return true;
+    } catch {
+      // ignore — confirmation is best-effort
+    }
+    if (Date.now() + THREADS_STATUS_POLL_INTERVAL_MS >= deadline) break;
+    await sleep(THREADS_STATUS_POLL_INTERVAL_MS);
+  }
+  return false;
+}
+
+// Publishes a ready container, capping the timeout against the remaining budget. On a
+// non-token error (timeout/network) it confirms via container status before giving up,
+// so a post that actually went live is never reported as a failure.
+async function publishContainer(
+  serviceConnectionId: string,
+  creationId: string,
+  deadline: number
+): Promise<unknown> {
+  const publishTimeout = Math.min(
+    THREADS_PUBLISH_TIMEOUT_MS,
+    Math.max(1_000, deadline - Date.now())
+  );
+  try {
+    return await threadsFetch(serviceConnectionId, "/me/threads_publish", {
+      method: "POST",
+      body: JSON.stringify({ creation_id: creationId }),
+      timeout: publishTimeout,
+      retry: false,
+    });
+  } catch (err) {
+    // A revoked/expired token means the publish definitely did not happen — surface it.
+    if (err instanceof OAuthTokenError) throw err;
+    if (await confirmPublished(serviceConnectionId, creationId)) {
+      return {
+        status: "success",
+        published: true,
+        creation_id: creationId,
+        message:
+          "Thread was published — confirmed via container status after the publish response failed. Do not retry.",
+      };
+    }
+    throw err;
+  }
 }
 
 export const threadsTools: ToolDefinition[] = [
@@ -171,22 +237,7 @@ export const threadsTools: ToolDefinition[] = [
 
       // Step 3: Publish — cap timeout against remaining budget so total never exceeds 8s
       span?.setAttribute("threads.step", "publish");
-      const publishTimeout = Math.min(
-        THREADS_PUBLISH_TIMEOUT_MS,
-        Math.max(1_000, deadline - Date.now())
-      );
-      const publishResult = await threadsFetch(
-        context.serviceConnectionId,
-        "/me/threads_publish",
-        {
-          method: "POST",
-          body: JSON.stringify({ creation_id: containerResult.id }),
-          timeout: publishTimeout,
-          retry: false,
-        }
-      );
-
-      return publishResult;
+      return publishContainer(context.serviceConnectionId, containerResult.id, deadline);
     },
   },
   {
@@ -288,20 +339,7 @@ export const threadsTools: ToolDefinition[] = [
       }
 
       // Step 3: Publish reply — cap timeout against remaining budget
-      const publishTimeout = Math.min(
-        THREADS_PUBLISH_TIMEOUT_MS,
-        Math.max(1_000, deadline - Date.now())
-      );
-      return threadsFetch(
-        context.serviceConnectionId,
-        "/me/threads_publish",
-        {
-          method: "POST",
-          body: JSON.stringify({ creation_id: containerResult.id }),
-          timeout: publishTimeout,
-          retry: false,
-        }
-      );
+      return publishContainer(context.serviceConnectionId, containerResult.id, deadline);
     },
   },
   {

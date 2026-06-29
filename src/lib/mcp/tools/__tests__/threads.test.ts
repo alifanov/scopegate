@@ -129,6 +129,42 @@ describe("threads_publish_thread", () => {
     expect(threadsFetch).toHaveBeenCalledTimes(2);
   });
 
+  it("returns success when publish fails but the post actually went live", async () => {
+    vi.mocked(threadsFetch)
+      .mockResolvedValueOnce({ id: "container-live" }) // create container
+      .mockResolvedValueOnce({ status: "FINISHED" }) // status poll (wait_container)
+      .mockRejectedValueOnce(new Error("Threads API timed out (>3500ms).")) // publish errors
+      .mockResolvedValueOnce({ status: "PUBLISHED" }); // confirmation poll
+
+    await expect(
+      publishThreadTool.handler(
+        { media_type: "TEXT", text: "Hello" },
+        { serviceConnectionId: "conn-live" }
+      )
+    ).resolves.toEqual({
+      status: "success",
+      published: true,
+      creation_id: "container-live",
+      message:
+        "Thread was published — confirmed via container status after the publish response failed. Do not retry.",
+    });
+  });
+
+  it("rethrows the publish error when the post did not go live", async () => {
+    vi.mocked(threadsFetch)
+      .mockResolvedValueOnce({ id: "container-dead" })
+      .mockResolvedValueOnce({ status: "FINISHED" })
+      .mockRejectedValueOnce(new Error("Threads API timed out (>3500ms).")) // publish errors
+      .mockResolvedValueOnce({ status: "IN_PROGRESS" }); // confirmation never reaches PUBLISHED
+
+    await expect(
+      publishThreadTool.handler(
+        { media_type: "TEXT", text: "Hello" },
+        { serviceConnectionId: "conn-dead" }
+      )
+    ).rejects.toThrow("Threads API timed out");
+  });
+
   it("returns partial success when the container is still processing at the budget deadline", async () => {
     vi.spyOn(Date, "now").mockReturnValueOnce(0).mockReturnValueOnce(25_001);
     vi.mocked(threadsFetch).mockResolvedValueOnce({ id: "container-3" });

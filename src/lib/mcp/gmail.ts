@@ -8,8 +8,17 @@ export async function gmailFetch(
   const res = await serviceFetch(serviceConnectionId, path, init);
 
   if (!res.ok) {
-    console.error(`[ScopeGate] Gmail API error (${res.status})`);
-    throw new Error("Gmail API request failed");
+    const body = await res.text().catch(() => "");
+    const reason =
+      (() => {
+        try {
+          return (JSON.parse(body) as { error?: { message?: string } }).error?.message;
+        } catch {
+          return undefined;
+        }
+      })() ?? body.slice(0, 200);
+    console.error(`[ScopeGate] Gmail API error (${res.status}): ${reason}`);
+    throw new Error(`Gmail API request failed (${res.status}): ${reason}`);
   }
 
   if (res.status === 204) return { success: true };

@@ -73,6 +73,10 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
     description: "Access to Gmail operations",
     token: GOOGLE_REFRESH,
     transport: { baseUrl: "https://gmail.googleapis.com/gmail/v1" },
+    retry: {
+      delaysMs: [1000, 2000, 4000],
+      retryNetworkErrors: false,
+    },
     actions: [
       "gmail:read_emails",
       "gmail:send_email",

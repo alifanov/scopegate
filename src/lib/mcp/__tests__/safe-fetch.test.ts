@@ -249,9 +249,7 @@ describe("safeFetch – SSRF protection", () => {
         destroy: vi.fn(),
       };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (mockHttpsRequest as any).mockImplementationOnce(
-        (_opts: unknown, _cb?: unknown) => mockReq
-      );
+      (mockHttpsRequest as any).mockImplementationOnce(() => mockReq);
 
       const fetchPromise = safeFetch("https://example.com/api", { timeout: 100 });
 
@@ -327,9 +325,7 @@ describe("safeFetch – SSRF protection", () => {
         end: vi.fn(),
       };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (mockHttpsRequest as any).mockImplementationOnce(
-        (_opts: unknown, _cb?: unknown) => mockReq
-      );
+      (mockHttpsRequest as any).mockImplementationOnce(() => mockReq);
 
       const fetchPromise = safeFetch("https://example.com/api");
       await vi.waitFor(() => expect(mockReq.on).toHaveBeenCalledWith("error", expect.any(Function)));

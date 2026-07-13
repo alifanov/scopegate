@@ -8,12 +8,19 @@ import type { ToolDefinition } from './types';
 // immediately, but the container is not publishable until its status becomes FINISHED.
 // Publishing before then is what made the publish step hang and time out. So for media we
 // poll the container status until it is ready, then publish — all inside the handler's 30s cap.
-// Total budget is 8s to keep p99 < 8s. Retries are disabled on each step: serviceFetch retries
-// (delaysMs: [250, 500]) multiplied the effective per-step timeout by 3x and blew the budget.
-// The poll loop is already its own retry mechanism; the container/publish steps fail fast instead.
-const THREADS_PUBLISH_TOTAL_BUDGET_MS = 8_000;
+// Retries are disabled on each step: serviceFetch retries (delaysMs: [250, 500]) multiplied
+// the effective per-step timeout by 3x and blew the budget. The poll loop is already its own
+// retry mechanism; the container/publish steps fail fast instead.
+//
+// TEXT and IMAGE/VIDEO get separate budgets. For a text container Meta has nothing to fetch,
+// so an 8s budget keeps p99 low. For media, creating the container makes Meta SYNCHRONOUSLY
+// download the file from image_url/video_url before returning the id — that alone routinely
+// exceeds 4.5s (observed: 57% of image posts timed out at create_container with a 4.5s cap).
+// So media gets a much larger budget, bounded only by the handler's 30s cap.
+const THREADS_TEXT_TOTAL_BUDGET_MS = 8_000;
+const THREADS_MEDIA_TOTAL_BUDGET_MS = 24_000;
 const THREADS_TEXT_CONTAINER_TIMEOUT_MS = 4_500;
-const THREADS_MEDIA_CONTAINER_TIMEOUT_MS = 4_500;
+const THREADS_MEDIA_CONTAINER_TIMEOUT_MS = 18_000;
 const THREADS_PUBLISH_TIMEOUT_MS = 3_500;
 const THREADS_STATUS_POLL_TIMEOUT_MS = 2_500;
 const THREADS_STATUS_POLL_INTERVAL_MS = 1_000;
@@ -180,8 +187,10 @@ export const threadsTools: ToolDefinition[] = [
       quote_post_id: z.string().optional().describe("ID of post to quote"),
     }),
     handler: async (params, context) => {
-      const deadline = Date.now() + THREADS_PUBLISH_TOTAL_BUDGET_MS;
       const isMedia = hasPublishMedia(params);
+      const deadline =
+        Date.now() +
+        (isMedia ? THREADS_MEDIA_TOTAL_BUDGET_MS : THREADS_TEXT_TOTAL_BUDGET_MS);
       const span = trace.getActiveSpan();
       span?.setAttribute("threads.media_type", params.media_type as string);
 
@@ -295,8 +304,10 @@ export const threadsTools: ToolDefinition[] = [
       video_url: z.string().optional().describe("Public URL of the video (for VIDEO type)"),
     }),
     handler: async (params, context) => {
-      const deadline = Date.now() + THREADS_PUBLISH_TOTAL_BUDGET_MS;
       const isMedia = hasPublishMedia(params);
+      const deadline =
+        Date.now() +
+        (isMedia ? THREADS_MEDIA_TOTAL_BUDGET_MS : THREADS_TEXT_TOTAL_BUDGET_MS);
 
       // Step 1: Create reply container
       const body: Record<string, string> = {

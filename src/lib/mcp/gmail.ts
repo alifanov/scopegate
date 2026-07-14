@@ -32,7 +32,7 @@ type GmailMessageMeta = {
   payload?: { headers?: { name: string; value: string }[] };
 };
 
-function header(msg: GmailMessageMeta, name: string): string | undefined {
+export function header(msg: GmailMessageMeta, name: string): string | undefined {
   return msg.payload?.headers?.find(
     (h) => h.name.toLowerCase() === name.toLowerCase()
   )?.value;
@@ -73,7 +73,7 @@ export async function listGmailMessages(
   return { messages };
 }
 
-type GmailPart = {
+export type GmailPart = {
   partId?: string;
   mimeType?: string;
   filename?: string;
@@ -82,7 +82,7 @@ type GmailPart = {
 };
 
 // Walk the MIME tree and return the first inline body of `mimeType` (decoded).
-function findBody(part: GmailPart | undefined, mimeType: string): string {
+export function findBody(part: GmailPart | undefined, mimeType: string): string {
   if (!part) return "";
   // Skip attachments (they have a filename); we only want inline text bodies.
   if (!part.filename && part.mimeType === mimeType && part.body?.data) {
@@ -95,7 +95,7 @@ function findBody(part: GmailPart | undefined, mimeType: string): string {
   return "";
 }
 
-function stripHtml(html: string): string {
+export function stripHtml(html: string): string {
   return html
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
@@ -143,7 +143,7 @@ export async function getGmailMessage(
 }
 
 // Walk the (nested) MIME tree and collect parts that are real attachments.
-function collectAttachments(part: GmailPart | undefined): GmailPart[] {
+export function collectAttachments(part: GmailPart | undefined): GmailPart[] {
   if (!part) return [];
   const here =
     part.filename && part.body?.attachmentId

@@ -11,7 +11,7 @@ const TWITTER_TOKEN_ERROR_CODES = getProviderDef("twitter")?.oauthErrors?.perman
 
 // Twitter API v2 error bodies vary: { title, detail, status } or { errors: [{ message | detail }] }.
 // Surface the real reason so failures are diagnosable instead of an opaque "request failed".
-function extractTwitterError(body: unknown): string | undefined {
+export function extractTwitterError(body: unknown): string | undefined {
   if (!body || typeof body !== "object") return undefined;
   const b = body as {
     detail?: string;

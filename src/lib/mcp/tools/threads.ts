@@ -46,6 +46,48 @@ type ThreadsContainerStatus = {
   error_message?: string;
 };
 
+// Caps a step's preferred timeout against what's actually left of the overall budget,
+// reserving `reserveMs` for the step(s) after it, with a floor so a near-exhausted
+// budget still gets one last real attempt instead of an instant-timeout request.
+export function computeStepTimeout(
+  preferredMs: number,
+  deadline: number,
+  now: number,
+  reserveMs: number,
+  minMs = 1_000
+): number {
+  return Math.min(preferredMs, Math.max(minMs, deadline - now - reserveMs));
+}
+
+// True once another poll iteration wouldn't finish before the deadline anyway.
+export function shouldStopPolling(
+  now: number,
+  deadline: number,
+  intervalMs: number
+): boolean {
+  return now + intervalMs >= deadline;
+}
+
+export type ContainerPollOutcome =
+  | { kind: "ready" }
+  | { kind: "pending" }
+  | { kind: "failed"; message: string };
+
+// Classifies one status-poll response. Meta's container lifecycle is IN_PROGRESS →
+// FINISHED (ready to publish) or IN_PROGRESS → ERROR/EXPIRED (unrecoverable).
+export function classifyContainerStatus(
+  result: ThreadsContainerStatus
+): ContainerPollOutcome {
+  if (result.status === "FINISHED") return { kind: "ready" };
+  if (result.status === "ERROR" || result.status === "EXPIRED") {
+    return {
+      kind: "failed",
+      message: `Threads media processing ${result.status.toLowerCase()}: ${result.error_message ?? "unknown error"}`,
+    };
+  }
+  return { kind: "pending" };
+}
+
 // Polls a media container until Meta finishes processing it. Returns true once the
 // container reaches FINISHED, false if the deadline passes while still in progress
 // (the caller then returns partial_success). Throws if Meta reports ERROR/EXPIRED.
@@ -61,13 +103,10 @@ async function waitForContainerReady(
       { timeout: THREADS_STATUS_POLL_TIMEOUT_MS, retry: false }
     )) as ThreadsContainerStatus;
 
-    if (result.status === "FINISHED") return true;
-    if (result.status === "ERROR" || result.status === "EXPIRED") {
-      throw new Error(
-        `Threads media processing ${result.status.toLowerCase()}: ${result.error_message ?? "unknown error"}`
-      );
-    }
-    if (Date.now() + THREADS_STATUS_POLL_INTERVAL_MS >= deadline) break;
+    const outcome = classifyContainerStatus(result);
+    if (outcome.kind === "ready") return true;
+    if (outcome.kind === "failed") throw new Error(outcome.message);
+    if (shouldStopPolling(Date.now(), deadline, THREADS_STATUS_POLL_INTERVAL_MS)) break;
     await sleep(THREADS_STATUS_POLL_INTERVAL_MS);
   }
   return false;
@@ -94,7 +133,7 @@ async function confirmPublished(
     } catch {
       // ignore — confirmation is best-effort
     }
-    if (Date.now() + THREADS_STATUS_POLL_INTERVAL_MS >= deadline) break;
+    if (shouldStopPolling(Date.now(), deadline, THREADS_STATUS_POLL_INTERVAL_MS)) break;
     await sleep(THREADS_STATUS_POLL_INTERVAL_MS);
   }
   return false;
@@ -108,10 +147,7 @@ async function publishContainer(
   creationId: string,
   deadline: number
 ): Promise<unknown> {
-  const publishTimeout = Math.min(
-    THREADS_PUBLISH_TIMEOUT_MS,
-    Math.max(1_000, deadline - Date.now())
-  );
+  const publishTimeout = computeStepTimeout(THREADS_PUBLISH_TIMEOUT_MS, deadline, Date.now(), 0);
   try {
     return await threadsFetch(serviceConnectionId, "/me/threads_publish", {
       method: "POST",
@@ -178,9 +214,11 @@ async function publishCarousel(
 
   // Step 1: create all item containers in parallel.
   span?.setAttribute("threads.step", "create_items");
-  const itemTimeout = Math.min(
+  const itemTimeout = computeStepTimeout(
     THREADS_MEDIA_CONTAINER_TIMEOUT_MS,
-    Math.max(1_000, deadline - Date.now() - THREADS_PUBLISH_TIMEOUT_MS)
+    deadline,
+    Date.now(),
+    THREADS_PUBLISH_TIMEOUT_MS
   );
   const itemIds = await Promise.all(
     items.map((item) =>
@@ -350,10 +388,11 @@ export const threadsTools: ToolDefinition[] = [
       if (params.link_attachment) body.link_attachment = params.link_attachment as string;
       if (params.quote_post_id) body.quote_post_id = params.quote_post_id as string;
 
-      // ponytail: containerTimeout caps against remaining budget so container+publish ≤ total budget
-      const containerTimeout = Math.min(
+      const containerTimeout = computeStepTimeout(
         isMedia ? THREADS_MEDIA_CONTAINER_TIMEOUT_MS : THREADS_TEXT_CONTAINER_TIMEOUT_MS,
-        Math.max(1_000, deadline - Date.now() - THREADS_PUBLISH_TIMEOUT_MS)
+        deadline,
+        Date.now(),
+        THREADS_PUBLISH_TIMEOUT_MS
       );
       const containerResult = (await threadsFetch(
         context.serviceConnectionId,
@@ -462,9 +501,11 @@ export const threadsTools: ToolDefinition[] = [
       if (params.image_url) body.image_url = params.image_url as string;
       if (params.video_url) body.video_url = params.video_url as string;
 
-      const containerTimeout = Math.min(
+      const containerTimeout = computeStepTimeout(
         isMedia ? THREADS_MEDIA_CONTAINER_TIMEOUT_MS : THREADS_TEXT_CONTAINER_TIMEOUT_MS,
-        Math.max(1_000, deadline - Date.now() - THREADS_PUBLISH_TIMEOUT_MS)
+        deadline,
+        Date.now(),
+        THREADS_PUBLISH_TIMEOUT_MS
       );
       const containerResult = (await threadsFetch(
         context.serviceConnectionId,

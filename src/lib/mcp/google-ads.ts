@@ -10,9 +10,43 @@ export function stripPendingAccountEmail(accountEmail: string): string {
   return accountEmail.replace(PENDING_ACCOUNT_EMAIL_RE, "");
 }
 
+type GoogleAdsCustomer = { id: string; name: string; isManager: boolean };
+
+// listAccessibleCustomers resource names look like "customers/1234567890"; pull the id out.
+export function extractCustomerIds(resourceNames: string[]): string[] {
+  return resourceNames.map((r) => r.split("/")[1]);
+}
+
+type CustomerCheckSearchStreamBatch = Array<{
+  results?: Array<{
+    customer?: {
+      descriptiveName?: string;
+      status?: string;
+      manager?: boolean;
+    };
+  }>;
+}>;
+
+// A candidate customer id is only real once its status-check searchStream batch confirms
+// it's ENABLED — Google Ads returns a resource name for every account the token *could*
+// reach, including disabled/removed ones the caller shouldn't see.
+export function parseCustomerCheckResult(
+  id: string,
+  checkData: CustomerCheckSearchStreamBatch
+): GoogleAdsCustomer | null {
+  const customer = checkData?.[0]?.results?.[0]?.customer;
+  if (!customer || customer.status !== "ENABLED") return null;
+
+  return {
+    id,
+    name: customer.descriptiveName || id,
+    isManager: customer.manager ?? false,
+  };
+}
+
 export async function listAccessibleCustomers(
   serviceConnectionId: string
-): Promise<Array<{ id: string; name: string; isManager: boolean }>> {
+): Promise<GoogleAdsCustomer[]> {
   const res = await serviceFetch(serviceConnectionId, "/customers:listAccessibleCustomers");
 
   if (!res.ok) {
@@ -25,7 +59,7 @@ export async function listAccessibleCustomers(
     return [];
   }
 
-  const candidateIds = data.resourceNames.map((r) => r.split("/")[1]);
+  const candidateIds = extractCustomerIds(data.resourceNames);
 
   const results = await Promise.allSettled(
     candidateIds.map(async (id) => {
@@ -43,41 +77,18 @@ export async function listAccessibleCustomers(
 
       if (!checkRes.ok) return null;
 
-      const checkData = (await checkRes.json()) as Array<{
-        results?: Array<{
-          customer?: {
-            descriptiveName?: string;
-            status?: string;
-            manager?: boolean;
-          };
-        }>;
-      }>;
-
-      const customer = checkData?.[0]?.results?.[0]?.customer;
-      if (!customer || customer.status !== "ENABLED") return null;
-
-      return {
-        id,
-        name: customer.descriptiveName || id,
-        isManager: customer.manager ?? false,
-      };
+      const checkData = (await checkRes.json()) as CustomerCheckSearchStreamBatch;
+      return parseCustomerCheckResult(id, checkData);
     })
   );
 
   return results
     .filter(
-      (
-        r
-      ): r is PromiseFulfilledResult<{
-        id: string;
-        name: string;
-        isManager: boolean;
-      } | null> => r.status === "fulfilled"
+      (r): r is PromiseFulfilledResult<GoogleAdsCustomer | null> =>
+        r.status === "fulfilled"
     )
     .map((r) => r.value)
-    .filter(
-      (v): v is { id: string; name: string; isManager: boolean } => v !== null
-    );
+    .filter((v): v is GoogleAdsCustomer => v !== null);
 }
 
 export async function getGoogleAdsCustomerId(
@@ -116,6 +127,20 @@ export async function getGoogleAdsCustomerId(
   return customerId;
 }
 
+// searchStream paginates by returning an array of batches, each with its own `results`
+// page; flatten them into one list so callers don't have to know about batching.
+export function flattenSearchStreamResults(data: unknown): unknown {
+  if (!Array.isArray(data)) return data;
+
+  const results: unknown[] = [];
+  for (const batch of data) {
+    if (batch.results) {
+      results.push(...batch.results);
+    }
+  }
+  return results;
+}
+
 export async function googleAdsQuery(
   serviceConnectionId: string,
   gaqlQuery: string
@@ -133,19 +158,7 @@ export async function googleAdsQuery(
     throw new Error("Google Ads API query failed");
   }
 
-  const data = await res.json();
-  // searchStream returns array of batches; flatten results
-  if (Array.isArray(data)) {
-    const results: unknown[] = [];
-    for (const batch of data) {
-      if (batch.results) {
-        results.push(...batch.results);
-      }
-    }
-    return results;
-  }
-
-  return data;
+  return flattenSearchStreamResults(await res.json());
 }
 
 export async function googleAdsMutate(

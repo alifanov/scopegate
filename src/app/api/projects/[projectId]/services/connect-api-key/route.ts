@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { authErrorResponse, requireCurrentUser } from "@/lib/auth-middleware";
-import { requireProjectOwner } from "@/lib/project-auth";
+import { withProjectAuth } from "@/lib/project-access";
 import { encrypt } from "@/lib/crypto";
 
 const API_KEY_PROVIDERS = ["openRouter", "telegram", "semrush", "ahrefs", "stripe", "airtable", "calendly"] as const;
@@ -118,97 +117,88 @@ const SIMPLE_KEY_VALIDATORS: Record<
 };
 
 // POST /api/projects/[projectId]/services/connect-api-key
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  let projectId: string;
-  try {
-    const user = await requireCurrentUser();
-    ({ projectId } = await params);
-    await requireProjectOwner(user.userId, projectId);
-  } catch (error) {
-    return authErrorResponse(error);
-  }
+export const POST = withProjectAuth<{ projectId: string }>(
+  "owner",
+  async (request, { params: { projectId } }) => {
+    let body: Record<string, string | undefined>;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
 
-  let body: Record<string, string | undefined>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+    const { provider, label } = body;
 
-  const { provider, label } = body;
+    if (!provider) {
+      return NextResponse.json(
+        { error: "Missing provider" },
+        { status: 400 }
+      );
+    }
 
-  if (!provider) {
-    return NextResponse.json(
-      { error: "Missing provider" },
-      { status: 400 }
-    );
-  }
+    if (!isApiKeyProvider(provider)) {
+      return NextResponse.json(
+        { error: "Unsupported provider" },
+        { status: 400 }
+      );
+    }
 
-  if (!isApiKeyProvider(provider)) {
-    return NextResponse.json(
-      { error: "Unsupported provider" },
-      { status: 400 }
-    );
-  }
+    const { apiKey } = body;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "Missing apiKey" },
+        { status: 400 }
+      );
+    }
 
-  const { apiKey } = body;
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: "Missing apiKey" },
-      { status: 400 }
-    );
-  }
+    const validator = SIMPLE_KEY_VALIDATORS[provider];
+    if (!validator) {
+      return NextResponse.json(
+        { error: "No validator for provider" },
+        { status: 400 }
+      );
+    }
 
-  const validator = SIMPLE_KEY_VALIDATORS[provider];
-  if (!validator) {
-    return NextResponse.json(
-      { error: "No validator for provider" },
-      { status: 400 }
-    );
-  }
+    const validation = await validator(apiKey);
+    const encryptedValue = encrypt(apiKey);
 
-  const validation = await validator(apiKey);
-  const encryptedValue = encrypt(apiKey);
+    if (!validation.valid) {
+      return NextResponse.json(
+        { error: "Invalid API key" },
+        { status: 422 }
+      );
+    }
 
-  if (!validation.valid) {
-    return NextResponse.json(
-      { error: "Invalid API key" },
-      { status: 422 }
-    );
-  }
+    const accountEmail = label || validation.label || "API Key";
 
-  const accountEmail = label || validation.label || "API Key";
-
-  // Upsert: update existing or create new
-  const existing = await db.serviceConnection.findFirst({
-    where: { projectId, provider },
-  });
-
-  if (existing) {
-    await db.serviceConnection.update({
-      where: { id: existing.id },
-      data: {
-        accessToken: encryptedValue,
-        refreshToken: null,
-        accountEmail,
-        status: "active",
-        lastError: null,
-      },
+    // Upsert: update existing or create new
+    const existing = await db.serviceConnection.findFirst({
+      where: { projectId, provider },
     });
-  } else {
-    await db.serviceConnection.create({
-      data: {
-        projectId,
-        provider,
-        accountEmail,
-        accessToken: encryptedValue,
-        refreshToken: null,
-      },
-    });
-  }
 
-  return NextResponse.json({ success: true });
-}
+    if (existing) {
+      await db.serviceConnection.update({
+        where: { id: existing.id },
+        data: {
+          accessToken: encryptedValue,
+          refreshToken: null,
+          accountEmail,
+          status: "active",
+          lastError: null,
+        },
+      });
+    } else {
+      await db.serviceConnection.create({
+        data: {
+          projectId,
+          provider,
+          accountEmail,
+          accessToken: encryptedValue,
+          refreshToken: null,
+        },
+      });
+    }
+
+    return NextResponse.json({ success: true });
+  }
+);

@@ -28,9 +28,9 @@ vi.mock("@/lib/auth-middleware", async (importOriginal) => {
   };
 });
 
-// project-auth uses db directly — the db mock above covers it
-vi.mock("@/lib/project-auth", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/project-auth")>();
+// project-access uses db directly — the db mock above covers it
+vi.mock("@/lib/project-access", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/project-access")>();
   return actual;
 });
 

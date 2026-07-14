@@ -16,7 +16,8 @@ export function createMcpServerForEndpoint(
   endpointId: string,
   endpointName: string,
   allowedActions: string[],
-  serviceConnectionId: string
+  serviceConnectionId: string,
+  projectId: string
 ) {
   const server = new McpServer({
     name: `ScopeGate — ${endpointName}`,
@@ -26,7 +27,7 @@ export function createMcpServerForEndpoint(
   const tools = getToolsByActions(allowedActions);
 
   for (const tool of tools) {
-    registerTool(server, tool, endpointId, serviceConnectionId);
+    registerTool(server, tool, endpointId, serviceConnectionId, projectId);
   }
 
   return server;
@@ -36,7 +37,8 @@ function registerTool(
   server: McpServer,
   tool: ToolDefinition,
   endpointId: string,
-  serviceConnectionId: string
+  serviceConnectionId: string,
+  projectId: string
 ) {
   const shape = getZodShape(tool.inputSchema);
 
@@ -74,6 +76,7 @@ function registerTool(
             try {
               await recordAudit({
                 endpointId,
+                projectId,
                 action: tool.action,
                 params: params as Record<string, unknown>,
                 status: "success",
@@ -126,6 +129,7 @@ function registerTool(
             try {
               await recordAudit({
                 endpointId,
+                projectId,
                 action: tool.action,
                 params: params as Record<string, unknown>,
                 status: "error",

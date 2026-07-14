@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import type { Prisma } from "@/generated/prisma/client";
+import type { Prisma, ServiceProvider } from "@/generated/prisma/client";
 import { getCurrentUser } from "@/lib/auth-middleware";
 import { parseAndVerifyState, parseCookieValue } from "@/lib/oauth-state";
 import { encrypt } from "@/lib/crypto";
@@ -106,11 +106,15 @@ export interface OAuthCallbackOpts<T extends OAuthTokenResult = OAuthTokenResult
 
 export async function persistOAuthConnection({
   projectId,
-  provider,
+  provider: providerParam,
   connectionData,
   encryptedAccessToken,
   encryptedRefreshToken,
 }: PersistParams): Promise<string> {
+  // The provider has already been checked against the callback route's
+  // expectedProvider allowlist by the time it reaches here — the DB enum
+  // is the storage-layer backstop, this cast just reflects that.
+  const provider = providerParam as ServiceProvider;
   const { accountEmail, metadata } = connectionData;
   const expiresAt = connectionData.expiresAt ?? null;
 

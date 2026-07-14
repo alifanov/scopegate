@@ -16,7 +16,7 @@ function transaction<T>(fn: (tx: typeof database) => Promise<T>): Promise<T> {
 const baseConnection = {
   id: "temp-1",
   projectId: "p1",
-  provider: "googleAds",
+  provider: "googleAds" as const,
   accountEmail: "user@example.com#pending:temp-1",
   accessToken: "at",
   refreshToken: "rt",

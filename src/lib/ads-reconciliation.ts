@@ -1,10 +1,11 @@
 import { db } from "@/lib/db";
 import { stripPendingAccountEmail } from "@/lib/mcp/google-ads";
+import type { ServiceProvider } from "@/generated/prisma/client";
 
 type ServiceConnectionRow = {
   id: string;
   projectId: string;
-  provider: string;
+  provider: ServiceProvider;
   accountEmail: string;
   accessToken: string;
   refreshToken: string | null;

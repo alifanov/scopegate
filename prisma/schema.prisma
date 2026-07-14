@@ -75,6 +75,7 @@ model Project {
   teamMembers        TeamMember[]
   serviceConnections ServiceConnection[]
   mcpEndpoints       McpEndpoint[]
+  auditLogs          AuditLog[]
 }
 
 enum ProjectRole {
@@ -94,15 +95,50 @@ model TeamMember {
   @@unique([userId, projectId])
 }
 
+enum ServiceProvider {
+  gmail
+  calendar
+  drive
+  googleAds
+  searchConsole
+  youtube
+  openRouter
+  linkedin
+  twitter
+  twitterAds
+  slack
+  notion
+  hubspot
+  github
+  jira
+  salesforce
+  metaAds
+  telegram
+  semrush
+  ahrefs
+  stripe
+  airtable
+  calendly
+  threads
+  googleTagManager
+  email
+}
+
+enum ServiceConnectionStatus {
+  active
+  error
+  revoked
+}
+
 model ServiceConnection {
-  id                  String        @id @default(cuid())
-  provider            String
+  id                  String                  @id @default(cuid())
+  provider            ServiceProvider
   accountEmail        String
   accessToken         String
   refreshToken        String?
   expiresAt           DateTime?
   metadata            Json?
-  status              String        @default("active")
+  status              ServiceConnectionStatus @default(active)
   lastError           String?
   consecutiveFailures Int           @default(0)
   projectId           String
@@ -143,14 +179,20 @@ model EndpointPermission {
   @@unique([endpointId, action])
 }
 
+enum AuditStatus {
+  success
+  error
+}
+
 model AuditLog {
   id         String       @id @default(cuid())
   endpointId String?
-  projectId  String?
+  projectId  String
   endpoint   McpEndpoint? @relation(fields: [endpointId], references: [id], onDelete: SetNull)
+  project    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   action     String
   params     Json?
-  status     String
+  status     AuditStatus
   error      String?
   duration   Int?
   createdAt  DateTime     @default(now())
@@ -167,15 +209,19 @@ model RateLimitBucket {
   @@map("rate_limit_bucket")
 }
 
+enum NotificationType {
+  error
+}
+
 model Notification {
-  id        String   @id @default(cuid())
+  id        String           @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String   @default("error")
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType @default(error)
   title     String
   message   String
-  isRead    Boolean  @default(false)
-  createdAt DateTime @default(now())
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
 
   @@index([userId, isRead])
 }

@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withProjectAuth } from "@/lib/project-access";
+import { AuditStatus } from "@/generated/prisma/client";
+
+function isAuditStatus(value: string): value is AuditStatus {
+  return (Object.values(AuditStatus) as string[]).includes(value);
+}
 
 // GET /api/projects/[projectId]/audit
 export const GET = withProjectAuth<{ projectId: string }>(
@@ -12,9 +17,17 @@ export const GET = withProjectAuth<{ projectId: string }>(
     const status = url.searchParams.get("status");
     const endpointId = url.searchParams.get("endpointId");
 
+    let statusFilter: AuditStatus | undefined;
+    if (status) {
+      if (!isAuditStatus(status)) {
+        return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+      }
+      statusFilter = status;
+    }
+
     const where = {
-      OR: [{ projectId }, { endpoint: { projectId } }],
-      ...(status && { status }),
+      projectId,
+      ...(statusFilter && { status: statusFilter }),
       ...(endpointId && { endpointId }),
     };
 

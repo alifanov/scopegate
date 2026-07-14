@@ -1,5 +1,6 @@
 import { SpanStatusCode, metrics, trace } from "@opentelemetry/api";
 import { db } from "@/lib/db";
+import type { ServiceConnectionStatus, ServiceProvider } from "@/generated/prisma/client";
 import {
   EXCHANGE_PROVIDERS,
   refreshForCron,
@@ -84,7 +85,7 @@ async function applyRefreshError(
     provider: connection.provider,
   });
 
-  let newStatus: string;
+  let newStatus: ServiceConnectionStatus;
   let newConsecutiveFailures: number;
 
   if (errorClass === "permanent") {
@@ -210,7 +211,7 @@ export async function refreshExpiringConnectionTokens({
                 status: { notIn: ["error", "revoked"] },
                 OR: [
                   { refreshToken: { not: null } },
-                  { provider: { in: exchangeProviders } },
+                  { provider: { in: exchangeProviders as ServiceProvider[] } },
                 ],
               },
               select: {

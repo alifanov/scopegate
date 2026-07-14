@@ -11,7 +11,7 @@ export async function recordAudit({
   duration,
 }: {
   endpointId?: string | null;
-  projectId?: string | null;
+  projectId: string;
   action: string;
   params?: Record<string, unknown> | null;
   status: "success" | "error";
@@ -21,7 +21,7 @@ export async function recordAudit({
   await db.auditLog.create({
     data: {
       ...(endpointId ? { endpointId } : {}),
-      ...(projectId ? { projectId } : {}),
+      projectId,
       action,
       params: params
         ? JSON.parse(JSON.stringify(redactParams(params)))

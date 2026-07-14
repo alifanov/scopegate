@@ -3,8 +3,8 @@ import { serviceFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch"
 import { OAuthTokenError } from "@/lib/oauth-token-lifecycle";
 import { getProviderDef } from "@/lib/provider-registry";
 
-// Meta error codes that indicate an expired or revoked access token
-const META_TOKEN_ERROR_CODES = new Set([190, 102]);
+// Meta error codes that indicate a dead token, defined once in PROVIDER_REGISTRY.
+const META_TOKEN_ERROR_CODES = getProviderDef("threads")?.oauthErrors?.permanentCodes ?? [];
 
 type MetaGraphError = { error?: { code?: number; message?: string } };
 
@@ -27,9 +27,10 @@ export async function threadsFetch(
       const errorCode = body?.error?.code;
       const errorMessage = body?.error?.message ?? "Threads API request failed";
       trace.getActiveSpan()?.setAttribute("error.type", String(errorCode ?? res.status));
-      if (errorCode !== undefined && META_TOKEN_ERROR_CODES.has(errorCode)) {
+      if (errorCode !== undefined && META_TOKEN_ERROR_CODES.includes(errorCode)) {
         throw new OAuthTokenError(
-          `Threads token expired or revoked (code ${errorCode}): ${errorMessage}`
+          `Threads token expired or revoked (code ${errorCode}): ${errorMessage}`,
+          { provider: "threads", code: errorCode }
         );
       }
       throw new Error(`Threads API error (${res.status}) code=${errorCode}: ${errorMessage}`);

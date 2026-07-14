@@ -3,6 +3,9 @@ import { db } from "@/lib/db";
 import {
   EXCHANGE_PROVIDERS,
   refreshForCron,
+  classifyOAuthError,
+  CONSECUTIVE_FAILURES_THRESHOLD,
+  OAuthTokenError,
   type CronConnection,
 } from "@/lib/oauth-token-lifecycle";
 
@@ -13,20 +16,7 @@ const tokenRefreshFailuresCounter = metrics
     description: "OAuth token refresh failures by reason and provider",
   });
 
-export const PERMANENT_OAUTH_ERRORS = [
-  "invalid_grant",
-  "invalid_client",
-  "unauthorized_client",
-  "access_denied",
-  "token_revoked",
-  "code=190",
-  "code=102",
-  "code=463",
-  "code=467",
-];
-
 const REFRESH_TIMEOUT_MS = 10_000;
-const CONSECUTIVE_FAILURES_THRESHOLD = 3;
 
 export type RefreshResult =
   | { status: "refreshed" }
@@ -75,20 +65,18 @@ function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
   ]);
 }
 
-export function classifyTokenRefreshError(message: string): "permanent" | "transient" {
-  return PERMANENT_OAUTH_ERRORS.some((code) => message.includes(code))
-    ? "permanent"
-    : "transient";
-}
-
 async function applyRefreshError(
   connection: RefreshConnectionRow,
+  err: unknown,
   message: string,
   database: TokenRefreshDatabase
 ): Promise<RefreshResult> {
-  const errorClass = classifyTokenRefreshError(message);
-  const errorCode =
-    PERMANENT_OAUTH_ERRORS.find((code) => message.includes(code)) ?? "other";
+  // Every error reaching this function already comes from a token refresh
+  // attempt, so classifyOAuthError's default ("transient") is exactly right
+  // even for a generic network error — there's no "not related to auth" case
+  // here the way there is for on-demand MCP tool calls.
+  const errorClass = classifyOAuthError(err);
+  const errorCode = err instanceof OAuthTokenError && err.code !== undefined ? String(err.code) : "other";
 
   tokenRefreshFailuresCounter.add(1, {
     reason: errorCode,
@@ -162,7 +150,7 @@ export async function refreshConnectionToken(
         span.setStatus({ code: SpanStatusCode.ERROR, message });
         span.recordException(err instanceof Error ? err : new Error(message));
         span.setAttribute("refresh.status", "error");
-        return applyRefreshError(connection, message, database);
+        return applyRefreshError(connection, err, message, database);
       } finally {
         span.end();
       }

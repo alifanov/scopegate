@@ -57,6 +57,9 @@ import {
   refreshForCron,
   getValidAccessTokenForConnection,
   revokeConnectionWithNotification,
+  recordTransientTokenFailure,
+  classifyOAuthError,
+  CONSECUTIVE_FAILURES_THRESHOLD,
   OAuthTokenError,
 } from "../oauth-token-lifecycle";
 import { db } from "@/lib/db";
@@ -226,5 +229,103 @@ describe("metaAds token exchange", () => {
     ]);
 
     expect(db.notification.createMany).toHaveBeenCalledOnce();
+  });
+});
+
+describe("classifyOAuthError", () => {
+  it("treats a provider registry code (Meta 190) as permanent", () => {
+    const err = new OAuthTokenError("Meta token expired or revoked (code 190)", {
+      provider: "metaAds",
+      code: 190,
+    });
+    expect(classifyOAuthError(err)).toBe("permanent");
+  });
+
+  it("treats a provider registry code (Twitter 401) as permanent", () => {
+    const err = new OAuthTokenError("Twitter API error (401)", {
+      provider: "twitter",
+      code: 401,
+    });
+    expect(classifyOAuthError(err)).toBe("permanent");
+  });
+
+  it("treats a code not in the provider's registry list as transient", () => {
+    // 4 is not a known dead-token code for Meta — should not be hard-revoked.
+    const err = new OAuthTokenError("Meta Ads API error (500)", {
+      provider: "metaAds",
+      code: 4,
+    });
+    expect(classifyOAuthError(err)).toBe("transient");
+  });
+
+  it("treats a generic OAuth2 permanent error string as permanent regardless of provider", () => {
+    const err = new OAuthTokenError("HubSpot token refresh failed: invalid_grant");
+    expect(classifyOAuthError(err)).toBe("permanent");
+  });
+
+  it("treats an explicit permanent flag as permanent (revoked-connection / no-refresh-token cases)", () => {
+    const err = new OAuthTokenError("Connection conn-1 (github) is revoked — reconnect required", {
+      permanent: true,
+    });
+    expect(classifyOAuthError(err)).toBe("permanent");
+  });
+
+  it("treats a bare network failure as transient", () => {
+    expect(classifyOAuthError(new Error("network timeout"))).toBe("transient");
+  });
+
+  it("treats a non-token error as transient by default (caller decides whether to classify at all)", () => {
+    expect(classifyOAuthError(new Error("rate limited"))).toBe("transient");
+  });
+});
+
+describe("recordTransientTokenFailure", () => {
+  beforeEach(() => {
+    vi.mocked(db.serviceConnection.update).mockReset();
+    vi.mocked(db.serviceConnection.updateMany).mockReset();
+    vi.mocked(db.serviceConnection.findUnique).mockReset();
+  });
+
+  it("marks the connection as error without revoking below the threshold", async () => {
+    vi.mocked(db.serviceConnection.update).mockResolvedValue({
+      consecutiveFailures: CONSECUTIVE_FAILURES_THRESHOLD - 1,
+    } as never);
+
+    const outcome = await recordTransientTokenFailure("conn-1", "temporary glitch");
+
+    expect(outcome).toBe("error");
+    expect(db.serviceConnection.update).toHaveBeenCalledWith({
+      where: { id: "conn-1" },
+      data: {
+        status: "error",
+        lastError: "temporary glitch",
+        consecutiveFailures: { increment: 1 },
+      },
+      select: { consecutiveFailures: true },
+    });
+    expect(db.serviceConnection.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("escalates to a full revoke once the threshold is reached", async () => {
+    vi.mocked(db.serviceConnection.update).mockResolvedValue({
+      consecutiveFailures: CONSECUTIVE_FAILURES_THRESHOLD,
+    } as never);
+    vi.mocked(db.serviceConnection.updateMany).mockResolvedValue({ count: 1 });
+    vi.mocked(db.serviceConnection.findUnique).mockResolvedValue({
+      id: "conn-1",
+      status: "error",
+      provider: "twitter",
+      accountEmail: "u@example.com",
+      projectId: "proj-1",
+    } as never);
+    vi.mocked(db.teamMember.findMany).mockResolvedValue([]);
+
+    const outcome = await recordTransientTokenFailure("conn-1", "still failing");
+
+    expect(outcome).toBe("revoked");
+    expect(db.serviceConnection.updateMany).toHaveBeenCalledWith({
+      where: { id: "conn-1", status: { not: "revoked" } },
+      data: { status: "revoked", lastError: "still failing" },
+    });
   });
 });

@@ -1,10 +1,11 @@
 import { trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import { getValidAccessToken, OAuthTokenError } from "@/lib/oauth-token-lifecycle";
 import { safeFetch } from "@/lib/mcp/safe-fetch";
+import { getProviderDef } from "@/lib/provider-registry";
 
 const META_API_BASE = "https://graph.facebook.com/v21.0";
-// Meta error codes that indicate an expired or revoked access token
-const META_TOKEN_ERROR_CODES = new Set([190, 102]);
+// Meta error codes that indicate a dead token, defined once in PROVIDER_REGISTRY.
+const META_TOKEN_ERROR_CODES = getProviderDef("metaAds")?.oauthErrors?.permanentCodes ?? [];
 const tracer = trace.getTracer("scopegate");
 
 type MetaGraphError = { error?: { code?: number; message?: string } };
@@ -48,9 +49,10 @@ export async function metaAdsFetch(
           span.setStatus({ code: SpanStatusCode.ERROR, message: `HTTP ${res.status}` });
           span.setAttribute("error.type", String(errorCode ?? res.status));
           spanStatusSet = true;
-          if (errorCode !== undefined && META_TOKEN_ERROR_CODES.has(errorCode)) {
+          if (errorCode !== undefined && META_TOKEN_ERROR_CODES.includes(errorCode)) {
             throw new OAuthTokenError(
-              `Meta token expired or revoked (code ${errorCode}): ${errorMessage}`
+              `Meta token expired or revoked (code ${errorCode}): ${errorMessage}`,
+              { provider: "metaAds", code: errorCode }
             );
           }
           throw new Error(

@@ -3,7 +3,12 @@ import { trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import { getToolsByActions, type ToolDefinition } from "./tools";
 import { z } from "zod";
 import { recordAudit } from "../audit";
-import { OAuthTokenError, revokeConnectionWithNotification } from "../oauth-token-lifecycle";
+import {
+  OAuthTokenError,
+  classifyOAuthError,
+  revokeConnectionWithNotification,
+  recordTransientTokenFailure,
+} from "../oauth-token-lifecycle";
 
 const tracer = trace.getTracer("scopegate");
 
@@ -94,10 +99,23 @@ function registerTool(
             console.error(`[ScopeGate] Tool ${tool.name} failed:`, fullError);
 
             const isTokenError = err instanceof OAuthTokenError;
+            let tokenErrorOutcome: "revoked" | "error" | undefined;
 
             if (isTokenError) {
               try {
-                await revokeConnectionWithNotification(serviceConnectionId, fullError);
+                if (classifyOAuthError(err) === "permanent") {
+                  await revokeConnectionWithNotification(serviceConnectionId, fullError);
+                  tokenErrorOutcome = "revoked";
+                } else {
+                  // Transient failure — bump the shared failure streak instead of
+                  // hard-revoking on the first hiccup; escalates to revoked only
+                  // once CONSECUTIVE_FAILURES_THRESHOLD is reached (same breaker
+                  // the cron refresh uses).
+                  tokenErrorOutcome = await recordTransientTokenFailure(
+                    serviceConnectionId,
+                    fullError
+                  );
+                }
               } catch (updateErr) {
                 console.error("[ScopeGate] Failed to update connection status:", updateErr);
               }
@@ -120,9 +138,12 @@ function registerTool(
               // response content would be swallowed, leaving the client hanging.
             }
 
-            const userMessage = isTokenError
-              ? "Error: Service connection token expired or invalid. Please reconnect the service."
-              : "Error: Tool execution failed";
+            const userMessage =
+              tokenErrorOutcome === "revoked"
+                ? "Error: Service connection token expired or invalid. Please reconnect the service."
+                : isTokenError
+                  ? "Error: Temporary authentication issue with the service connection. Please retry."
+                  : "Error: Tool execution failed";
 
             return {
               content: [{ type: "text" as const, text: userMessage }],

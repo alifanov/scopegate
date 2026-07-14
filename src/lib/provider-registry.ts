@@ -39,6 +39,14 @@ export type TransportDef = {
   };
 };
 
+export type OAuthErrorClassification = {
+  // Numeric signals (a provider API's error.code, or an HTTP status from a
+  // live API call) that mean the access token is permanently dead — used by
+  // classifyOAuthError() so this fact lives in one place instead of being
+  // hardcoded per provider's *.ts file.
+  permanentCodes?: readonly number[];
+};
+
 export type ProviderDef = {
   key: string;
   displayName: string;
@@ -46,6 +54,7 @@ export type ProviderDef = {
   token: TokenConfig;
   transport?: TransportDef;
   actions: string[];
+  oauthErrors?: OAuthErrorClassification;
 };
 
 // ─── Shared token configs ──────────────────────────────────────────────────────
@@ -340,6 +349,9 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       authStyle: "basic",
     },
     transport: { baseUrl: "https://api.x.com/2" },
+    // 401 on a live API call (after the token was already refreshed if needed)
+    // means the token itself is invalid/revoked — not a transient blip.
+    oauthErrors: { permanentCodes: [401] },
     actions: [
       "twitter:search_tweets",
       "twitter:get_tweet",
@@ -563,6 +575,9 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
     displayName: "Meta Ads",
     description: "Access to Facebook & Instagram Ads",
     token: { kind: "exchange", bufferMs: 24 * 60 * 60 * 1000, exchangeType: "meta" },
+    // Meta Graph API error codes that mean an expired/revoked access token
+    // (190, 102) or an invalidated session (463, 467).
+    oauthErrors: { permanentCodes: [190, 102, 463, 467] },
     actions: [
       "metaAds:list_ad_accounts",
       "metaAds:get_ad_account",
@@ -689,6 +704,8 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
     displayName: "Threads",
     description: "Access to Threads (by Meta) operations",
     token: { kind: "exchange", bufferMs: 24 * 60 * 60 * 1000, exchangeType: "threads" },
+    // Same Graph API family as Meta Ads — 190/102 mean an expired/revoked token.
+    oauthErrors: { permanentCodes: [190, 102] },
     transport: {
       baseUrl: "https://graph.threads.net/v1.0",
       timeoutMs: 8_000,

@@ -31,18 +31,25 @@ vi.mock("@opentelemetry/api", () => ({
   },
 }));
 
-vi.mock("@/lib/oauth-token-lifecycle", () => ({
-  EXCHANGE_PROVIDERS: ["metaAds"],
-  refreshForCron: vi.fn(),
-}));
+vi.mock("@/lib/oauth-token-lifecycle", async (importOriginal) => {
+  // Keep the real classifyOAuthError/OAuthTokenError/CONSECUTIVE_FAILURES_THRESHOLD
+  // (pure, provider-registry-driven — no DB access) so this suite exercises the
+  // actual shared classifier instead of re-implementing it. Only the network-hitting
+  // refreshForCron is stubbed.
+  const actual = await importOriginal<typeof import("@/lib/oauth-token-lifecycle")>();
+  return {
+    ...actual,
+    EXCHANGE_PROVIDERS: ["metaAds"],
+    refreshForCron: vi.fn(),
+  };
+});
 
 import {
-  classifyTokenRefreshError,
   refreshConnectionToken,
   refreshExpiringConnectionTokens,
   type RefreshConnectionRow,
 } from "../token-refresh";
-import { refreshForCron } from "@/lib/oauth-token-lifecycle";
+import { refreshForCron, OAuthTokenError, classifyOAuthError } from "@/lib/oauth-token-lifecycle";
 
 const database = {
   serviceConnection: {
@@ -69,16 +76,24 @@ describe("token refresh service", () => {
     vi.clearAllMocks();
   });
 
-  it("classifies known OAuth revocation errors as permanent", () => {
-    expect(classifyTokenRefreshError("Meta token exchange failed code=190")).toBe(
-      "permanent"
-    );
-    expect(classifyTokenRefreshError("network timeout")).toBe("transient");
+  it("classifies structured Meta token-exchange errors as permanent, generic failures as transient", () => {
+    expect(
+      classifyOAuthError(
+        new OAuthTokenError("Meta token exchange failed code=190", {
+          provider: "metaAds",
+          code: 190,
+        })
+      )
+    ).toBe("permanent");
+    expect(classifyOAuthError(new Error("network timeout"))).toBe("transient");
   });
 
   it("marks permanent refresh errors as revoked", async () => {
     vi.mocked(refreshForCron).mockRejectedValue(
-      new Error("Meta token exchange failed code=190")
+      new OAuthTokenError("Meta token exchange failed code=190", {
+        provider: "metaAds",
+        code: 190,
+      })
     );
 
     const result = await refreshConnectionToken(connection, database);

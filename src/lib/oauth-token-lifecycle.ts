@@ -5,6 +5,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import {
   PROVIDER_REGISTRY,
   EXCHANGE_PROVIDER_KEYS,
+  getProviderDef,
   type RefreshTokenConfig,
   type ExchangeTokenConfig,
 } from "@/lib/provider-registry";
@@ -29,11 +30,57 @@ async function withConnectionLock<T>(
 }
 
 export class OAuthTokenError extends Error {
-  constructor(message: string) {
+  readonly provider?: string;
+  readonly code?: number;
+  readonly permanent?: boolean;
+
+  constructor(
+    message: string,
+    opts?: { provider?: string; code?: number; permanent?: boolean }
+  ) {
     super(message);
     this.name = "OAuthTokenError";
+    this.provider = opts?.provider;
+    this.code = opts?.code;
+    this.permanent = opts?.permanent;
   }
 }
+
+// Standard OAuth2 error vocabulary that always means the token is dead,
+// regardless of provider. Provider-specific numeric codes (Meta 190/102,
+// Twitter 401, ...) live in PROVIDER_REGISTRY[provider].oauthErrors instead.
+const GENERIC_PERMANENT_OAUTH_ERRORS = [
+  "invalid_grant",
+  "invalid_client",
+  "unauthorized_client",
+  "access_denied",
+  "token_revoked",
+];
+
+export type OAuthErrorSeverity = "permanent" | "transient";
+
+// Single classifier used by both the on-demand MCP tool-call path
+// (handler.ts) and the proactive cron refresh (token-refresh.ts) so a token
+// that the cron would tolerate for a few transient failures isn't hard-killed
+// the instant an MCP call hits it first.
+export function classifyOAuthError(err: unknown): OAuthErrorSeverity {
+  if (err instanceof OAuthTokenError) {
+    if (err.permanent) return "permanent";
+    if (err.code !== undefined && err.provider) {
+      const def = getProviderDef(err.provider);
+      if (def?.oauthErrors?.permanentCodes?.includes(err.code)) return "permanent";
+    }
+  }
+  const message = err instanceof Error ? err.message : String(err);
+  if (GENERIC_PERMANENT_OAUTH_ERRORS.some((marker) => message.includes(marker))) {
+    return "permanent";
+  }
+  return "transient";
+}
+
+// Consecutive failures tolerated before a transient error escalates to a full
+// revoke — shared circuit-breaker threshold for both call sites.
+export const CONSECUTIVE_FAILURES_THRESHOLD = 3;
 
 export async function markConnectionTokenError(
   connectionId: string,
@@ -86,6 +133,31 @@ export async function revokeConnectionWithNotification(
       })),
     });
   }
+}
+
+// Applies a transient (not-yet-fatal) OAuth failure on the on-demand path:
+// bumps the connection's failure streak and only escalates to a full revoke
+// once CONSECUTIVE_FAILURES_THRESHOLD is reached, instead of hard-revoking on
+// the very first OAuthTokenError.
+export async function recordTransientTokenFailure(
+  connectionId: string,
+  message: string
+): Promise<"revoked" | "error"> {
+  const updated = await db.serviceConnection.update({
+    where: { id: connectionId },
+    data: {
+      status: "error",
+      lastError: message,
+      consecutiveFailures: { increment: 1 },
+    },
+    select: { consecutiveFailures: true },
+  });
+
+  if (updated.consecutiveFailures >= CONSECUTIVE_FAILURES_THRESHOLD) {
+    await revokeConnectionWithNotification(connectionId, message);
+    return "revoked";
+  }
+  return "error";
 }
 
 const tracer = trace.getTracer("scopegate/oauth-token-lifecycle");
@@ -150,7 +222,8 @@ async function exchangeMetaToken(
           throw new OAuthTokenError(
             `Meta token exchange failed (${res.status})` +
               (code != null ? ` code=${code}` : "") +
-              (detail ? `: ${detail}` : "")
+              (detail ? `: ${detail}` : ""),
+            { provider: "metaAds", code }
           );
         }
 
@@ -302,7 +375,8 @@ function needsRefresh(
 export async function getValidAccessTokenForConnection(conn: DbConnection): Promise<string> {
   if (conn.status === "revoked") {
     throw new OAuthTokenError(
-      `Connection ${conn.id} (${conn.provider}) is revoked — reconnect required`
+      `Connection ${conn.id} (${conn.provider}) is revoked — reconnect required`,
+      { permanent: true }
     );
   }
 
@@ -324,7 +398,8 @@ export async function getValidAccessTokenForConnection(conn: DbConnection): Prom
 
     if (fresh.status === "revoked") {
       throw new OAuthTokenError(
-        `Connection ${fresh.id} (${fresh.provider}) is revoked — reconnect required`
+        `Connection ${fresh.id} (${fresh.provider}) is revoked — reconnect required`,
+        { permanent: true }
       );
     }
 
@@ -357,7 +432,8 @@ export async function getValidAccessTokenForConnection(conn: DbConnection): Prom
     // kind === "refresh"
     if (!fresh.refreshToken) {
       throw new OAuthTokenError(
-        `No refresh token available for connection ${fresh.id} (${fresh.provider})`
+        `No refresh token available for connection ${fresh.id} (${fresh.provider})`,
+        { permanent: true }
       );
     }
     const tokens = await config.doRefresh(decrypt(fresh.refreshToken));

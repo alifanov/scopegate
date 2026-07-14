@@ -1,7 +1,11 @@
 import { getValidAccessToken, OAuthTokenError } from "@/lib/oauth-token-lifecycle";
 import { serviceFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch";
+import { getProviderDef } from "@/lib/provider-registry";
 
 const TWITTER_UPLOAD_URL = "https://api.x.com/2/media/upload";
+// HTTP statuses that mean the access token itself is invalid/revoked (defined
+// in PROVIDER_REGISTRY so the "what counts as a dead token" fact lives in one place).
+const TWITTER_TOKEN_ERROR_CODES = getProviderDef("twitter")?.oauthErrors?.permanentCodes ?? [];
 
 // Twitter API v2 error bodies vary: { title, detail, status } or { errors: [{ message | detail }] }.
 // Surface the real reason so failures are diagnosable instead of an opaque "request failed".
@@ -52,7 +56,9 @@ export async function twitterFetch(
       : `Twitter API error (${res.status})`;
     // 401 = invalid/expired token → trigger reconnect flow. 403 is left as a generic
     // error on purpose (duplicate tweet, missing scope, suspension) to avoid false revokes.
-    if (res.status === 401) throw new OAuthTokenError(message);
+    if (TWITTER_TOKEN_ERROR_CODES.includes(res.status)) {
+      throw new OAuthTokenError(message, { provider: "twitter", code: res.status });
+    }
     throw new Error(message);
   }
 
@@ -88,7 +94,9 @@ export async function twitterUploadMedia(
     const message = detail
       ? `Twitter media upload failed (${res.status}): ${detail}`
       : `Twitter media upload failed (${res.status})`;
-    if (res.status === 401) throw new OAuthTokenError(message);
+    if (TWITTER_TOKEN_ERROR_CODES.includes(res.status)) {
+      throw new OAuthTokenError(message, { provider: "twitter", code: res.status });
+    }
     throw new Error(message);
   }
 

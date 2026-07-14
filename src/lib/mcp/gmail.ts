@@ -191,11 +191,16 @@ export async function getGmailAttachment(
   return { messageId, attachmentId, size: att.size, encoding: "base64", data: dataB64 };
 }
 
+// Strip CR/LF so a header field value can't inject extra headers (e.g. Bcc:) into the raw MIME message.
+function sanitizeHeaderValue(value: string): string {
+  return value.replace(/[\r\n]+/g, " ");
+}
+
 // Build an RFC 2822 message and base64url-encode it for the Gmail send endpoint.
 export function buildRawEmail(to: string, subject: string, body: string): string {
   const mime = [
-    `To: ${to}`,
-    `Subject: ${subject}`,
+    `To: ${sanitizeHeaderValue(to)}`,
+    `Subject: ${sanitizeHeaderValue(subject)}`,
     "MIME-Version: 1.0",
     'Content-Type: text/plain; charset="UTF-8"',
     "",

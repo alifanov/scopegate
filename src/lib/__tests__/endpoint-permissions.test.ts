@@ -21,6 +21,9 @@ const database = {
 };
 
 const audit = vi.fn();
+function transaction<T>(fn: (tx: typeof database) => Promise<T>): Promise<T> {
+  return fn(database);
+}
 
 describe("endpoint permission service", () => {
   beforeEach(() => {
@@ -112,7 +115,7 @@ describe("endpoint permission service", () => {
         endpointId: "endpoint-1",
         permissions: ["calendar:list_events", "gmail:read_emails"],
       },
-      { database, audit }
+      { database, audit, transaction }
     );
 
     expect(database.endpointPermission.deleteMany).toHaveBeenCalledWith({
@@ -132,5 +135,28 @@ describe("endpoint permission service", () => {
         }),
       })
     );
+  });
+
+  it("rolls back the whole update when the permission replacement fails mid-transaction", async () => {
+    database.mcpEndpoint.findFirst.mockResolvedValue({ id: "endpoint-1" });
+    database.mcpEndpoint.update.mockResolvedValue({ id: "endpoint-1" });
+    database.endpointPermission.deleteMany.mockResolvedValue({ count: 1 });
+    database.endpointPermission.createMany.mockRejectedValue(new Error("db exploded"));
+
+    await expect(
+      applyEndpointPermissions(
+        {
+          projectId: "project-1",
+          endpointId: "endpoint-1",
+          permissions: ["calendar:list_events"],
+        },
+        { database, audit, transaction }
+      )
+    ).rejects.toThrow("db exploded");
+
+    // the transaction failed before commit — no read of a partially-applied
+    // state and no audit row for a change that never fully landed
+    expect(database.mcpEndpoint.findUnique).not.toHaveBeenCalled();
+    expect(audit).not.toHaveBeenCalled();
   });
 });

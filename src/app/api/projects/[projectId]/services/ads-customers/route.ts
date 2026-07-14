@@ -76,24 +76,27 @@ export const POST = withProjectAuth<{ projectId: string }>(
     );
 
     if (duplicate) {
-      // Reconnecting an existing account — refresh tokens on the existing record, remove temp
+      // Reconnecting an existing account — refresh tokens on the existing record, remove temp.
+      // Atomic: a crash between the two writes would otherwise orphan the temp connection.
       const dupMeta = duplicate.metadata as Record<string, unknown> | null;
-      await db.serviceConnection.update({
-        where: { id: duplicate.id },
-        data: {
-          accessToken: connection.accessToken,
-          refreshToken: connection.refreshToken,
-          expiresAt: connection.expiresAt,
-          status: "active",
-          lastError: null,
-          metadata: {
-            ...(dupMeta ?? {}),
-            googleAdsCustomerId: customerId,
-            ...(customerName ? { googleAdsCustomerName: customerName } : {}),
+      await db.$transaction([
+        db.serviceConnection.update({
+          where: { id: duplicate.id },
+          data: {
+            accessToken: connection.accessToken,
+            refreshToken: connection.refreshToken,
+            expiresAt: connection.expiresAt,
+            status: "active",
+            lastError: null,
+            metadata: {
+              ...(dupMeta ?? {}),
+              googleAdsCustomerId: customerId,
+              ...(customerName ? { googleAdsCustomerName: customerName } : {}),
+            },
           },
-        },
-      });
-      await db.serviceConnection.delete({ where: { id: connectionId } });
+        }),
+        db.serviceConnection.delete({ where: { id: connectionId } }),
+      ]);
     } else {
       const metadata = connection.metadata as Record<string, unknown> | null;
       await db.serviceConnection.update({

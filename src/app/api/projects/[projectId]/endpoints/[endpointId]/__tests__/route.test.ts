@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock db
-vi.mock("@/lib/db", () => ({
-  db: {
+vi.mock("@/lib/db", () => {
+  const db = {
     teamMember: { findUnique: vi.fn() },
     mcpEndpoint: {
       findFirst: vi.fn(),
@@ -15,8 +15,10 @@ vi.mock("@/lib/db", () => ({
       createMany: vi.fn(),
     },
     auditLog: { create: vi.fn() },
-  },
-}));
+    $transaction: vi.fn((fn: (tx: unknown) => unknown) => fn(db)),
+  };
+  return { db };
+});
 
 // Mock auth middleware — spread real exports so authErrorResponse works correctly;
 // override requireCurrentUser to avoid Next.js request-scope errors in tests.

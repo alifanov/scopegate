@@ -15,6 +15,16 @@ type EndpointDatabase = {
   >;
 };
 
+type TransactionRunner = <T>(
+  fn: (tx: EndpointDatabase) => Promise<T>
+) => Promise<T>;
+
+async function defaultTransaction<T>(
+  fn: (tx: EndpointDatabase) => Promise<T>
+): Promise<T> {
+  return db.$transaction((tx) => fn(tx));
+}
+
 export class EndpointPermissionError extends Error {
   readonly status: number;
 
@@ -46,6 +56,7 @@ type ServiceOptions = {
   database?: EndpointDatabase;
   audit?: typeof recordAudit;
   apiKeyGenerator?: typeof generateMcpApiKey;
+  transaction?: TransactionRunner;
 };
 
 export function validateEndpointPermissions(permissions?: string[]): void {
@@ -114,7 +125,11 @@ export async function createProjectEndpoint(
 
 export async function applyEndpointPermissions(
   input: UpdateEndpointInput,
-  { database = db, audit = recordAudit }: ServiceOptions = {}
+  {
+    database = db,
+    audit = recordAudit,
+    transaction = defaultTransaction,
+  }: ServiceOptions = {}
 ) {
   const existing = await database.mcpEndpoint.findFirst({
     where: { id: input.endpointId, projectId: input.projectId },
@@ -125,28 +140,33 @@ export async function applyEndpointPermissions(
 
   validateEndpointPermissions(input.permissions);
 
-  await database.mcpEndpoint.update({
-    where: { id: input.endpointId },
-    data: {
-      ...(input.name !== undefined && { name: input.name }),
-      ...(input.isActive !== undefined && { isActive: input.isActive }),
-      ...(input.rateLimitPerMinute !== undefined && {
-        rateLimitPerMinute: input.rateLimitPerMinute,
-      }),
-    },
-  });
+  // A partial failure here (e.g. after deleteMany but before createMany)
+  // would leave the endpoint with zero permissions — keep update +
+  // deleteMany + createMany atomic.
+  await transaction(async (tx) => {
+    await tx.mcpEndpoint.update({
+      where: { id: input.endpointId },
+      data: {
+        ...(input.name !== undefined && { name: input.name }),
+        ...(input.isActive !== undefined && { isActive: input.isActive }),
+        ...(input.rateLimitPerMinute !== undefined && {
+          rateLimitPerMinute: input.rateLimitPerMinute,
+        }),
+      },
+    });
 
-  if (input.permissions) {
-    await database.endpointPermission.deleteMany({
-      where: { endpointId: input.endpointId },
-    });
-    await database.endpointPermission.createMany({
-      data: input.permissions.map((action) => ({
-        action,
-        endpointId: input.endpointId,
-      })),
-    });
-  }
+    if (input.permissions) {
+      await tx.endpointPermission.deleteMany({
+        where: { endpointId: input.endpointId },
+      });
+      await tx.endpointPermission.createMany({
+        data: input.permissions.map((action) => ({
+          action,
+          endpointId: input.endpointId,
+        })),
+      });
+    }
+  });
 
   const updated = await database.mcpEndpoint.findUnique({
     where: { id: input.endpointId },

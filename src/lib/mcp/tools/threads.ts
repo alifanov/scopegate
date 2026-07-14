@@ -34,6 +34,9 @@ function hasPublishMedia(params: Record<string, unknown>) {
   return params.media_type === "IMAGE" || params.media_type === "VIDEO";
 }
 
+const THREADS_CAROUSEL_MIN_ITEMS = 2;
+const THREADS_CAROUSEL_MAX_ITEMS = 20;
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -132,6 +135,116 @@ async function publishContainer(
   }
 }
 
+// Creates a single carousel item container (is_carousel_item=true). Meta downloads the
+// referenced file synchronously before returning the id, so callers create items in
+// parallel to keep wall-clock ≈ the slowest single download rather than their sum.
+async function createCarouselItem(
+  serviceConnectionId: string,
+  item: { type: "IMAGE" | "VIDEO"; url: string },
+  timeout: number
+): Promise<string> {
+  const body: Record<string, string> = {
+    media_type: item.type,
+    is_carousel_item: "true",
+  };
+  if (item.type === "IMAGE") body.image_url = item.url;
+  else body.video_url = item.url;
+
+  const result = (await threadsFetch(serviceConnectionId, "/me/threads", {
+    method: "POST",
+    body: JSON.stringify(body),
+    timeout,
+    retry: false,
+  })) as { id: string };
+  return result.id;
+}
+
+// Full carousel flow: create every item container in parallel, wait for all to reach
+// FINISHED, create the carousel container referencing them, wait for it to finish, then
+// publish. Bounded by the media budget / handler 30s cap. If any item is still processing
+// when the poll deadline passes, returns partial_success (no creation_id to resume — the
+// carousel container was never built, so the caller must retry from scratch).
+async function publishCarousel(
+  serviceConnectionId: string,
+  items: Array<{ type: "IMAGE" | "VIDEO"; url: string }>,
+  text: string | undefined,
+  replyControl: string | undefined,
+  quotePostId: string | undefined,
+  deadline: number
+): Promise<unknown> {
+  const span = trace.getActiveSpan();
+  span?.setAttribute("threads.media_type", "CAROUSEL");
+  span?.setAttribute("threads.carousel_items", items.length);
+
+  // Step 1: create all item containers in parallel.
+  span?.setAttribute("threads.step", "create_items");
+  const itemTimeout = Math.min(
+    THREADS_MEDIA_CONTAINER_TIMEOUT_MS,
+    Math.max(1_000, deadline - Date.now() - THREADS_PUBLISH_TIMEOUT_MS)
+  );
+  const itemIds = await Promise.all(
+    items.map((item) =>
+      createCarouselItem(serviceConnectionId, item, itemTimeout)
+    )
+  );
+
+  // Step 2: wait for every item container to reach FINISHED before building the carousel.
+  // Reserve budget for the carousel container + publish steps.
+  span?.setAttribute("threads.step", "wait_items");
+  const itemsPollDeadline = deadline - THREADS_PUBLISH_TIMEOUT_MS;
+  const readiness = await Promise.all(
+    itemIds.map((id) =>
+      waitForContainerReady(serviceConnectionId, id, itemsPollDeadline)
+    )
+  );
+  if (readiness.some((ready) => !ready)) {
+    return {
+      status: "partial_success",
+      item_ids: itemIds,
+      message:
+        "Carousel item containers were created, but some were still processing when the safe execution budget ran out. Retry the whole carousel — item containers cannot be reused once the request ends.",
+    };
+  }
+
+  // Step 3: create the carousel container referencing the item ids.
+  span?.setAttribute("threads.step", "create_carousel");
+  const body: Record<string, string> = {
+    media_type: "CAROUSEL",
+    children: itemIds.join(","),
+  };
+  if (text) body.text = text;
+  if (replyControl) body.reply_control = replyControl;
+  if (quotePostId) body.quote_post_id = quotePostId;
+
+  const carouselResult = (await threadsFetch(serviceConnectionId, "/me/threads", {
+    method: "POST",
+    body: JSON.stringify(body),
+    timeout: THREADS_MEDIA_CONTAINER_TIMEOUT_MS,
+    retry: false,
+  })) as { id: string };
+  span?.setAttribute("threads.container_id", carouselResult.id);
+
+  // Step 4: the carousel container itself must reach FINISHED before publishing.
+  span?.setAttribute("threads.step", "wait_carousel");
+  const ready = await waitForContainerReady(
+    serviceConnectionId,
+    carouselResult.id,
+    deadline - THREADS_PUBLISH_TIMEOUT_MS
+  );
+  if (!ready) {
+    return {
+      status: "partial_success",
+      creation_id: carouselResult.id,
+      message:
+        "Carousel container was created, but it was still processing when the safe execution budget ran out. Retry publishing with this creation_id once processing finishes.",
+    };
+  }
+
+  // Step 5: publish.
+  span?.setAttribute("threads.step", "publish");
+  return publishContainer(serviceConnectionId, carouselResult.id, deadline);
+}
+
 export const threadsTools: ToolDefinition[] = [
   // ─── Threads tools ────────────────────────────────────────────────────
   {
@@ -175,18 +288,49 @@ export const threadsTools: ToolDefinition[] = [
   },
   {
     name: "threads_publish_thread",
-    description: "Create and publish a thread. For text posts, set media_type to TEXT. For images, set to IMAGE with image_url. For videos, set to VIDEO with video_url.",
+    description: "Create and publish a thread. For text posts, set media_type to TEXT. For images, set to IMAGE with image_url. For videos, set to VIDEO with video_url. For a carousel (2-20 images/videos in one post), set media_type to CAROUSEL and pass items[] with each media's type and url; text is the carousel caption.",
     action: "threads:publish_thread",
     inputSchema: z.object({
-      text: z.string().max(THREADS_MAX_TEXT_LENGTH).optional().describe("Post text (max 500 characters)"),
-      media_type: z.enum(["TEXT", "IMAGE", "VIDEO"]).describe("Type of media"),
+      text: z.string().max(THREADS_MAX_TEXT_LENGTH).optional().describe("Post text (max 500 characters); for CAROUSEL this is the caption on the whole post"),
+      media_type: z.enum(["TEXT", "IMAGE", "VIDEO", "CAROUSEL"]).describe("Type of media"),
       image_url: z.string().optional().describe("Public URL of the image (for IMAGE type)"),
       video_url: z.string().optional().describe("Public URL of the video (for VIDEO type)"),
+      items: z
+        .array(
+          z.object({
+            type: z.enum(["IMAGE", "VIDEO"]).describe("Media type of this carousel item"),
+            url: z.string().describe("Public URL of the image or video"),
+          })
+        )
+        .min(THREADS_CAROUSEL_MIN_ITEMS)
+        .max(THREADS_CAROUSEL_MAX_ITEMS)
+        .optional()
+        .describe("Carousel items (2-20), required for CAROUSEL type"),
       reply_control: z.enum(["everyone", "accounts_you_follow", "mentioned_only"]).optional().describe("Who can reply"),
       link_attachment: z.string().optional().describe("URL to attach (TEXT posts only)"),
       quote_post_id: z.string().optional().describe("ID of post to quote"),
     }),
     handler: async (params, context) => {
+      if (params.media_type === "CAROUSEL") {
+        const items = params.items as
+          | Array<{ type: "IMAGE" | "VIDEO"; url: string }>
+          | undefined;
+        if (!items || items.length < THREADS_CAROUSEL_MIN_ITEMS) {
+          throw new Error(
+            `CAROUSEL requires items[] with ${THREADS_CAROUSEL_MIN_ITEMS}-${THREADS_CAROUSEL_MAX_ITEMS} media entries`
+          );
+        }
+        const carouselDeadline = Date.now() + THREADS_MEDIA_TOTAL_BUDGET_MS;
+        return publishCarousel(
+          context.serviceConnectionId,
+          items,
+          params.text as string | undefined,
+          params.reply_control as string | undefined,
+          params.quote_post_id as string | undefined,
+          carouselDeadline
+        );
+      }
+
       const isMedia = hasPublishMedia(params);
       const deadline =
         Date.now() +

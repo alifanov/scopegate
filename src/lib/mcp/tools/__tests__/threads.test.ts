@@ -90,7 +90,7 @@ describe("threads_publish_thread", () => {
           text: "Image post",
           image_url: "https://example.com/image.jpg",
         }),
-        timeout: 4_500,
+        timeout: 18_000,
         retry: false,
       }
     );
@@ -163,6 +163,86 @@ describe("threads_publish_thread", () => {
         { serviceConnectionId: "conn-dead" }
       )
     ).rejects.toThrow("Threads API timed out");
+  });
+
+  it("publishes a carousel: parallel item containers → carousel container → publish", async () => {
+    vi.mocked(threadsFetch)
+      .mockResolvedValueOnce({ id: "item-0" }) // create item 0
+      .mockResolvedValueOnce({ id: "item-1" }) // create item 1
+      .mockResolvedValueOnce({ status: "FINISHED" }) // poll item 0
+      .mockResolvedValueOnce({ status: "FINISHED" }) // poll item 1
+      .mockResolvedValueOnce({ id: "carousel-1" }) // create carousel container
+      .mockResolvedValueOnce({ status: "FINISHED" }) // poll carousel
+      .mockResolvedValueOnce({ id: "thread-carousel" }); // publish
+
+    await expect(
+      publishThreadTool.handler(
+        {
+          media_type: "CAROUSEL",
+          text: "My carousel",
+          items: [
+            { type: "IMAGE", url: "https://example.com/a.jpg" },
+            { type: "VIDEO", url: "https://example.com/b.mp4" },
+          ],
+        },
+        { serviceConnectionId: "conn-c" }
+      )
+    ).resolves.toEqual({ id: "thread-carousel" });
+
+    // item 0 container — is_carousel_item, image_url
+    expect(threadsFetch).toHaveBeenNthCalledWith(1, "conn-c", "/me/threads", {
+      method: "POST",
+      body: JSON.stringify({
+        media_type: "IMAGE",
+        is_carousel_item: "true",
+        image_url: "https://example.com/a.jpg",
+      }),
+      timeout: 18_000,
+      retry: false,
+    });
+    // item 1 container — is_carousel_item, video_url
+    expect(threadsFetch).toHaveBeenNthCalledWith(2, "conn-c", "/me/threads", {
+      method: "POST",
+      body: JSON.stringify({
+        media_type: "VIDEO",
+        is_carousel_item: "true",
+        video_url: "https://example.com/b.mp4",
+      }),
+      timeout: 18_000,
+      retry: false,
+    });
+    // carousel container references both children with the caption
+    expect(threadsFetch).toHaveBeenNthCalledWith(5, "conn-c", "/me/threads", {
+      method: "POST",
+      body: JSON.stringify({
+        media_type: "CAROUSEL",
+        children: "item-0,item-1",
+        text: "My carousel",
+      }),
+      timeout: 18_000,
+      retry: false,
+    });
+    // publishes the carousel container
+    expect(threadsFetch).toHaveBeenNthCalledWith(7, "conn-c", "/me/threads_publish", {
+      method: "POST",
+      body: JSON.stringify({ creation_id: "carousel-1" }),
+      timeout: 3_500,
+      retry: false,
+    });
+  });
+
+  it("rejects a CAROUSEL with fewer than 2 items without calling Meta", async () => {
+    await expect(
+      publishThreadTool.handler(
+        {
+          media_type: "CAROUSEL",
+          items: [{ type: "IMAGE", url: "https://example.com/a.jpg" }],
+        },
+        { serviceConnectionId: "conn-x" }
+      )
+    ).rejects.toThrow("CAROUSEL requires items[] with 2-20 media entries");
+
+    expect(threadsFetch).not.toHaveBeenCalled();
   });
 
   it("returns partial success when the container is still processing at the budget deadline", async () => {

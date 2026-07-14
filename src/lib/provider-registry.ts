@@ -58,6 +58,21 @@ export type OAuthErrorClassification = {
   permanentCodes?: readonly number[];
 };
 
+// Config for the OAuth "start" redirect (authorization URL) — the counterpart
+// to OAuthCallbackOpts used by createOAuthCallbackRoute. Only covers providers
+// whose start URL is a static authorize endpoint + querystring; providers with
+// dynamic behavior (google's multi-sub-provider selection, twitter's PKCE)
+// keep a hand-written route.
+export type OAuthStartConfig = {
+  authorizeUrl: string;
+  clientIdEnv: string;
+  // provider value written into the signed state — must match the callback's
+  // expectedProvider (e.g. Meta's route is "meta" but its provider is "metaAds")
+  stateProvider: string;
+  scope?: string;
+  extraParams?: Record<string, string>;
+};
+
 export type ProviderDef = {
   key: string;
   displayName: string;
@@ -66,6 +81,7 @@ export type ProviderDef = {
   transport?: TransportDef;
   actions: string[];
   oauthErrors?: OAuthErrorClassification;
+  oauthStart?: OAuthStartConfig;
 };
 
 // ─── Shared token configs ──────────────────────────────────────────────────────
@@ -356,6 +372,13 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
         "LinkedIn-Version": "202601",
       },
     },
+    oauthStart: {
+      authorizeUrl: "https://www.linkedin.com/oauth/v2/authorization",
+      clientIdEnv: "LINKEDIN_CLIENT_ID",
+      stateProvider: "linkedin",
+      scope: "openid profile email w_member_social",
+      extraParams: { response_type: "code" },
+    },
     actions: [
       "linkedin:get_profile",
       "linkedin:create_post",
@@ -439,6 +462,13 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
     description: "Access to Slack operations",
     token: STATIC,
     transport: { baseUrl: "https://slack.com/api" },
+    oauthStart: {
+      authorizeUrl: "https://slack.com/oauth/v2/authorize",
+      clientIdEnv: "SLACK_CLIENT_ID",
+      stateProvider: "slack",
+      scope:
+        "channels:read,channels:history,chat:write,users:read,users:read.email,reactions:write,reactions:read,files:read",
+    },
     actions: [
       "slack:list_channels",
       "slack:post_message",
@@ -459,6 +489,12 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
     transport: {
       baseUrl: "https://api.notion.com/v1",
       fixedHeaders: { "Notion-Version": "2022-06-28" },
+    },
+    oauthStart: {
+      authorizeUrl: "https://api.notion.com/v1/oauth/authorize",
+      clientIdEnv: "NOTION_CLIENT_ID",
+      stateProvider: "notion",
+      extraParams: { response_type: "code", owner: "user" },
     },
     actions: [
       "notion:search",
@@ -489,6 +525,13 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       authStyle: "body",
     },
     transport: { baseUrl: "https://api.hubapi.com" },
+    oauthStart: {
+      authorizeUrl: "https://app.hubspot.com/oauth/authorize",
+      clientIdEnv: "HUBSPOT_CLIENT_ID",
+      stateProvider: "hubspot",
+      scope:
+        "crm.objects.contacts.read crm.objects.contacts.write crm.objects.deals.read crm.objects.deals.write crm.objects.companies.read crm.objects.companies.write",
+    },
     actions: [
       "hubspot:list_contacts",
       "hubspot:get_contact",
@@ -515,6 +558,12 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
     transport: {
       baseUrl: "https://api.github.com",
       fixedHeaders: { Accept: "application/vnd.github.v3+json" },
+    },
+    oauthStart: {
+      authorizeUrl: "https://github.com/login/oauth/authorize",
+      clientIdEnv: "GITHUB_CLIENT_ID",
+      stateProvider: "github",
+      scope: "repo read:user user:email",
     },
     actions: [
       "github:list_repos",
@@ -554,6 +603,13 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
         return `https://api.atlassian.com/ex/jira/${cloudId}`;
       },
     },
+    oauthStart: {
+      authorizeUrl: "https://auth.atlassian.com/authorize",
+      clientIdEnv: "JIRA_CLIENT_ID",
+      stateProvider: "jira",
+      scope: "read:jira-work write:jira-work read:jira-user offline_access",
+      extraParams: { audience: "api.atlassian.com", response_type: "code", prompt: "consent" },
+    },
     actions: [
       "jira:list_projects",
       "jira:get_project",
@@ -591,6 +647,13 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
         return instanceUrl;
       },
     },
+    oauthStart: {
+      authorizeUrl: "https://login.salesforce.com/services/oauth2/authorize",
+      clientIdEnv: "SALESFORCE_CLIENT_ID",
+      stateProvider: "salesforce",
+      scope: "api refresh_token",
+      extraParams: { response_type: "code" },
+    },
     actions: [
       "salesforce:query",
       "salesforce:get_record",
@@ -615,6 +678,13 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
     // Meta Graph API error codes that mean an expired/revoked access token
     // (190, 102) or an invalidated session (463, 467).
     oauthErrors: { permanentCodes: [190, 102, 463, 467] },
+    oauthStart: {
+      authorizeUrl: "https://www.facebook.com/v21.0/dialog/oauth",
+      clientIdEnv: "META_APP_ID",
+      stateProvider: "metaAds",
+      scope: "ads_read,ads_management",
+      extraParams: { response_type: "code" },
+    },
     actions: [
       "metaAds:list_ad_accounts",
       "metaAds:get_ad_account",
@@ -750,6 +820,14 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
         delaysMs: [250, 500],
         retryNetworkErrors: true,
       },
+    },
+    oauthStart: {
+      authorizeUrl: "https://threads.net/oauth/authorize",
+      clientIdEnv: "THREADS_APP_ID",
+      stateProvider: "threads",
+      scope:
+        "threads_basic,threads_content_publish,threads_manage_replies,threads_read_replies,threads_manage_insights,threads_delete",
+      extraParams: { response_type: "code" },
     },
     actions: [
       "threads:get_profile",
@@ -898,3 +976,16 @@ export type OAuthCallbackRouteKey =
   | "slack"
   | "threads"
   | "twitter";
+
+// Only the "meta" route key differs from its registry key ("metaAds") —
+// google and twitter have no static oauthStart config (hand-written routes).
+const OAUTH_START_ROUTE_KEY_TO_PROVIDER_KEY: Partial<Record<OAuthCallbackRouteKey, string>> = {
+  meta: "metaAds",
+};
+
+export function getOAuthStartConfig(routeKey: OAuthCallbackRouteKey): OAuthStartConfig {
+  const providerKey = OAUTH_START_ROUTE_KEY_TO_PROVIDER_KEY[routeKey] ?? routeKey;
+  const config = getProviderDef(providerKey)?.oauthStart;
+  if (!config) throw new Error(`No oauthStart config registered for route "${routeKey}"`);
+  return config;
+}

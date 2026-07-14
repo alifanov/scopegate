@@ -1,4 +1,3 @@
-import { buildSignedState } from "@/lib/oauth-state";
 import { SpanStatusCode, trace } from "@opentelemetry/api";
 
 const THREADS_APP_ID = process.env.THREADS_APP_ID!;
@@ -7,26 +6,8 @@ const THREADS_SHORT_TOKEN_TIMEOUT_MS = 5_000;
 const THREADS_LONG_TOKEN_TIMEOUT_MS = 650;
 const THREADS_TRACER_NAME = "scopegate.oauth.threads";
 
-const THREADS_SCOPES =
-  "threads_basic,threads_content_publish,threads_manage_replies,threads_read_replies,threads_manage_insights,threads_delete";
-
 function getRedirectUri() {
   return `${process.env.BETTER_AUTH_URL}/api/oauth/threads/callback`;
-}
-
-export function buildThreadsAuthUrl(
-  projectId: string,
-  csrfToken: string
-): string {
-  const state = buildSignedState({ projectId, provider: "threads", csrfToken });
-  const params = new URLSearchParams({
-    client_id: THREADS_APP_ID,
-    redirect_uri: getRedirectUri(),
-    scope: THREADS_SCOPES,
-    response_type: "code",
-    state,
-  });
-  return `https://threads.net/oauth/authorize?${params.toString()}`;
 }
 
 function isTimeoutError(error: unknown): boolean {

@@ -1,4 +1,3 @@
-import { buildSignedState } from "@/lib/oauth-state";
 import { SpanStatusCode, trace } from "@opentelemetry/api";
 
 const META_APP_ID = process.env.META_APP_ID!;
@@ -7,21 +6,6 @@ const META_TRACER_NAME = "scopegate.oauth.meta";
 
 function getRedirectUri() {
   return `${process.env.BETTER_AUTH_URL}/api/oauth/meta/callback`;
-}
-
-export function buildMetaAuthUrl(
-  projectId: string,
-  csrfToken: string
-): string {
-  const state = buildSignedState({ projectId, provider: "metaAds", csrfToken });
-  const params = new URLSearchParams({
-    client_id: META_APP_ID,
-    redirect_uri: getRedirectUri(),
-    scope: "ads_read,ads_management",
-    response_type: "code",
-    state,
-  });
-  return `https://www.facebook.com/v21.0/dialog/oauth?${params.toString()}`;
 }
 
 async function metaTokenFetch(

@@ -1,6 +1,3 @@
-import { handleOAuthStart } from "@/lib/oauth-flow";
-import { buildNotionAuthUrl } from "@/lib/notion-oauth";
+import { createOAuthStartRoute } from "@/lib/oauth-start-route";
 
-export async function GET(request: Request) {
-  return handleOAuthStart(request, { buildUrl: buildNotionAuthUrl });
-}
+export const GET = createOAuthStartRoute("notion");

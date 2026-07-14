@@ -1,29 +1,8 @@
-import { buildSignedState } from "@/lib/oauth-state";
-
 const LINKEDIN_CLIENT_ID = process.env.LINKEDIN_CLIENT_ID!;
 const LINKEDIN_CLIENT_SECRET = process.env.LINKEDIN_CLIENT_SECRET!;
 
-const LINKEDIN_SCOPES = "openid profile email w_member_social";
-
 function getRedirectUri() {
   return `${process.env.BETTER_AUTH_URL}/api/oauth/linkedin/callback`;
-}
-
-export function buildLinkedInAuthUrl(
-  projectId: string,
-  csrfToken: string
-): string {
-  const state = buildSignedState({ projectId, provider: "linkedin", csrfToken });
-
-  const params = new URLSearchParams({
-    response_type: "code",
-    client_id: LINKEDIN_CLIENT_ID,
-    redirect_uri: getRedirectUri(),
-    scope: LINKEDIN_SCOPES,
-    state,
-  });
-
-  return `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`;
 }
 
 export async function exchangeLinkedInCodeForTokens(code: string) {

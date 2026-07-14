@@ -1,6 +1,3 @@
-import { handleOAuthStart } from "@/lib/oauth-flow";
-import { buildJiraAuthUrl } from "@/lib/jira-oauth";
+import { createOAuthStartRoute } from "@/lib/oauth-start-route";
 
-export async function GET(request: Request) {
-  return handleOAuthStart(request, { buildUrl: buildJiraAuthUrl });
-}
+export const GET = createOAuthStartRoute("jira");

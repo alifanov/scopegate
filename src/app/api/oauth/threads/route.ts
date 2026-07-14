@@ -1,6 +1,3 @@
-import { handleOAuthStart } from "@/lib/oauth-flow";
-import { buildThreadsAuthUrl } from "@/lib/threads-oauth";
+import { createOAuthStartRoute } from "@/lib/oauth-start-route";
 
-export async function GET(request: Request) {
-  return handleOAuthStart(request, { buildUrl: buildThreadsAuthUrl });
-}
+export const GET = createOAuthStartRoute("threads");

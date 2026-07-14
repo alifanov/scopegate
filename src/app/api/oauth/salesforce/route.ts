@@ -1,6 +1,3 @@
-import { handleOAuthStart } from "@/lib/oauth-flow";
-import { buildSalesforceAuthUrl } from "@/lib/salesforce-oauth";
+import { createOAuthStartRoute } from "@/lib/oauth-start-route";
 
-export async function GET(request: Request) {
-  return handleOAuthStart(request, { buildUrl: buildSalesforceAuthUrl });
-}
+export const GET = createOAuthStartRoute("salesforce");

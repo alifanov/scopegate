@@ -1,29 +1,8 @@
-import { buildSignedState } from "@/lib/oauth-state";
-
 const JIRA_CLIENT_ID = process.env.JIRA_CLIENT_ID!;
 const JIRA_CLIENT_SECRET = process.env.JIRA_CLIENT_SECRET!;
 
-const JIRA_SCOPES = "read:jira-work write:jira-work read:jira-user offline_access";
-
 function getRedirectUri() {
   return `${process.env.BETTER_AUTH_URL}/api/oauth/jira/callback`;
-}
-
-export function buildJiraAuthUrl(
-  projectId: string,
-  csrfToken: string
-): string {
-  const state = buildSignedState({ projectId, provider: "jira", csrfToken });
-  const params = new URLSearchParams({
-    audience: "api.atlassian.com",
-    client_id: JIRA_CLIENT_ID,
-    scope: JIRA_SCOPES,
-    redirect_uri: getRedirectUri(),
-    state,
-    response_type: "code",
-    prompt: "consent",
-  });
-  return `https://auth.atlassian.com/authorize?${params.toString()}`;
 }
 
 export async function exchangeJiraCodeForTokens(code: string) {

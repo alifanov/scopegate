@@ -1,27 +1,8 @@
-import { buildSignedState } from "@/lib/oauth-state";
-
 const SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID!;
 const SLACK_CLIENT_SECRET = process.env.SLACK_CLIENT_SECRET!;
 
-const SLACK_SCOPES =
-  "channels:read,channels:history,chat:write,users:read,users:read.email,reactions:write,reactions:read,files:read";
-
 function getRedirectUri() {
   return `${process.env.BETTER_AUTH_URL}/api/oauth/slack/callback`;
-}
-
-export function buildSlackAuthUrl(
-  projectId: string,
-  csrfToken: string
-): string {
-  const state = buildSignedState({ projectId, provider: "slack", csrfToken });
-  const params = new URLSearchParams({
-    client_id: SLACK_CLIENT_ID,
-    scope: SLACK_SCOPES,
-    redirect_uri: getRedirectUri(),
-    state,
-  });
-  return `https://slack.com/oauth/v2/authorize?${params.toString()}`;
 }
 
 export async function exchangeSlackCodeForTokens(code: string) {

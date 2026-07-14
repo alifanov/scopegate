@@ -1,26 +1,8 @@
-import { buildSignedState } from "@/lib/oauth-state";
-
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID!;
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET!;
 
-const GITHUB_SCOPES = "repo read:user user:email";
-
 function getRedirectUri() {
   return `${process.env.BETTER_AUTH_URL}/api/oauth/github/callback`;
-}
-
-export function buildGitHubAuthUrl(
-  projectId: string,
-  csrfToken: string
-): string {
-  const state = buildSignedState({ projectId, provider: "github", csrfToken });
-  const params = new URLSearchParams({
-    client_id: GITHUB_CLIENT_ID,
-    redirect_uri: getRedirectUri(),
-    scope: GITHUB_SCOPES,
-    state,
-  });
-  return `https://github.com/login/oauth/authorize?${params.toString()}`;
 }
 
 export async function exchangeGitHubCodeForTokens(code: string) {

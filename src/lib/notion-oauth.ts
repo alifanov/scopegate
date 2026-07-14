@@ -1,25 +1,8 @@
-import { buildSignedState } from "@/lib/oauth-state";
-
 const NOTION_CLIENT_ID = process.env.NOTION_CLIENT_ID!;
 const NOTION_CLIENT_SECRET = process.env.NOTION_CLIENT_SECRET!;
 
 function getRedirectUri() {
   return `${process.env.BETTER_AUTH_URL}/api/oauth/notion/callback`;
-}
-
-export function buildNotionAuthUrl(
-  projectId: string,
-  csrfToken: string
-): string {
-  const state = buildSignedState({ projectId, provider: "notion", csrfToken });
-  const params = new URLSearchParams({
-    client_id: NOTION_CLIENT_ID,
-    response_type: "code",
-    owner: "user",
-    redirect_uri: getRedirectUri(),
-    state,
-  });
-  return `https://api.notion.com/v1/oauth/authorize?${params.toString()}`;
 }
 
 export async function exchangeNotionCodeForTokens(code: string) {

@@ -1,5 +1,4 @@
 import { db } from "@/lib/db";
-import { buildSignedState } from "@/lib/oauth-state";
 import { getValidAccessTokenForConnection } from "@/lib/oauth-token-lifecycle";
 
 const SALESFORCE_CLIENT_ID = process.env.SALESFORCE_CLIENT_ID!;
@@ -7,21 +6,6 @@ const SALESFORCE_CLIENT_SECRET = process.env.SALESFORCE_CLIENT_SECRET!;
 
 function getRedirectUri() {
   return `${process.env.BETTER_AUTH_URL}/api/oauth/salesforce/callback`;
-}
-
-export function buildSalesforceAuthUrl(
-  projectId: string,
-  csrfToken: string
-): string {
-  const state = buildSignedState({ projectId, provider: "salesforce", csrfToken });
-  const params = new URLSearchParams({
-    response_type: "code",
-    client_id: SALESFORCE_CLIENT_ID,
-    redirect_uri: getRedirectUri(),
-    scope: "api refresh_token",
-    state,
-  });
-  return `https://login.salesforce.com/services/oauth2/authorize?${params.toString()}`;
 }
 
 export async function exchangeSalesforceCodeForTokens(code: string) {

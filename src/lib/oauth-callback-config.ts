@@ -54,11 +54,14 @@ const OAUTH_CALLBACK_REGISTRY: Record<OAuthCallbackRouteKey, OAuthCallbackFactor
         const { accountEmail, expiresAt } = connectionData;
 
         if (provider === "googleAds") {
+          // customerId (the real dedupe key for googleAds) is only known after a follow-up
+          // API call in afterPersist, so insert under a temp-unique accountEmail — one Google
+          // login can legitimately back multiple ad-customer connections — and finalize below.
           const created = await db.serviceConnection.create({
             data: {
               projectId,
               provider,
-              accountEmail,
+              accountEmail: `${accountEmail}#pending:${crypto.randomUUID()}`,
               accessToken: encryptedAccessToken,
               refreshToken: encryptedRefreshToken,
               expiresAt: expiresAt ?? null,
@@ -92,6 +95,8 @@ const OAUTH_CALLBACK_REGISTRY: Record<OAuthCallbackRouteKey, OAuthCallbackFactor
           }
 
           if (customers.length >= 2) {
+            // accountEmail stays pending — which customerId this row ends up under isn't known
+            // until the user picks one via ads-customers/route.ts, which finalizes it then.
             return clearAndRedirect(
               `${baseUrl}/projects/${projectId}/select-ads-account?connectionId=${connectionId}`,
             );
@@ -128,6 +133,7 @@ const OAUTH_CALLBACK_REGISTRY: Record<OAuthCallbackRouteKey, OAuthCallbackFactor
             await db.serviceConnection.update({
               where: { id: connectionId },
               data: {
+                accountEmail,
                 metadata: { googleAdsCustomerId: customerId, googleAdsCustomerName: customerName },
               },
             });
@@ -290,7 +296,6 @@ const OAUTH_CALLBACK_REGISTRY: Record<OAuthCallbackRouteKey, OAuthCallbackFactor
     const { exchangeTwitterCodeForTokens, getTwitterUserInfo } = await import(
       "@/lib/twitter-oauth"
     );
-    const { db } = await import("@/lib/db");
 
     return {
       expectedProvider: ["twitter", "twitterAds"],
@@ -306,42 +311,8 @@ const OAUTH_CALLBACK_REGISTRY: Record<OAuthCallbackRouteKey, OAuthCallbackFactor
           refreshToken: tokens.refresh_token ?? null,
         };
       },
-      persist: async ({
-        projectId,
-        provider,
-        connectionData,
-        encryptedAccessToken,
-        encryptedRefreshToken,
-      }) => {
-        const existing = await db.serviceConnection.findFirst({
-          where: { projectId, provider },
-        });
-        if (existing) {
-          await db.serviceConnection.update({
-            where: { id: existing.id },
-            data: {
-              accessToken: encryptedAccessToken,
-              refreshToken: encryptedRefreshToken,
-              accountEmail: connectionData.accountEmail,
-              expiresAt: connectionData.expiresAt ?? null,
-              status: "active",
-              lastError: null,
-            },
-          });
-          return existing.id;
-        }
-        const created = await db.serviceConnection.create({
-          data: {
-            projectId,
-            provider,
-            accountEmail: connectionData.accountEmail,
-            accessToken: encryptedAccessToken,
-            refreshToken: encryptedRefreshToken,
-            expiresAt: connectionData.expiresAt ?? null,
-          },
-        });
-        return created.id;
-      },
+      // No custom persist: falls back to the default accountEmail-keyed upsert,
+      // so multiple Twitter accounts in the same project no longer overwrite each other.
     };
   },
 };

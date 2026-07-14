@@ -111,6 +111,7 @@ model ServiceConnection {
   updatedAt           DateTime      @updatedAt
   mcpEndpoints        McpEndpoint[]
 
+  @@unique([projectId, provider, accountEmail])
   @@index([expiresAt])
   @@index([provider, expiresAt])
 }

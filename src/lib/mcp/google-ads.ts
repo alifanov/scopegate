@@ -1,6 +1,15 @@
 import { serviceFetch } from "@/lib/mcp/service-fetch";
 import { db } from "@/lib/db";
 
+const PENDING_ACCOUNT_EMAIL_RE = /#pending:[^#]+$/;
+
+// A googleAds connection is inserted under a temp-unique accountEmail (see
+// oauth-callback-config.ts) until its Google Ads customerId is known; this recovers the
+// real account identity for dedupe lookups before that finalization happens.
+export function stripPendingAccountEmail(accountEmail: string): string {
+  return accountEmail.replace(PENDING_ACCOUNT_EMAIL_RE, "");
+}
+
 export async function listAccessibleCustomers(
   serviceConnectionId: string
 ): Promise<Array<{ id: string; name: string; isManager: boolean }>> {

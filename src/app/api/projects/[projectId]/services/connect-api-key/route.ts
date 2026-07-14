@@ -171,33 +171,22 @@ export const POST = withProjectAuth<{ projectId: string }>(
 
     const accountEmail = label || validation.label || "API Key";
 
-    // Upsert: update existing or create new
-    const existing = await db.serviceConnection.findFirst({
-      where: { projectId, provider },
+    await db.serviceConnection.upsert({
+      where: { projectId_provider_accountEmail: { projectId, provider, accountEmail } },
+      update: {
+        accessToken: encryptedValue,
+        refreshToken: null,
+        status: "active",
+        lastError: null,
+      },
+      create: {
+        projectId,
+        provider,
+        accountEmail,
+        accessToken: encryptedValue,
+        refreshToken: null,
+      },
     });
-
-    if (existing) {
-      await db.serviceConnection.update({
-        where: { id: existing.id },
-        data: {
-          accessToken: encryptedValue,
-          refreshToken: null,
-          accountEmail,
-          status: "active",
-          lastError: null,
-        },
-      });
-    } else {
-      await db.serviceConnection.create({
-        data: {
-          projectId,
-          provider,
-          accountEmail,
-          accessToken: encryptedValue,
-          refreshToken: null,
-        },
-      });
-    }
 
     return NextResponse.json({ success: true });
   }

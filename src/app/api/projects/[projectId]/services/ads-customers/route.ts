@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withProjectAuth } from "@/lib/project-access";
-import { listAccessibleCustomers } from "@/lib/mcp/google-ads";
+import { listAccessibleCustomers, stripPendingAccountEmail } from "@/lib/mcp/google-ads";
 
 // GET /api/projects/[projectId]/services/ads-customers?connectionId=xxx
 export const GET = withProjectAuth<{ projectId: string }>(
@@ -58,12 +58,16 @@ export const POST = withProjectAuth<{ projectId: string }>(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
+    // accountEmail may still carry the temp-unique "#pending:" suffix (see oauth-callback-config.ts)
+    // until finalized below — recover the real account identity for the dedupe lookup.
+    const cleanAccountEmail = stripPendingAccountEmail(connection.accountEmail);
+
     // Check if another connection for this project already tracks the same customer
     const siblings = await db.serviceConnection.findMany({
       where: {
         projectId,
         provider: connection.provider,
-        accountEmail: connection.accountEmail,
+        accountEmail: cleanAccountEmail,
         id: { not: connectionId },
       },
     });
@@ -95,6 +99,7 @@ export const POST = withProjectAuth<{ projectId: string }>(
       await db.serviceConnection.update({
         where: { id: connectionId },
         data: {
+          accountEmail: cleanAccountEmail,
           metadata: {
             ...(metadata ?? {}),
             googleAdsCustomerId: customerId,

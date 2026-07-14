@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { getCurrentUser } from "@/lib/auth-middleware";
 import { parseAndVerifyState, parseCookieValue } from "@/lib/oauth-state";
 import { encrypt } from "@/lib/crypto";
-import { createId } from "@paralleldrive/cuid2";
 
 const COOKIE_OPTS = {
   httpOnly: true,
@@ -113,68 +113,29 @@ export async function persistOAuthConnection({
 }: PersistParams): Promise<string> {
   const { accountEmail, metadata } = connectionData;
   const expiresAt = connectionData.expiresAt ?? null;
-  const metadataJson = metadata ? JSON.stringify(metadata) : null;
-  const lockKey = `${projectId}:${provider}:${accountEmail}`;
-  const newId = createId();
 
-  const result = await db.$queryRaw<{ id: string }[]>`
-    WITH lock AS (
-      SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))
-    ),
-    updated AS (
-      UPDATE "ServiceConnection"
-      SET
-        "accessToken" = ${encryptedAccessToken},
-        "refreshToken" = ${encryptedRefreshToken},
-        "expiresAt" = ${expiresAt},
-        "metadata" = COALESCE(${metadataJson}::jsonb, "ServiceConnection"."metadata"),
-        "status" = 'active',
-        "lastError" = NULL,
-        "updatedAt" = NOW()
-      FROM lock
-      WHERE
-        "projectId" = ${projectId}
-        AND "provider" = ${provider}
-        AND "accountEmail" = ${accountEmail}
-      RETURNING "ServiceConnection"."id"
-    ),
-    inserted AS (
-      INSERT INTO "ServiceConnection" (
-        "id",
-        "projectId",
-        "provider",
-        "accountEmail",
-        "accessToken",
-        "refreshToken",
-        "expiresAt",
-        "metadata",
-        "status",
-        "createdAt",
-        "updatedAt"
-      )
-      SELECT
-        ${newId},
-        ${projectId},
-        ${provider},
-        ${accountEmail},
-        ${encryptedAccessToken},
-        ${encryptedRefreshToken},
-        ${expiresAt},
-        ${metadataJson}::jsonb,
-        'active',
-        NOW(),
-        NOW()
-      FROM lock
-      WHERE NOT EXISTS (SELECT 1 FROM updated)
-      RETURNING "id"
-    )
-    SELECT "id" FROM updated
-    UNION ALL
-    SELECT "id" FROM inserted
-    LIMIT 1
-  `;
+  const connection = await db.serviceConnection.upsert({
+    where: { projectId_provider_accountEmail: { projectId, provider, accountEmail } },
+    update: {
+      accessToken: encryptedAccessToken,
+      refreshToken: encryptedRefreshToken,
+      expiresAt,
+      status: "active",
+      lastError: null,
+      ...(metadata != null ? { metadata: metadata as Prisma.InputJsonValue } : {}),
+    },
+    create: {
+      projectId,
+      provider,
+      accountEmail,
+      accessToken: encryptedAccessToken,
+      refreshToken: encryptedRefreshToken,
+      expiresAt,
+      metadata: (metadata as Prisma.InputJsonValue | undefined) ?? undefined,
+    },
+  });
 
-  return result[0].id;
+  return connection.id;
 }
 
 async function defaultPersist(params: PersistParams): Promise<string> {

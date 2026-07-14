@@ -9,7 +9,7 @@ vi.mock("@/lib/db", () => {
       update: vi.fn(),
       delete: vi.fn(),
     },
-    $transaction: vi.fn((ops: unknown[]) => Promise.all(ops as Promise<unknown>[])),
+    $transaction: vi.fn((fn: (tx: unknown) => Promise<unknown>) => fn(db)),
   };
   return { db };
 });

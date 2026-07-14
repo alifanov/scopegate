@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withProjectAuth } from "@/lib/project-access";
-import { listAccessibleCustomers, stripPendingAccountEmail } from "@/lib/mcp/google-ads";
+import { listAccessibleCustomers } from "@/lib/mcp/google-ads";
+import { reconcileAdsCustomer } from "@/lib/ads-reconciliation";
 
 // GET /api/projects/[projectId]/services/ads-customers?connectionId=xxx
 export const GET = withProjectAuth<{ projectId: string }>(
@@ -58,59 +59,7 @@ export const POST = withProjectAuth<{ projectId: string }>(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    // accountEmail may still carry the temp-unique "#pending:" suffix (see oauth-callback-config.ts)
-    // until finalized below — recover the real account identity for the dedupe lookup.
-    const cleanAccountEmail = stripPendingAccountEmail(connection.accountEmail);
-
-    // Check if another connection for this project already tracks the same customer
-    const siblings = await db.serviceConnection.findMany({
-      where: {
-        projectId,
-        provider: connection.provider,
-        accountEmail: cleanAccountEmail,
-        id: { not: connectionId },
-      },
-    });
-    const duplicate = siblings.find(
-      (c) => (c.metadata as Record<string, unknown> | null)?.googleAdsCustomerId === customerId
-    );
-
-    if (duplicate) {
-      // Reconnecting an existing account — refresh tokens on the existing record, remove temp.
-      // Atomic: a crash between the two writes would otherwise orphan the temp connection.
-      const dupMeta = duplicate.metadata as Record<string, unknown> | null;
-      await db.$transaction([
-        db.serviceConnection.update({
-          where: { id: duplicate.id },
-          data: {
-            accessToken: connection.accessToken,
-            refreshToken: connection.refreshToken,
-            expiresAt: connection.expiresAt,
-            status: "active",
-            lastError: null,
-            metadata: {
-              ...(dupMeta ?? {}),
-              googleAdsCustomerId: customerId,
-              ...(customerName ? { googleAdsCustomerName: customerName } : {}),
-            },
-          },
-        }),
-        db.serviceConnection.delete({ where: { id: connectionId } }),
-      ]);
-    } else {
-      const metadata = connection.metadata as Record<string, unknown> | null;
-      await db.serviceConnection.update({
-        where: { id: connectionId },
-        data: {
-          accountEmail: cleanAccountEmail,
-          metadata: {
-            ...(metadata ?? {}),
-            googleAdsCustomerId: customerId,
-            ...(customerName ? { googleAdsCustomerName: customerName } : {}),
-          },
-        },
-      });
-    }
+    await reconcileAdsCustomer(connection, customerId, customerName);
 
     return NextResponse.json({ success: true });
   }

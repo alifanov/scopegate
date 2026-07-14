@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withProjectAuth } from "@/lib/project-access";
-import { revokeGoogleToken } from "@/lib/google-oauth";
-import { revokeLinkedInToken } from "@/lib/linkedin-oauth";
+import { revokeProviderToken } from "@/lib/service-revocation";
 import { decrypt } from "@/lib/crypto";
 
 // GET /api/projects/[projectId]/services
@@ -54,12 +53,7 @@ export const DELETE = withProjectAuth<{ projectId: string }>(
     // Revoke token with provider before deleting
     try {
       const token = decrypt(service.accessToken);
-      const googleProviders = new Set(["gmail", "calendar", "drive", "googleAds", "searchConsole"]);
-      if (googleProviders.has(service.provider)) {
-        await revokeGoogleToken(token);
-      } else if (service.provider === "linkedin") {
-        await revokeLinkedInToken(token);
-      }
+      await revokeProviderToken(service.provider, token);
     } catch (err) {
       console.warn("[ScopeGate] Token revocation before disconnect failed:", err);
     }

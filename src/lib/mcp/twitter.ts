@@ -1,5 +1,7 @@
+import { randomUUID } from "node:crypto";
 import { getValidAccessToken, OAuthTokenError } from "@/lib/oauth-token-lifecycle";
 import { serviceFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch";
+import { safeFetch } from "@/lib/mcp/safe-fetch";
 import { getProviderDef } from "@/lib/provider-registry";
 
 const TWITTER_UPLOAD_URL = "https://api.x.com/2/media/upload";
@@ -69,24 +71,48 @@ export async function twitterFetch(
   return res.json();
 }
 
+// safeFetch only accepts string/Buffer bodies (no FormData) — build the
+// multipart/form-data body by hand so the upload still goes through the
+// SSRF-safe transport instead of a bare fetch().
+function buildMultipartBody(
+  boundary: string,
+  fields: Array<{ name: string; value: string | Buffer; filename?: string; contentType?: string }>
+): Buffer {
+  const parts: Buffer[] = [];
+  for (const field of fields) {
+    let header = `--${boundary}\r\nContent-Disposition: form-data; name="${field.name}"`;
+    if (field.filename) header += `; filename="${field.filename}"`;
+    header += "\r\n";
+    if (field.contentType) header += `Content-Type: ${field.contentType}\r\n`;
+    header += "\r\n";
+    parts.push(Buffer.from(header, "utf-8"));
+    parts.push(typeof field.value === "string" ? Buffer.from(field.value, "utf-8") : field.value);
+    parts.push(Buffer.from("\r\n", "utf-8"));
+  }
+  parts.push(Buffer.from(`--${boundary}--\r\n`, "utf-8"));
+  return Buffer.concat(parts);
+}
+
 export async function twitterUploadMedia(
   serviceConnectionId: string,
   imageBuffer: Buffer,
   mimeType: string
 ): Promise<string> {
-  // FormData body is not supported by safeFetch — use bare fetch for this fixed-URL upload
   const accessToken = await getValidAccessToken(serviceConnectionId);
+  const boundary = `----ScopeGateBoundary${randomUUID()}`;
+  const category = mimeType.startsWith("image/gif") ? "tweet_gif" : "tweet_image";
+  const body = buildMultipartBody(boundary, [
+    { name: "media", value: imageBuffer, filename: "media", contentType: mimeType },
+    { name: "media_category", value: category },
+  ]);
 
-  const formData = new FormData();
-  formData.append("media", new Blob([imageBuffer.buffer as ArrayBuffer], { type: mimeType }));
-  formData.append("media_category", mimeType.startsWith("image/gif") ? "tweet_gif" : "tweet_image");
-
-  const res = await fetch(TWITTER_UPLOAD_URL, {
+  const res = await safeFetch(TWITTER_UPLOAD_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
+      "Content-Type": `multipart/form-data; boundary=${boundary}`,
     },
-    body: formData,
+    body: new Uint8Array(body),
   });
 
   if (!res.ok) {

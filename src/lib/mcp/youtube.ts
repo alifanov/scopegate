@@ -1,5 +1,5 @@
 import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
-import { serviceFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch";
+import { serviceJsonFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch";
 import { safeFetch } from "./safe-fetch";
 import { readBodyWithLimit } from "./media-body";
 
@@ -7,26 +7,13 @@ const MAX_VIDEO_BYTES = 256 * 1024 * 1024; // 256 MB in-memory limit
 
 const YOUTUBE_UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos";
 
-export async function youtubeFetch(
+export function youtubeFetch(
   serviceConnectionId: string,
   path: string,
   init?: ServiceFetchOptions,
   options?: { responseType?: "text" }
 ): Promise<unknown> {
-  const res = await serviceFetch(serviceConnectionId, path, init);
-
-  if (!res.ok) {
-    console.error(`[ScopeGate] YouTube API error (${res.status})`);
-    throw new Error("YouTube API request failed");
-  }
-
-  if (res.status === 204) return { success: true };
-
-  if (options?.responseType === "text") {
-    return { content: await res.text() };
-  }
-
-  return res.json();
+  return serviceJsonFetch(serviceConnectionId, path, "YouTube", init, options);
 }
 
 export async function youtubeUploadVideo(

@@ -1,6 +1,6 @@
-import { serviceFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch";
+import { serviceJsonFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch";
 
-export async function stripeFetch(
+export function stripeFetch(
   serviceConnectionId: string,
   path: string,
   init?: ServiceFetchOptions & { formData?: Record<string, string> }
@@ -16,12 +16,5 @@ export async function stripeFetch(
     overrides.body = new URLSearchParams(formData).toString();
   }
 
-  const res = await serviceFetch(serviceConnectionId, path, overrides);
-
-  if (!res.ok) {
-    console.error(`[ScopeGate] Stripe API error (${res.status})`);
-    throw new Error("Stripe API request failed");
-  }
-
-  return res.json();
+  return serviceJsonFetch(serviceConnectionId, path, "Stripe", overrides);
 }

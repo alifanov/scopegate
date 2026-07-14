@@ -1,10 +1,6 @@
-import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
-import { safeFetch, type SafeFetchOptions } from "@/lib/mcp/safe-fetch";
-import { retry, retryAfterDelayMs } from "@/lib/mcp/retry";
+import { serviceFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch";
 import { metrics, type Histogram } from "@opentelemetry/api";
 
-const WEBMASTERS_BASE_URL = "https://www.googleapis.com/webmasters/v3";
-const SEARCH_CONSOLE_V1_BASE_URL = "https://searchconsole.googleapis.com/v1";
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour — URL inspection results change at most hourly
 const URL_INSPECTION_TIMEOUT_MS = 5_000;
 
@@ -39,27 +35,16 @@ function isCacheable(method: string | undefined, path: string): boolean {
   return false;
 }
 
-async function fetchWithRetry(url: string, init: SafeFetchOptions): Promise<Response> {
-  return retry(() => safeFetch(url, init), {
-    delaysMs: [1_000, 2_000, 4_000],
-    shouldRetryResult: (res) => res.status === 429,
-    shouldRetryError: () => false,
-    getDelayMs: ({ result, fallbackDelayMs }) =>
-      retryAfterDelayMs(result?.headers.get("Retry-After") ?? null, fallbackDelayMs),
-  });
-}
-
 async function gscFetch(
   serviceConnectionId: string,
-  baseUrl: string,
+  baseUrlKey: "default" | "v1",
   path: string,
-  init?: RequestInit
+  init?: ServiceFetchOptions
 ): Promise<unknown> {
   const method = init?.method;
   const body = typeof init?.body === "string" ? init.body : undefined;
-  const fullUrl = `${baseUrl}${path}`;
   const cacheable = isCacheable(method, path);
-  const key = cacheKey(serviceConnectionId, fullUrl, body);
+  const key = cacheKey(serviceConnectionId, `${baseUrlKey}:${path}`, body);
 
   if (cacheable) {
     const cached = responseCache.get(key);
@@ -68,26 +53,20 @@ async function gscFetch(
     }
   }
 
-  const accessToken = await getValidAccessToken(serviceConnectionId);
+  const isUrlInspection = path.includes("/urlInspection/");
   const start = Date.now();
 
-  const isUrlInspection = path.includes("/urlInspection/");
-
-  const res = await fetchWithRetry(fullUrl, {
+  const res = await serviceFetch(serviceConnectionId, path, {
     ...init,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-      ...(init?.headers as Record<string, string> | undefined),
-    },
-    ...(isUrlInspection ? { timeout: URL_INSPECTION_TIMEOUT_MS } : {}),
+    ...(baseUrlKey === "v1" ? { baseUrlKey: "v1" } : {}),
+    timeout: isUrlInspection ? URL_INSPECTION_TIMEOUT_MS : init?.timeout,
   });
 
   recordLatency(Date.now() - start);
 
   if (!res.ok) {
     console.error(
-      `[ScopeGate] Google Search Console API error (${res.status}): ${baseUrl}${path}`
+      `[ScopeGate] Google Search Console API error (${res.status}): ${baseUrlKey}${path}`
     );
     throw new Error("Google Search Console API request failed");
   }
@@ -108,15 +87,15 @@ async function gscFetch(
 export async function googleSearchConsoleFetch(
   serviceConnectionId: string,
   path: string,
-  init?: RequestInit
+  init?: ServiceFetchOptions
 ): Promise<unknown> {
-  return gscFetch(serviceConnectionId, WEBMASTERS_BASE_URL, path, init);
+  return gscFetch(serviceConnectionId, "default", path, init);
 }
 
 export async function googleSearchConsoleV1Fetch(
   serviceConnectionId: string,
   path: string,
-  init?: RequestInit
+  init?: ServiceFetchOptions
 ): Promise<unknown> {
-  return gscFetch(serviceConnectionId, SEARCH_CONSOLE_V1_BASE_URL, path, init);
+  return gscFetch(serviceConnectionId, "v1", path, init);
 }

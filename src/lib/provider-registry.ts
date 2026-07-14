@@ -29,13 +29,24 @@ export type TokenConfig =
 
 export type TransportDef = {
   baseUrl: string | ((conn: ConnWithMeta) => string);
-  fixedHeaders?: Record<string, string>;
+  // Secondary base URLs for providers with more than one API surface (e.g. a
+  // v1 vs v2 host) — selected per-call via ServiceFetchOptions.baseUrlKey.
+  altBaseUrls?: Record<string, string | ((conn: ConnWithMeta) => string)>;
+  // Function form for headers whose value is read from the environment
+  // (e.g. Google Ads' developer-token) rather than being a fixed literal.
+  fixedHeaders?: Record<string, string> | (() => Record<string, string>);
+  // Some APIs (Meta Graph) take the access token as a query parameter
+  // instead of an Authorization header.
+  auth?: { location: "query"; param: string };
   timeoutMs?: number;
   retry?: {
     delaysMs: readonly number[];
     methods?: readonly string[];
     statusCodes?: readonly number[];
     retryNetworkErrors?: boolean;
+    // Use the response's Retry-After header (seconds or HTTP-date) as the
+    // retry delay instead of the fixed delaysMs schedule.
+    respectRetryAfterHeader?: boolean;
   };
 };
 
@@ -60,6 +71,14 @@ export type ProviderDef = {
 // ─── Shared token configs ──────────────────────────────────────────────────────
 
 const STATIC: TokenConfig = { kind: "static" };
+
+function getGoogleAdsDeveloperToken(): string {
+  const token = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+  if (!token) {
+    throw new Error("GOOGLE_ADS_DEVELOPER_TOKEN environment variable is required");
+  }
+  return token;
+}
 
 const GOOGLE_REFRESH: RefreshTokenConfig = {
   kind: "refresh",
@@ -127,6 +146,10 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
     displayName: "Google Ads",
     description: "Access to Google Ads operations",
     token: GOOGLE_REFRESH,
+    transport: {
+      baseUrl: "https://googleads.googleapis.com/v23",
+      fixedHeaders: () => ({ "developer-token": getGoogleAdsDeveloperToken() }),
+    },
     actions: [
       // Read - Campaigns
       "googleAds:list_campaigns",
@@ -211,6 +234,15 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
     displayName: "Google Search Console",
     description: "Access to Google Search Console operations",
     token: GOOGLE_REFRESH,
+    transport: {
+      baseUrl: "https://www.googleapis.com/webmasters/v3",
+      altBaseUrls: { v1: "https://searchconsole.googleapis.com/v1" },
+      retry: {
+        delaysMs: [1_000, 2_000, 4_000],
+        statusCodes: [429],
+        respectRetryAfterHeader: true,
+      },
+    },
     actions: [
       "searchConsole:list_sites",
       "searchConsole:get_site",
@@ -312,6 +344,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
     },
     transport: {
       baseUrl: "https://api.linkedin.com/rest",
+      altBaseUrls: { v2: "https://api.linkedin.com/v2" },
       timeoutMs: 1_400,
       retry: {
         delaysMs: [150, 300],
@@ -575,6 +608,10 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
     displayName: "Meta Ads",
     description: "Access to Facebook & Instagram Ads",
     token: { kind: "exchange", bufferMs: 24 * 60 * 60 * 1000, exchangeType: "meta" },
+    transport: {
+      baseUrl: "https://graph.facebook.com/v21.0",
+      auth: { location: "query", param: "access_token" },
+    },
     // Meta Graph API error codes that mean an expired/revoked access token
     // (190, 102) or an invalidated session (463, 467).
     oauthErrors: { permanentCodes: [190, 102, 463, 467] },

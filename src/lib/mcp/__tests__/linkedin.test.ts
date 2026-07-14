@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/lib/db";
-import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
 import { serviceFetch } from "@/lib/mcp/service-fetch";
 import { safeFetch } from "@/lib/mcp/safe-fetch";
 
@@ -124,8 +123,7 @@ describe("linkedinFetch", () => {
   });
 
   it("backfills the LinkedIn member URN metadata after the fallback /userinfo call", async () => {
-    vi.mocked(getValidAccessToken).mockResolvedValue("token-1");
-    vi.mocked(safeFetch).mockResolvedValue(
+    vi.mocked(serviceFetch).mockResolvedValue(
       new Response(JSON.stringify({ sub: "new-sub" }), { status: 200 })
     );
 
@@ -133,9 +131,10 @@ describe("linkedinFetch", () => {
       "urn:li:person:new-sub"
     );
 
-    expect(safeFetch).toHaveBeenCalledWith(
-      "https://api.linkedin.com/v2/userinfo",
-      expect.objectContaining({ timeout: LINKEDIN_DEFAULT_TIMEOUT_MS })
+    expect(serviceFetch).toHaveBeenCalledWith(
+      "conn-without-metadata",
+      "/userinfo",
+      expect.objectContaining({ timeout: LINKEDIN_DEFAULT_TIMEOUT_MS, baseUrlKey: "v2" })
     );
     expect(db.serviceConnection.update).toHaveBeenCalledWith({
       where: { id: "conn-without-metadata" },

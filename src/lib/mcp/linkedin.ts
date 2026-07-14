@@ -1,21 +1,14 @@
 import { trace } from "@opentelemetry/api";
 import { db } from "@/lib/db";
 import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
-import { serviceFetch } from "@/lib/mcp/service-fetch";
-import { safeFetch, type SafeFetchOptions } from "@/lib/mcp/safe-fetch";
+import { serviceFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch";
+import { safeFetch } from "@/lib/mcp/safe-fetch";
 import { getProviderDef } from "@/lib/provider-registry";
-import { isRetriableNetworkError, retry as retryOperation } from "@/lib/mcp/retry";
 
-const LINKEDIN_V2_BASE = "https://api.linkedin.com/v2";
 export const LINKEDIN_VERSION = "202601";
 const LINKEDIN_TRANSPORT = getProviderDef("linkedin")?.transport;
 export const LINKEDIN_DEFAULT_TIMEOUT_MS = LINKEDIN_TRANSPORT?.timeoutMs ?? 1_400;
 export const LINKEDIN_CREATE_POST_TIMEOUT_MS = 1_250;
-const LINKEDIN_RETRY_DELAYS_MS = LINKEDIN_TRANSPORT?.retry?.delaysMs ?? [150, 300];
-const LINKEDIN_FIXED_HEADERS = {
-  "X-Restli-Protocol-Version": "2.0.0",
-  "LinkedIn-Version": LINKEDIN_VERSION,
-};
 
 // Cache member URN per service connection
 const memberUrnCache = new Map<string, string>();
@@ -54,10 +47,8 @@ export async function getLinkedInMemberUrn(
   return urn;
 }
 
-type LinkedInFetchOptions = Omit<SafeFetchOptions, "headers"> & {
+type LinkedInFetchOptions = ServiceFetchOptions & {
   useV2?: boolean;
-  headers?: Record<string, string>;
-  retry?: boolean;
 };
 
 function recordLinkedInAttempts(attempts: number): void {
@@ -74,34 +65,13 @@ export async function linkedinFetch(
   const shouldRetry = retryOverride ?? method === "GET";
 
   try {
-    const res = useV2
-      ? await retryOperation(
-          async () => {
-            const accessToken = await getValidAccessToken(serviceConnectionId);
-            return safeFetch(`${LINKEDIN_V2_BASE}${path}`, {
-              timeout: LINKEDIN_DEFAULT_TIMEOUT_MS,
-              ...restInit,
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-                "Content-Type": "application/json",
-                ...LINKEDIN_FIXED_HEADERS,
-                ...restInit.headers,
-              },
-            });
-          },
-          {
-            delaysMs: shouldRetry ? LINKEDIN_RETRY_DELAYS_MS : [],
-            onAttempt: recordLinkedInAttempts,
-            shouldRetryResult: (response) => response.status >= 500,
-            shouldRetryError: shouldRetry ? isRetriableNetworkError : () => false,
-          }
-        )
-      : await serviceFetch(serviceConnectionId, path, {
-          timeout: LINKEDIN_DEFAULT_TIMEOUT_MS,
-          retry: shouldRetry,
-          onAttempt: recordLinkedInAttempts,
-          ...restInit,
-        });
+    const res = await serviceFetch(serviceConnectionId, path, {
+      timeout: LINKEDIN_DEFAULT_TIMEOUT_MS,
+      retry: shouldRetry,
+      onAttempt: recordLinkedInAttempts,
+      ...restInit,
+      ...(useV2 ? { baseUrlKey: "v2" } : {}),
+    });
 
     if (!res.ok) {
       console.error(`[ScopeGate] LinkedIn API error (${res.status})`);

@@ -1,33 +1,10 @@
-import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
-import { safeFetch } from "@/lib/mcp/safe-fetch";
+import { serviceFetch } from "@/lib/mcp/service-fetch";
 import { db } from "@/lib/db";
-
-const GOOGLE_ADS_API_VERSION = "v23";
-const GOOGLE_ADS_BASE_URL = `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}`;
-
-function getDeveloperToken(): string {
-  const token = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
-  if (!token) {
-    throw new Error("GOOGLE_ADS_DEVELOPER_TOKEN environment variable is required");
-  }
-  return token;
-}
 
 export async function listAccessibleCustomers(
   serviceConnectionId: string
 ): Promise<Array<{ id: string; name: string; isManager: boolean }>> {
-  const accessToken = await getValidAccessToken(serviceConnectionId);
-  const developerToken = getDeveloperToken();
-
-  const res = await safeFetch(
-    `${GOOGLE_ADS_BASE_URL}/customers:listAccessibleCustomers`,
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "developer-token": developerToken,
-      },
-    }
-  );
+  const res = await serviceFetch(serviceConnectionId, "/customers:listAccessibleCustomers");
 
   if (!res.ok) {
     console.error(`[ScopeGate] Google Ads listAccessibleCustomers error (${res.status})`);
@@ -43,15 +20,11 @@ export async function listAccessibleCustomers(
 
   const results = await Promise.allSettled(
     candidateIds.map(async (id) => {
-      const checkRes = await safeFetch(
-        `${GOOGLE_ADS_BASE_URL}/customers/${id}/googleAds:searchStream`,
+      const checkRes = await serviceFetch(
+        serviceConnectionId,
+        `/customers/${id}/googleAds:searchStream`,
         {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "developer-token": developerToken,
-            "Content-Type": "application/json",
-          },
           body: JSON.stringify({
             query:
               "SELECT customer.id, customer.descriptive_name, customer.status, customer.manager FROM customer LIMIT 1",
@@ -138,22 +111,12 @@ export async function googleAdsQuery(
   serviceConnectionId: string,
   gaqlQuery: string
 ): Promise<unknown> {
-  const [accessToken, customerId] = await Promise.all([
-    getValidAccessToken(serviceConnectionId),
-    getGoogleAdsCustomerId(serviceConnectionId),
-  ]);
+  const customerId = await getGoogleAdsCustomerId(serviceConnectionId);
 
-  const res = await safeFetch(
-    `${GOOGLE_ADS_BASE_URL}/customers/${customerId}/googleAds:searchStream`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "developer-token": getDeveloperToken(),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ query: gaqlQuery }),
-    }
+  const res = await serviceFetch(
+    serviceConnectionId,
+    `/customers/${customerId}/googleAds:searchStream`,
+    { method: "POST", body: JSON.stringify({ query: gaqlQuery }) }
   );
 
   if (!res.ok) {
@@ -181,22 +144,12 @@ export async function googleAdsMutate(
   resource: string,
   operations: unknown[]
 ): Promise<unknown> {
-  const [accessToken, customerId] = await Promise.all([
-    getValidAccessToken(serviceConnectionId),
-    getGoogleAdsCustomerId(serviceConnectionId),
-  ]);
+  const customerId = await getGoogleAdsCustomerId(serviceConnectionId);
 
-  const res = await safeFetch(
-    `${GOOGLE_ADS_BASE_URL}/customers/${customerId}/${resource}:mutate`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "developer-token": getDeveloperToken(),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ operations }),
-    }
+  const res = await serviceFetch(
+    serviceConnectionId,
+    `/customers/${customerId}/${resource}:mutate`,
+    { method: "POST", body: JSON.stringify({ operations }) }
   );
 
   if (!res.ok) {
@@ -211,22 +164,12 @@ export async function googleAdsApplyRecommendation(
   serviceConnectionId: string,
   operations: unknown[]
 ): Promise<unknown> {
-  const [accessToken, customerId] = await Promise.all([
-    getValidAccessToken(serviceConnectionId),
-    getGoogleAdsCustomerId(serviceConnectionId),
-  ]);
+  const customerId = await getGoogleAdsCustomerId(serviceConnectionId);
 
-  const res = await safeFetch(
-    `${GOOGLE_ADS_BASE_URL}/customers/${customerId}/recommendations:apply`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "developer-token": getDeveloperToken(),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ operations }),
-    }
+  const res = await serviceFetch(
+    serviceConnectionId,
+    `/customers/${customerId}/recommendations:apply`,
+    { method: "POST", body: JSON.stringify({ operations }) }
   );
 
   if (!res.ok) {
@@ -241,22 +184,12 @@ export async function googleAdsDismissRecommendation(
   serviceConnectionId: string,
   operations: unknown[]
 ): Promise<unknown> {
-  const [accessToken, customerId] = await Promise.all([
-    getValidAccessToken(serviceConnectionId),
-    getGoogleAdsCustomerId(serviceConnectionId),
-  ]);
+  const customerId = await getGoogleAdsCustomerId(serviceConnectionId);
 
-  const res = await safeFetch(
-    `${GOOGLE_ADS_BASE_URL}/customers/${customerId}/recommendations:dismiss`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "developer-token": getDeveloperToken(),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ operations }),
-    }
+  const res = await serviceFetch(
+    serviceConnectionId,
+    `/customers/${customerId}/recommendations:dismiss`,
+    { method: "POST", body: JSON.stringify({ operations }) }
   );
 
   if (!res.ok) {

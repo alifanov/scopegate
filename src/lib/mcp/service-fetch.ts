@@ -4,24 +4,35 @@ import { getValidAccessTokenForConnection } from "@/lib/oauth-token-lifecycle";
 import { safeFetch, type SafeFetchOptions } from "@/lib/mcp/safe-fetch";
 import { PROVIDER_REGISTRY } from "@/lib/provider-registry";
 import type { TransportDef } from "@/lib/provider-registry";
-import { isRetriableNetworkError, retry as retryOperation } from "@/lib/mcp/retry";
+import { isRetriableNetworkError, retry as retryOperation, retryAfterDelayMs } from "@/lib/mcp/retry";
 
 const tracer = trace.getTracer("scopegate");
 
 type DbConnection = Awaited<ReturnType<typeof db.serviceConnection.findUniqueOrThrow>>;
 
-type ProviderTransportConfig = Omit<TransportDef, "baseUrl"> & {
+type ProviderTransportConfig = Omit<TransportDef, "baseUrl" | "altBaseUrls"> & {
   baseUrl: string | ((conn: DbConnection) => string);
+  altBaseUrls?: Record<string, string | ((conn: DbConnection) => string)>;
 };
 
 const TRANSPORT_CONFIGS: Record<string, ProviderTransportConfig> = Object.fromEntries(
   PROVIDER_REGISTRY.filter((p) => p.transport !== undefined).map((p) => [p.key, p.transport!])
 );
 
+function resolveUrl(
+  value: string | ((conn: DbConnection) => string),
+  conn: DbConnection
+): string {
+  return typeof value === "function" ? value(conn) : value;
+}
+
 export type ServiceFetchOptions = Omit<SafeFetchOptions, "headers"> & {
   headers?: Record<string, string>;
   retry?: boolean;
   onAttempt?: (attempt: number) => void;
+  // Selects an entry from the provider's transport.altBaseUrls instead of
+  // the default baseUrl (e.g. LinkedIn's OIDC v2 host, GSC's v1 host).
+  baseUrlKey?: string;
 };
 
 /**
@@ -32,10 +43,10 @@ export type ServiceFetchOptions = Omit<SafeFetchOptions, "headers"> & {
  */
 export async function serviceFetch(
   connectionId: string,
-  path: string,
+  rawPath: string,
   init?: ServiceFetchOptions
 ): Promise<Response> {
-  const { retry: retryOverride, onAttempt, ...fetchInit } = init ?? {};
+  const { retry: retryOverride, onAttempt, baseUrlKey, ...fetchInit } = init ?? {};
   const conn = await db.serviceConnection.findUniqueOrThrow({
     where: { id: connectionId },
   });
@@ -46,15 +57,21 @@ export async function serviceFetch(
   }
 
   const accessToken = await getValidAccessTokenForConnection(conn);
-  const baseUrl =
-    typeof config.baseUrl === "function" ? config.baseUrl(conn) : config.baseUrl;
+  const altBaseUrl = baseUrlKey ? config.altBaseUrls?.[baseUrlKey] : undefined;
+  const baseUrl = resolveUrl(altBaseUrl ?? config.baseUrl, conn);
+  const fixedHeaders =
+    typeof config.fixedHeaders === "function" ? config.fixedHeaders() : config.fixedHeaders;
 
+  const isQueryAuth = config.auth?.location === "query";
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${accessToken}`,
+    ...(isQueryAuth ? {} : { Authorization: `Bearer ${accessToken}` }),
     "Content-Type": "application/json",
-    ...config.fixedHeaders,
+    ...fixedHeaders,
     ...fetchInit.headers,
   };
+  const path = isQueryAuth
+    ? `${rawPath}${rawPath.includes("?") ? "&" : "?"}${config.auth!.param}=${encodeURIComponent(accessToken)}`
+    : rawPath;
 
   const method = (fetchInit.method ?? "GET").toUpperCase();
   const timeout = fetchInit.timeout ?? config.timeoutMs;
@@ -114,5 +131,33 @@ export async function serviceFetch(
     shouldRetryError: retryConfig.retryNetworkErrors
       ? isRetriableNetworkError
       : () => false,
+    getDelayMs: retryConfig.respectRetryAfterHeader
+      ? ({ result, fallbackDelayMs }) =>
+          retryAfterDelayMs(result?.headers.get("Retry-After") ?? null, fallbackDelayMs)
+      : undefined,
   });
+}
+
+/**
+ * Thin envelope over serviceFetch for the common REST-JSON pattern shared by
+ * most providers: throw on non-2xx, treat 204 as a bodyless success, else
+ * parse JSON. `label` is used in the log line and thrown error message.
+ */
+export async function serviceJsonFetch(
+  connectionId: string,
+  path: string,
+  label: string,
+  init?: ServiceFetchOptions,
+  opts?: { responseType?: "text" }
+): Promise<unknown> {
+  const res = await serviceFetch(connectionId, path, init);
+
+  if (!res.ok) {
+    console.error(`[ScopeGate] ${label} API error (${res.status})`);
+    throw new Error(`${label} API request failed`);
+  }
+
+  if (res.status === 204) return { success: true };
+  if (opts?.responseType === "text") return { content: await res.text() };
+  return res.json();
 }

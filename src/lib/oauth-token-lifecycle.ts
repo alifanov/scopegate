@@ -1,12 +1,32 @@
 import { db } from "@/lib/db";
 import { encrypt, decrypt } from "@/lib/crypto";
 import { trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
+import type { Prisma } from "@/generated/prisma/client";
 import {
   PROVIDER_REGISTRY,
   EXCHANGE_PROVIDER_KEYS,
   type RefreshTokenConfig,
   type ExchangeTokenConfig,
 } from "@/lib/provider-registry";
+
+// Serializes all reads+writes for one connection's tokens behind a Postgres
+// advisory lock held for the transaction, so concurrent callers (on-demand
+// MCP calls, the refresh cron) coalesce onto a single network refresh instead
+// of racing a one-time-rotation refresh token (Google, Twitter) into a false
+// revoke. The lock is scoped to the connection id, not the row itself, so it
+// also serializes against refreshForCron.
+async function withConnectionLock<T>(
+  connectionId: string,
+  fn: (tx: Prisma.TransactionClient) => Promise<T>
+): Promise<T> {
+  return db.$transaction(
+    async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${connectionId}, 0))`;
+      return fn(tx);
+    },
+    { timeout: 15_000, maxWait: 5_000 }
+  );
+}
 
 export class OAuthTokenError extends Error {
   constructor(message: string) {
@@ -31,6 +51,15 @@ export async function revokeConnectionWithNotification(
   connectionId: string,
   message: string
 ): Promise<void> {
+  // Atomic conditional update: only the caller that actually flips
+  // active/error -> revoked proceeds to notify. Concurrent duplicate
+  // revokes match zero rows and return early.
+  const { count } = await db.serviceConnection.updateMany({
+    where: { id: connectionId, status: { not: "revoked" } },
+    data: { status: "revoked", lastError: message },
+  });
+  if (count !== 1) return;
+
   const conn = await db.serviceConnection.findUnique({
     where: { id: connectionId },
     select: {
@@ -41,12 +70,7 @@ export async function revokeConnectionWithNotification(
       projectId: true,
     },
   });
-  if (!conn || conn.status === "revoked") return;
-
-  await db.serviceConnection.update({
-    where: { id: connectionId },
-    data: { status: "revoked", lastError: message },
-  });
+  if (!conn) return;
 
   const teamMembers = await db.teamMember.findMany({
     where: { projectId: conn.projectId },
@@ -268,6 +292,13 @@ export async function getValidAccessToken(connectionId: string): Promise<string>
   return getValidAccessTokenForConnection(conn);
 }
 
+function needsRefresh(
+  expiresAt: Date | null,
+  bufferMs: number
+): boolean {
+  return !expiresAt || expiresAt.getTime() < Date.now() + bufferMs;
+}
+
 export async function getValidAccessTokenForConnection(conn: DbConnection): Promise<string> {
   if (conn.status === "revoked") {
     throw new OAuthTokenError(
@@ -281,53 +312,67 @@ export async function getValidAccessTokenForConnection(conn: DbConnection): Prom
     return decrypt(conn.accessToken);
   }
 
-  const needsRefresh =
-    !conn.expiresAt || conn.expiresAt.getTime() < Date.now() + config.bufferMs;
-
-  if (!needsRefresh) {
+  if (!needsRefresh(conn.expiresAt, config.bufferMs)) {
     return decrypt(conn.accessToken);
   }
 
-  if (config.kind === "exchange") {
-    const currentToken = decrypt(conn.accessToken);
-    let result: StandardTokenResponse;
-    try {
-      result = await config.doExchange(currentToken);
-    } catch {
-      // On-demand resilience: fall back to the current token if the exchange
-      // fails. The cron path (refreshForCron) owns status/backoff via the breaker.
-      return currentToken;
-    }
-    await db.serviceConnection.update({
-      where: { id: conn.id },
-      data: {
-        accessToken: encrypt(result.access_token),
-        expiresAt: new Date(Date.now() + result.expires_in * 1000),
-        status: "active",
-        lastError: null,
-      },
-    });
-    return result.access_token;
-  }
+  // Serialize on the connection id: a concurrent caller that wins the lock
+  // first performs the refresh; everyone else re-reads the now-fresh row
+  // once they acquire the lock and skips the network call entirely.
+  return withConnectionLock(conn.id, async (tx) => {
+    const fresh = await tx.serviceConnection.findUniqueOrThrow({ where: { id: conn.id } });
 
-  // kind === "refresh"
-  if (!conn.refreshToken) {
-    throw new OAuthTokenError(
-      `No refresh token available for connection ${conn.id} (${conn.provider})`
-    );
-  }
-  const tokens = await config.doRefresh(decrypt(conn.refreshToken));
-  const updateData: Record<string, unknown> = {
-    accessToken: encrypt(tokens.access_token),
-    expiresAt: new Date(Date.now() + tokens.expires_in * 1000),
-    status: "active",
-    lastError: null,
-  };
-  if (tokens.refresh_token) {
-    updateData.refreshToken = encrypt(tokens.refresh_token);
-  }
-  await db.serviceConnection.update({ where: { id: conn.id }, data: updateData });
-  return tokens.access_token;
+    if (fresh.status === "revoked") {
+      throw new OAuthTokenError(
+        `Connection ${fresh.id} (${fresh.provider}) is revoked — reconnect required`
+      );
+    }
+
+    if (!needsRefresh(fresh.expiresAt, config.bufferMs)) {
+      return decrypt(fresh.accessToken);
+    }
+
+    if (config.kind === "exchange") {
+      const currentToken = decrypt(fresh.accessToken);
+      let result: StandardTokenResponse;
+      try {
+        result = await config.doExchange(currentToken);
+      } catch {
+        // On-demand resilience: fall back to the current token if the exchange
+        // fails. The cron path (refreshForCron) owns status/backoff via the breaker.
+        return currentToken;
+      }
+      await tx.serviceConnection.update({
+        where: { id: fresh.id },
+        data: {
+          accessToken: encrypt(result.access_token),
+          expiresAt: new Date(Date.now() + result.expires_in * 1000),
+          status: "active",
+          lastError: null,
+        },
+      });
+      return result.access_token;
+    }
+
+    // kind === "refresh"
+    if (!fresh.refreshToken) {
+      throw new OAuthTokenError(
+        `No refresh token available for connection ${fresh.id} (${fresh.provider})`
+      );
+    }
+    const tokens = await config.doRefresh(decrypt(fresh.refreshToken));
+    const updateData: Record<string, unknown> = {
+      accessToken: encrypt(tokens.access_token),
+      expiresAt: new Date(Date.now() + tokens.expires_in * 1000),
+      status: "active",
+      lastError: null,
+    };
+    if (tokens.refresh_token) {
+      updateData.refreshToken = encrypt(tokens.refresh_token);
+    }
+    await tx.serviceConnection.update({ where: { id: fresh.id }, data: updateData });
+    return tokens.access_token;
+  });
 }
 
 export type RefreshForCronOutcome = "refreshed" | "skipped";
@@ -350,38 +395,51 @@ export async function refreshForCron(
 
   if (config.kind === "static") return "skipped";
 
-  if (config.kind === "exchange") {
-    const currentToken = decrypt(connection.accessToken);
-    const result = await config.doExchange(currentToken);
-    await db.serviceConnection.update({
+  // Same lock as the on-demand path: if a concurrent on-demand refresh already
+  // rotated the token by the time cron acquires the lock, re-check and skip
+  // rather than firing a redundant (and for one-time-rotation providers,
+  // failing) network refresh.
+  return withConnectionLock(connection.id, async (tx) => {
+    const fresh = await tx.serviceConnection.findUniqueOrThrow({
       where: { id: connection.id },
-      data: {
-        accessToken: encrypt(result.access_token),
-        expiresAt: new Date(Date.now() + result.expires_in * 1000),
-        status: "active",
-        lastError: null,
-        consecutiveFailures: 0,
-      },
     });
+
+    if (fresh.status === "revoked") return "skipped";
+    if (!needsRefresh(fresh.expiresAt, config.bufferMs)) return "skipped";
+
+    if (config.kind === "exchange") {
+      const currentToken = decrypt(fresh.accessToken);
+      const result = await config.doExchange(currentToken);
+      await tx.serviceConnection.update({
+        where: { id: connection.id },
+        data: {
+          accessToken: encrypt(result.access_token),
+          expiresAt: new Date(Date.now() + result.expires_in * 1000),
+          status: "active",
+          lastError: null,
+          consecutiveFailures: 0,
+        },
+      });
+      return "refreshed";
+    }
+
+    // kind === "refresh"
+    if (!fresh.refreshToken) return "skipped";
+
+    const tokens = await config.doRefresh(decrypt(fresh.refreshToken));
+    const updateData: Record<string, unknown> = {
+      accessToken: encrypt(tokens.access_token),
+      expiresAt: new Date(Date.now() + tokens.expires_in * 1000),
+      status: "active",
+      lastError: null,
+      consecutiveFailures: 0,
+    };
+    if (tokens.refresh_token) {
+      updateData.refreshToken = encrypt(tokens.refresh_token);
+    }
+    await tx.serviceConnection.update({ where: { id: connection.id }, data: updateData });
     return "refreshed";
-  }
-
-  // kind === "refresh"
-  if (!connection.refreshToken) return "skipped";
-
-  const tokens = await config.doRefresh(decrypt(connection.refreshToken));
-  const updateData: Record<string, unknown> = {
-    accessToken: encrypt(tokens.access_token),
-    expiresAt: new Date(Date.now() + tokens.expires_in * 1000),
-    status: "active",
-    lastError: null,
-    consecutiveFailures: 0,
-  };
-  if (tokens.refresh_token) {
-    updateData.refreshToken = encrypt(tokens.refresh_token);
-  }
-  await db.serviceConnection.update({ where: { id: connection.id }, data: updateData });
-  return "refreshed";
+  });
 }
 
 export { EXCHANGE_PROVIDER_KEYS as EXCHANGE_PROVIDERS };

@@ -24,7 +24,8 @@ vi.mock("@/lib/auth-middleware", async (importOriginal) => {
 
 vi.mock("@/lib/mcp/google-ads", () => ({
   listAccessibleCustomers: vi.fn(),
-  stripPendingAccountEmail: (email: string) => email.replace(/#pending:.*$/, ""),
+  googleAdsAccountEmail: (email: string, customerId: string) =>
+    `${email.replace(/#pending:.*$/, "")} (${customerId})`,
 }));
 
 import { POST } from "../route";

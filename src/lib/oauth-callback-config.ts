@@ -28,7 +28,9 @@ const OAUTH_CALLBACK_REGISTRY: Record<OAuthCallbackRouteKey, OAuthCallbackFactor
     const { persistOAuthConnection } = await import("@/lib/oauth-flow");
     const { encrypt } = await import("@/lib/crypto");
     const { db } = await import("@/lib/db");
-    const { listAccessibleCustomers } = await import("@/lib/mcp/google-ads");
+    const { listAccessibleCustomers, googleAdsAccountEmail } = await import(
+      "@/lib/mcp/google-ads"
+    );
 
     return {
       expectedProvider: VALID_PROVIDERS,
@@ -103,14 +105,14 @@ const OAUTH_CALLBACK_REGISTRY: Record<OAuthCallbackRouteKey, OAuthCallbackFactor
           }
 
           const [{ id: customerId, name: customerName }] = customers;
+          // accountEmail encodes the customerId, so a match on it already means the same Ads
+          // account — no need to compare metadata.
+          const finalEmail = googleAdsAccountEmail(accountEmail, customerId);
           const duplicate = await db.serviceConnection.findFirst({
-            where: { projectId, provider, accountEmail, id: { not: connectionId } },
+            where: { projectId, provider, accountEmail: finalEmail, id: { not: connectionId } },
           });
-          const dupCustomerId = (
-            duplicate?.metadata as Record<string, unknown> | null
-          )?.googleAdsCustomerId;
 
-          if (duplicate && dupCustomerId === customerId) {
+          if (duplicate) {
             const encAT = encrypt(tokens.access_token);
             const encRT = tokens.refresh_token ? encrypt(tokens.refresh_token) : null;
             await db.serviceConnection.update({
@@ -133,7 +135,7 @@ const OAUTH_CALLBACK_REGISTRY: Record<OAuthCallbackRouteKey, OAuthCallbackFactor
             await db.serviceConnection.update({
               where: { id: connectionId },
               data: {
-                accountEmail,
+                accountEmail: finalEmail,
                 metadata: { googleAdsCustomerId: customerId, googleAdsCustomerName: customerName },
               },
             });

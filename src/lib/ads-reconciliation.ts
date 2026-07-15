@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { stripPendingAccountEmail } from "@/lib/mcp/google-ads";
+import { googleAdsAccountEmail } from "@/lib/mcp/google-ads";
 import type { ServiceProvider } from "@/generated/prisma/client";
 
 type ServiceConnectionRow = {
@@ -48,19 +48,19 @@ export async function reconcileAdsCustomer(
   customerName: string | undefined,
   { database = db, transaction = defaultTransaction }: ReconcileOptions = {}
 ): Promise<void> {
-  const cleanAccountEmail = stripPendingAccountEmail(connection.accountEmail);
+  // accountEmail encodes the customerId, so it's the natural key: any sibling sharing it is the
+  // same Ads account being reconnected.
+  const finalAccountEmail = googleAdsAccountEmail(connection.accountEmail, customerId);
 
   const siblings = await database.serviceConnection.findMany({
     where: {
       projectId: connection.projectId,
       provider: connection.provider,
-      accountEmail: cleanAccountEmail,
+      accountEmail: finalAccountEmail,
       id: { not: connection.id },
     },
   });
-  const duplicate = siblings.find(
-    (c) => (c.metadata as Record<string, unknown> | null)?.googleAdsCustomerId === customerId
-  );
+  const duplicate = siblings[0];
 
   if (duplicate) {
     // Reconnecting an existing account — refresh tokens on the existing record, remove temp.
@@ -91,7 +91,7 @@ export async function reconcileAdsCustomer(
   await database.serviceConnection.update({
     where: { id: connection.id },
     data: {
-      accountEmail: cleanAccountEmail,
+      accountEmail: finalAccountEmail,
       metadata: {
         ...(metadata ?? {}),
         googleAdsCustomerId: customerId,

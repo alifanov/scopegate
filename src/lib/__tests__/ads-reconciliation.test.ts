@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { reconcileAdsCustomer } from "../ads-reconciliation";
 
 vi.mock("@/lib/mcp/google-ads", () => ({
-  stripPendingAccountEmail: (email: string) => email.replace(/#pending:.*$/, ""),
+  googleAdsAccountEmail: (email: string, customerId: string) =>
+    `${email.replace(/#pending:.*$/, "")} (${customerId})`,
 }));
 
 const database = {
@@ -76,7 +77,7 @@ describe("reconcileAdsCustomer", () => {
     expect(database.serviceConnection.update).toHaveBeenCalledWith({
       where: { id: "temp-1" },
       data: {
-        accountEmail: "user@example.com",
+        accountEmail: "user@example.com (456)",
         metadata: { googleAdsCustomerId: "456", googleAdsCustomerName: "My Account" },
       },
     });

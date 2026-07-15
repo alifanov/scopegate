@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   extractCustomerIds,
   flattenSearchStreamResults,
+  googleAdsAccountEmail,
   parseCustomerCheckResult,
   stripPendingAccountEmail,
 } from "@/lib/mcp/google-ads";
@@ -89,5 +90,22 @@ describe("stripPendingAccountEmail", () => {
 
   it("leaves a finalized accountEmail unchanged", () => {
     expect(stripPendingAccountEmail("user@example.com")).toBe("user@example.com");
+  });
+});
+
+describe("googleAdsAccountEmail", () => {
+  it("appends the customerId so distinct Ads accounts under one login stay unique", () => {
+    expect(googleAdsAccountEmail("user@example.com", "5437477721")).toBe(
+      "user@example.com (5437477721)"
+    );
+    expect(googleAdsAccountEmail("user@example.com", "9339932590")).toBe(
+      "user@example.com (9339932590)"
+    );
+  });
+
+  it("strips a still-pending suffix before appending the customerId", () => {
+    expect(googleAdsAccountEmail("user@example.com#pending:abc", "123")).toBe(
+      "user@example.com (123)"
+    );
   });
 });

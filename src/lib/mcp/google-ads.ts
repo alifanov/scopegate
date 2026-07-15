@@ -10,6 +10,14 @@ export function stripPendingAccountEmail(accountEmail: string): string {
   return accountEmail.replace(PENDING_ACCOUNT_EMAIL_RE, "");
 }
 
+// A single Google login manages many Ads customer accounts, so the login email alone isn't a
+// unique connection identity — the customerId is. Encode it into accountEmail (the same way
+// hubspot/slack embed their sub-account ids) so (projectId, provider, accountEmail) stays a
+// correct natural key and distinct Ads accounts under one login don't collide.
+export function googleAdsAccountEmail(email: string, customerId: string): string {
+  return `${stripPendingAccountEmail(email)} (${customerId})`;
+}
+
 type GoogleAdsCustomer = { id: string; name: string; isManager: boolean };
 
 // listAccessibleCustomers resource names look like "customers/1234567890"; pull the id out.

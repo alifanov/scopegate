@@ -8,6 +8,25 @@ const META_TOKEN_ERROR_CODES = getProviderDef("threads")?.oauthErrors?.permanent
 
 type MetaGraphError = { error?: { code?: number; message?: string } };
 
+// Carries the HTTP status + Meta error code so callers can distinguish a transient
+// server-side failure (500 code=1/2 — "unknown error"/"service unavailable", which
+// Meta routinely emits and a retry clears) from a real, non-retriable rejection.
+export class ThreadsApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code?: number
+  ) {
+    super(message);
+    this.name = "ThreadsApiError";
+  }
+
+  // Meta's transient publish failures: 5xx, or code 1 (unknown) / 2 (service unavailable).
+  get isTransient(): boolean {
+    return this.status >= 500 || this.code === 1 || this.code === 2;
+  }
+}
+
 const THREADS_DEFAULT_TIMEOUT_MS =
   getProviderDef("threads")?.transport?.timeoutMs ?? 8_000;
 
@@ -33,7 +52,11 @@ export async function threadsFetch(
           { provider: "threads", code: errorCode }
         );
       }
-      throw new Error(`Threads API error (${res.status}) code=${errorCode}: ${errorMessage}`);
+      throw new ThreadsApiError(
+        `Threads API error (${res.status}) code=${errorCode}: ${errorMessage}`,
+        res.status,
+        errorCode
+      );
     }
 
     return res.json();

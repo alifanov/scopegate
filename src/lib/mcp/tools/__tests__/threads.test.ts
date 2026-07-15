@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { threadsFetch } from "../../threads";
+import { threadsFetch, ThreadsApiError } from "../../threads";
 
-vi.mock("../../threads", () => ({
-  threadsFetch: vi.fn(),
-}));
+vi.mock("../../threads", async (importActual) => {
+  const actual = await importActual<typeof import("../../threads")>();
+  return { ...actual, threadsFetch: vi.fn() };
+});
 
 import {
   classifyContainerStatus,
@@ -206,6 +207,47 @@ describe("threads_publish_thread", () => {
       message:
         "Thread was published — confirmed via container status after the publish response failed. Do not retry.",
     });
+  });
+
+  it("retries a transient 500 code=1 publish error and succeeds", async () => {
+    vi.mocked(threadsFetch)
+      .mockResolvedValueOnce({ id: "container-r" }) // create container
+      .mockResolvedValueOnce({ status: "FINISHED" }) // status poll (wait_container)
+      .mockRejectedValueOnce(
+        new ThreadsApiError("Threads API error (500) code=1: An unknown error has occurred.", 500, 1)
+      ) // publish attempt 1 — Meta's transient 500
+      .mockResolvedValueOnce({ status: "FINISHED" }) // confirm poll — not published, terminal
+      .mockResolvedValueOnce({ id: "thread-r" }); // publish attempt 2 succeeds
+
+    await expect(
+      publishThreadTool.handler(
+        { media_type: "TEXT", text: "Hello" },
+        { serviceConnectionId: "conn-r" }
+      )
+    ).resolves.toEqual({ id: "thread-r" });
+
+    // create + wait poll + publish#1 + confirm poll + publish#2 = 5 calls
+    expect(threadsFetch).toHaveBeenCalledTimes(5);
+  });
+
+  it("does not retry a non-transient publish error (e.g. 400)", async () => {
+    vi.mocked(threadsFetch)
+      .mockResolvedValueOnce({ id: "container-4xx" })
+      .mockResolvedValueOnce({ status: "FINISHED" })
+      .mockRejectedValueOnce(
+        new ThreadsApiError("Threads API error (400) code=100: Invalid parameter", 400, 100)
+      ) // publish — permanent client error
+      .mockResolvedValueOnce({ status: "FINISHED" }); // confirm poll — not published
+
+    await expect(
+      publishThreadTool.handler(
+        { media_type: "TEXT", text: "Hello" },
+        { serviceConnectionId: "conn-4xx" }
+      )
+    ).rejects.toThrow("code=100");
+
+    // create + wait poll + publish#1 + confirm poll, then throws — no second publish
+    expect(threadsFetch).toHaveBeenCalledTimes(4);
   });
 
   it("rethrows the publish error when the post did not go live", async () => {

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { trace } from '@opentelemetry/api';
-import { threadsFetch } from '../threads';
+import { threadsFetch, ThreadsApiError } from '../threads';
 import { OAuthTokenError } from '@/lib/oauth-token-lifecycle';
 import type { ToolDefinition } from './types';
 
@@ -27,6 +27,10 @@ const THREADS_STATUS_POLL_INTERVAL_MS = 1_000;
 // After a failed publish response we briefly confirm the container actually went live.
 // Lives outside the 8s publish budget but well within the handler's 30s cap.
 const THREADS_CONFIRM_BUDGET_MS = 3_000;
+// Meta routinely emits a 500 code=1 ("unknown error") on threads_publish that a plain retry
+// clears. Retry a handful of times, each guarded by confirmPublished so we never double-post.
+const THREADS_PUBLISH_MAX_ATTEMPTS = 3;
+const THREADS_PUBLISH_RETRY_DELAY_MS = 600;
 
 const THREADS_MAX_TEXT_LENGTH = 500;
 
@@ -117,6 +121,9 @@ async function waitForContainerReady(
 // error, the caller would retry and double-post. So we poll the container status — it
 // flips to PUBLISHED once the post exists — and treat that as success. Best-effort:
 // failures during the poll are swallowed; if we can't confirm, the original error stands.
+// A terminal non-PUBLISHED status (still FINISHED, or ERROR/EXPIRED) proves the publish
+// didn't take and won't spontaneously, so we return false immediately instead of burning
+// the whole confirm budget — this keeps the guard cheap enough to run before every retry.
 async function confirmPublished(
   serviceConnectionId: string,
   creationId: string
@@ -130,6 +137,13 @@ async function confirmPublished(
         { timeout: THREADS_STATUS_POLL_TIMEOUT_MS, retry: false }
       )) as ThreadsContainerStatus;
       if (result.status === "PUBLISHED") return true;
+      if (
+        result.status === "FINISHED" ||
+        result.status === "ERROR" ||
+        result.status === "EXPIRED"
+      ) {
+        return false; // terminal, definitively not published — stop polling
+      }
     } catch {
       // ignore — confirmation is best-effort
     }
@@ -139,36 +153,54 @@ async function confirmPublished(
   return false;
 }
 
-// Publishes a ready container, capping the timeout against the remaining budget. On a
-// non-token error (timeout/network) it confirms via container status before giving up,
-// so a post that actually went live is never reported as a failure.
+// Publishes a ready container, capping the timeout against the remaining budget. Meta
+// routinely returns a transient 500 code=1 ("unknown error") on threads_publish that a
+// plain retry clears, so we retry those (and 5xx/code=2) a few times while budget remains.
+// Every attempt confirms via container status first: if the post actually went live it is
+// reported as success (never a failure), and confirming before each retry prevents a
+// double-post. A revoked/expired token surfaces immediately — that publish never happened.
 async function publishContainer(
   serviceConnectionId: string,
   creationId: string,
   deadline: number
 ): Promise<unknown> {
-  const publishTimeout = computeStepTimeout(THREADS_PUBLISH_TIMEOUT_MS, deadline, Date.now(), 0);
-  try {
-    return await threadsFetch(serviceConnectionId, "/me/threads_publish", {
-      method: "POST",
-      body: JSON.stringify({ creation_id: creationId }),
-      timeout: publishTimeout,
-      retry: false,
-    });
-  } catch (err) {
-    // A revoked/expired token means the publish definitely did not happen — surface it.
-    if (err instanceof OAuthTokenError) throw err;
-    if (await confirmPublished(serviceConnectionId, creationId)) {
-      return {
-        status: "success",
-        published: true,
-        creation_id: creationId,
-        message:
-          "Thread was published — confirmed via container status after the publish response failed. Do not retry.",
-      };
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= THREADS_PUBLISH_MAX_ATTEMPTS; attempt++) {
+    const publishTimeout = computeStepTimeout(THREADS_PUBLISH_TIMEOUT_MS, deadline, Date.now(), 0);
+    try {
+      return await threadsFetch(serviceConnectionId, "/me/threads_publish", {
+        method: "POST",
+        body: JSON.stringify({ creation_id: creationId }),
+        timeout: publishTimeout,
+        retry: false,
+      });
+    } catch (err) {
+      lastErr = err;
+      // A revoked/expired token means the publish definitely did not happen — surface it.
+      if (err instanceof OAuthTokenError) throw err;
+      // The post may already be live (timeout/network fired after Meta committed it) — a
+      // retry would double-post, so confirm before deciding to try again.
+      if (await confirmPublished(serviceConnectionId, creationId)) {
+        return {
+          status: "success",
+          published: true,
+          creation_id: creationId,
+          message:
+            "Thread was published — confirmed via container status after the publish response failed. Do not retry.",
+        };
+      }
+      // Retry only Meta's transient 5xx/code=1/2 errors, and only while budget remains.
+      const transient = err instanceof ThreadsApiError && err.isTransient;
+      const budgetLeft = deadline - Date.now() > THREADS_PUBLISH_RETRY_DELAY_MS + 1_000;
+      if (transient && budgetLeft && attempt < THREADS_PUBLISH_MAX_ATTEMPTS) {
+        trace.getActiveSpan()?.setAttribute("threads.publish_retry", attempt);
+        await sleep(THREADS_PUBLISH_RETRY_DELAY_MS);
+        continue;
+      }
+      throw err;
     }
-    throw err;
   }
+  throw lastErr;
 }
 
 // Creates a single carousel item container (is_carousel_item=true). Meta downloads the

@@ -198,6 +198,7 @@ if (!endpoint) {
             // Set http.route on incoming server spans so SigNoz can filter by route.
             const req = request as {
               url?: string;
+              method?: string;
               headers?: Record<string, string | string[] | undefined>;
             };
             if (typeof req.url !== "string" || !req.url) return;
@@ -212,15 +213,26 @@ if (!endpoint) {
             if (ua) span.setAttribute("user_agent.original", ua.slice(0, 256));
 
             const actionId = req.headers?.["next-action"];
+            const method = req.method ?? "GET";
+            let route: string;
             if (typeof actionId === "string" && !VALID_ACTION_ID.test(actionId)) {
               // Middleware will 400 this — group under a canonical route so SigNoz
               // shows these bot-scan blocks as a single aggregated route, not noise.
-              span.setAttribute("http.route", "/[blocked-action]");
+              route = "/[blocked-action]";
               span.setAttribute("block.reason", "invalid-next-action");
               blockedRequestsCounter?.add(1);
             } else {
-              span.setAttribute("http.route", normalizeRoute(req.url));
+              route = normalizeRoute(req.url);
             }
+            span.setAttribute("http.route", route);
+            // The instrumentation-http package names SERVER spans by method only
+            // ("GET"/"POST"/…), leaving http.route as a separate attribute. SigNoz's
+            // p99-by-endpoint query groups by span `name`, so long-lived requests
+            // (e.g. MCP SSE GET) were double-counted: once under "GET /api/mcp/[apiKey]"
+            // (Next.js's own inner span, already route-named) and again under the bare
+            // "GET" root span here — showing up as a mysterious "orphaned" ~60min p99.
+            // Renaming the span merges both into the same route-qualified bucket.
+            span.updateName(`${method} ${route}`);
           },
         },
         "@opentelemetry/instrumentation-undici": {

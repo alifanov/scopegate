@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { trace } from '@opentelemetry/api';
 import { threadsFetch, ThreadsApiError } from '../threads';
 import { OAuthTokenError } from '@/lib/oauth-token-lifecycle';
+import { recordThreadsPublishOutcome } from '../metrics';
 import type { ToolDefinition } from './types';
 
 // Meta processes media containers asynchronously: the create call returns a container id
@@ -29,6 +30,17 @@ const THREADS_STATUS_POLL_INTERVAL_MS = 1_000;
 const THREADS_CONFIRM_BUDGET_MS = 3_000;
 // Meta routinely emits a 500 code=1 ("unknown error") on threads_publish that a plain retry
 // clears. Retry a handful of times, each guarded by confirmPublished so we never double-post.
+//
+// This retry (added in dc4f88a) is a deliberate error-rate/latency trade: a call that used to
+// fail fast now spends up to (confirm poll + backoff) per attempt before succeeding, so its
+// duration moves from the error bucket into the p99 success bucket. That's the whole story
+// behind the 2026-07 p99 growth on threads_publish_thread (issue #173) — error rate fell in
+// lockstep as p99 rose, and the exact same trade was made once before (773b2c2, reverted for
+// the same latency reason) confirming it's the retry, not load or a Meta-side regression. Do
+// not "fix" this by shortening THREADS_MEDIA_TOTAL_BUDGET_MS or the retry count without
+// checking current error-rate impact first — that was already tried and reverted in 773b2c2.
+// recordThreadsPublishOutcome() below marks the slow-path calls (retried / partial_success)
+// so this trade-off's frequency is visible in SigNoz independent of the p99 number.
 const THREADS_PUBLISH_MAX_ATTEMPTS = 3;
 const THREADS_PUBLISH_RETRY_DELAY_MS = 600;
 
@@ -168,12 +180,14 @@ async function publishContainer(
   for (let attempt = 1; attempt <= THREADS_PUBLISH_MAX_ATTEMPTS; attempt++) {
     const publishTimeout = computeStepTimeout(THREADS_PUBLISH_TIMEOUT_MS, deadline, Date.now(), 0);
     try {
-      return await threadsFetch(serviceConnectionId, "/me/threads_publish", {
+      const result = await threadsFetch(serviceConnectionId, "/me/threads_publish", {
         method: "POST",
         body: JSON.stringify({ creation_id: creationId }),
         timeout: publishTimeout,
         retry: false,
       });
+      if (attempt > 1) recordThreadsPublishOutcome("success_after_retry");
+      return result;
     } catch (err) {
       lastErr = err;
       // A revoked/expired token means the publish definitely did not happen — surface it.
@@ -181,6 +195,7 @@ async function publishContainer(
       // The post may already be live (timeout/network fired after Meta committed it) — a
       // retry would double-post, so confirm before deciding to try again.
       if (await confirmPublished(serviceConnectionId, creationId)) {
+        recordThreadsPublishOutcome("success_after_retry");
         return {
           status: "success",
           published: true,
@@ -268,6 +283,7 @@ async function publishCarousel(
     )
   );
   if (readiness.some((ready) => !ready)) {
+    recordThreadsPublishOutcome("partial_success");
     return {
       status: "partial_success",
       item_ids: itemIds,
@@ -302,6 +318,7 @@ async function publishCarousel(
     deadline - THREADS_PUBLISH_TIMEOUT_MS
   );
   if (!ready) {
+    recordThreadsPublishOutcome("partial_success");
     return {
       status: "partial_success",
       creation_id: carouselResult.id,
@@ -451,6 +468,7 @@ export const threadsTools: ToolDefinition[] = [
         pollDeadline
       );
       if (!ready) {
+        recordThreadsPublishOutcome("partial_success");
         return {
           status: "partial_success",
           creation_id: containerResult.id,
@@ -558,6 +576,7 @@ export const threadsTools: ToolDefinition[] = [
         pollDeadline
       );
       if (!ready) {
+        recordThreadsPublishOutcome("partial_success");
         return {
           status: "partial_success",
           creation_id: containerResult.id,

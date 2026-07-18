@@ -6,8 +6,9 @@ import {
   linkedinFetch,
   getLinkedInMemberUrn,
   linkedinUploadImage,
+  linkedinUploadDocument,
 } from '../linkedin';
-import { downloadImage } from '../image-utils';
+import { downloadImage, downloadDocument } from '../image-utils';
 import type { ToolDefinition } from './types';
 
 const tracer = trace.getTracer("scopegate");
@@ -57,16 +58,19 @@ export const linkedinTools: ToolDefinition[] = [
   },
   {
     name: "linkedin_create_post",
-    description: "Create a new LinkedIn post (text, with link, or with image)",
+    description: "Create a new LinkedIn post (text, with link, with image, or with a document/PDF)",
     action: "linkedin:create_post",
     inputSchema: z.object({
       text: z.string().describe("The text content of the post"),
       link: z.string().url().optional().describe("Optional URL to share with the post"),
-      image_url: z.string().optional().describe("Optional image to attach to the post — either a URL or a base64 data URI (e.g. data:image/jpeg;base64,...). JPEG, PNG, or GIF, max 5MB. Cannot be used together with link."),
+      image_url: z.string().optional().describe("Optional image to attach to the post — either a URL or a base64 data URI (e.g. data:image/jpeg;base64,...). JPEG, PNG, or GIF, max 5MB. Cannot be used together with link or document_url."),
+      document_url: z.string().optional().describe("Optional document to attach as a native document/carousel post — either a URL or a base64 data URI. PDF, DOC, DOCX, PPT, or PPTX, max 100MB. Cannot be used together with link or image_url."),
+      document_title: z.string().optional().describe("Title shown for the attached document. Defaults to 'Document'. Only used with document_url."),
     }),
     handler: async (params, context) => {
-      if (params.link && params.image_url) {
-        throw new Error("Cannot use both 'link' and 'image_url' — LinkedIn posts support one content type at a time.");
+      const contentTypes = [params.link, params.image_url, params.document_url].filter(Boolean);
+      if (contentTypes.length > 1) {
+        throw new Error("Cannot combine 'link', 'image_url', and 'document_url' — LinkedIn posts support one content type at a time.");
       }
 
       const body = await traceLinkedInCreatePostPhase(
@@ -96,9 +100,36 @@ export const linkedinTools: ToolDefinition[] = [
           return payload;
         },
         {
-          "linkedin.content_type": params.link ? "link" : params.image_url ? "image" : "text",
+          "linkedin.content_type": params.link
+            ? "link"
+            : params.image_url
+              ? "image"
+              : params.document_url
+                ? "document"
+                : "text",
         }
       );
+
+      if (params.document_url) {
+        const documentUrn = await traceLinkedInCreatePostPhase(
+          "prepare_document",
+          async () => {
+            const doc = await downloadDocument(params.document_url as string);
+            return linkedinUploadDocument(
+              context.serviceConnectionId,
+              doc.buffer,
+              doc.mimeType
+            );
+          }
+        );
+
+        body.content = {
+          media: {
+            id: documentUrn,
+            title: (params.document_title as string) ?? "Document",
+          },
+        };
+      }
 
       if (params.image_url) {
         const imageUrn = await traceLinkedInCreatePostPhase(

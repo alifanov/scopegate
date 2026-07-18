@@ -10,6 +10,55 @@ export interface DownloadedImage {
   sizeBytes: number;
 }
 
+const ALLOWED_DOC_MIME_TYPES = [
+  "application/pdf",
+  "application/msword", // .doc
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+  "application/vnd.ms-powerpoint", // .ppt
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation", // .pptx
+];
+const MAX_DOC_SIZE_BYTES = 100 * 1024 * 1024; // 100MB — LinkedIn documents limit
+
+// Download a document (PDF/DOC/PPT) from a URL or base64 data URI, for LinkedIn document posts.
+// ponytail: mirrors downloadImage; separate allow-list + size cap for documents.
+export async function downloadDocument(urlOrBase64: string): Promise<DownloadedImage> {
+  if (urlOrBase64.startsWith("data:")) {
+    const match = urlOrBase64.match(/^data:([^;]+);base64,(.+)$/);
+    if (!match) {
+      throw new Error("Invalid data URI format. Expected: data:<mime>;base64,<data>");
+    }
+    const [, mimeType, base64Data] = match;
+    if (!ALLOWED_DOC_MIME_TYPES.includes(mimeType)) {
+      throw new Error(
+        `Unsupported document type: ${mimeType}. Allowed: ${ALLOWED_DOC_MIME_TYPES.join(", ")}`
+      );
+    }
+    const buffer = Buffer.from(base64Data, "base64");
+    if (buffer.length > MAX_DOC_SIZE_BYTES) {
+      throw new Error(
+        `Document too large: ${(buffer.length / 1024 / 1024).toFixed(1)}MB. Max: 100MB`
+      );
+    }
+    return { buffer, mimeType, sizeBytes: buffer.length };
+  }
+
+  const res = await safeFetch(urlOrBase64);
+  if (!res.ok) {
+    throw new Error(`Failed to download document (${res.status}): ${res.statusText}`);
+  }
+
+  const contentType = res.headers.get("content-type")?.split(";")[0]?.trim();
+  if (!contentType || !ALLOWED_DOC_MIME_TYPES.includes(contentType)) {
+    throw new Error(
+      `Unsupported document type: ${contentType ?? "unknown"}. Allowed: ${ALLOWED_DOC_MIME_TYPES.join(", ")}`
+    );
+  }
+
+  const buffer = await readBodyWithLimit(res, MAX_DOC_SIZE_BYTES, "Document");
+
+  return { buffer, mimeType: contentType, sizeBytes: buffer.length };
+}
+
 export async function downloadImage(urlOrBase64: string): Promise<DownloadedImage> {
   // Handle data URI (base64)
   if (urlOrBase64.startsWith("data:")) {

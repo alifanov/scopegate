@@ -145,3 +145,52 @@ export async function linkedinUploadImage(
 
   return imageUrn;
 }
+
+export async function linkedinUploadDocument(
+  serviceConnectionId: string,
+  documentBuffer: Buffer,
+  mimeType: string
+): Promise<string> {
+  const authorUrn = await getLinkedInMemberUrn(serviceConnectionId);
+
+  // Step 1: Initialize upload via standard REST transport
+  const initRes = await serviceFetch(
+    serviceConnectionId,
+    "/documents?action=initializeUpload",
+    {
+      method: "POST",
+      body: JSON.stringify({ initializeUploadRequest: { owner: authorUrn } }),
+    }
+  );
+
+  if (!initRes.ok) {
+    throw new Error("LinkedIn document upload init failed");
+  }
+
+  const initData = (await initRes.json()) as {
+    value?: { uploadUrl?: string; document?: string };
+  };
+
+  const uploadUrl = initData.value?.uploadUrl;
+  const documentUrn = initData.value?.document;
+  if (!uploadUrl || !documentUrn) {
+    throw new Error("LinkedIn document upload init did not return uploadUrl or document URN");
+  }
+
+  // Step 2: Upload binary document to the provider-returned URL (SSRF-safe)
+  const accessToken = await getValidAccessToken(serviceConnectionId);
+  const uploadRes = await safeFetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": mimeType,
+    },
+    body: new Uint8Array(documentBuffer),
+  });
+
+  if (!uploadRes.ok) {
+    throw new Error("LinkedIn document binary upload failed");
+  }
+
+  return documentUrn;
+}

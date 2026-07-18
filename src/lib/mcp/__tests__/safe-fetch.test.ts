@@ -399,4 +399,27 @@ describe("safeFetch – SSRF protection", () => {
       expect(cb).toHaveBeenCalledWith(null, "93.184.216.34", 4);
     });
   });
+
+  describe("User-Agent header", () => {
+    it("sends a default User-Agent when the caller sets none", async () => {
+      mockDns({ address: "93.184.216.34", family: 4 });
+      mockHttpsResponse(200);
+      await safeFetch("https://example.com/file.pdf");
+      const opts = mockHttpsRequest.mock.calls[0][0] as RequestOptions;
+      const headers = opts.headers as Record<string, string>;
+      expect(headers["User-Agent"]).toContain("ScopeGate");
+    });
+
+    it("preserves a caller-supplied User-Agent", async () => {
+      mockDns({ address: "93.184.216.34", family: 4 });
+      mockHttpsResponse(200);
+      await safeFetch("https://example.com/file.pdf", {
+        headers: { "user-agent": "Custom/9.9" },
+      });
+      const opts = mockHttpsRequest.mock.calls[0][0] as RequestOptions;
+      const headers = opts.headers as Record<string, string>;
+      expect(headers["user-agent"]).toBe("Custom/9.9");
+      expect(headers["User-Agent"]).toBeUndefined();
+    });
+  });
 });

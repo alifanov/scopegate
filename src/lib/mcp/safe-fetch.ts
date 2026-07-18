@@ -5,6 +5,12 @@ import { trace } from "@opentelemetry/api";
 
 const MAX_REDIRECTS = 5;
 
+// Some hosts (e.g. catbox.moe) reset the connection ("socket hang up" / ECONNRESET)
+// on requests without a User-Agent as bot/hotlink protection. Send a default UA
+// unless the caller set one explicitly.
+const DEFAULT_USER_AGENT =
+  "Mozilla/5.0 (compatible; ScopeGate/1.0; +https://scopegate.chatindex.app)";
+
 // IPv4 private/reserved ranges
 const PRIVATE_IPV4: RegExp[] = [
   /^0\./,                                       // 0.0.0.0/8 — this-network
@@ -134,13 +140,18 @@ function makeRequest(
     const method = (options?.method as string | undefined) ?? "GET";
     const timeoutMs = options?.timeout;
 
+    const headers = headersToRecord(options?.headers);
+    if (!Object.keys(headers).some((k) => k.toLowerCase() === "user-agent")) {
+      headers["User-Agent"] = DEFAULT_USER_AGENT;
+    }
+
     const req = https.request(
       {
         hostname: parsed.hostname, // used for SNI in TLS handshake
         port,
         path: parsed.pathname + (parsed.search ?? ""),
         method,
-        headers: headersToRecord(options?.headers),
+        headers,
         // Pin DNS: always return the already-validated IP, blocking any re-resolution.
         // Node 20+ enables autoSelectFamily (Happy Eyeballs) by default, which invokes
         // the custom lookup with `{ all: true }` and expects an ARRAY of { address, family }

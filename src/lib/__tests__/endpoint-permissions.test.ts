@@ -3,6 +3,8 @@ import {
   EndpointPermissionError,
   applyEndpointPermissions,
   createProjectEndpoint,
+  deleteEndpoint,
+  regenerateEndpointKey,
   validateEndpointPermissions,
 } from "../endpoint-permissions";
 
@@ -10,6 +12,7 @@ const database = {
   serviceConnection: { findFirst: vi.fn() },
   mcpEndpoint: {
     create: vi.fn(),
+    delete: vi.fn(),
     findFirst: vi.fn(),
     findUnique: vi.fn(),
     update: vi.fn(),
@@ -158,5 +161,94 @@ describe("endpoint permission service", () => {
     // state and no audit row for a change that never fully landed
     expect(database.mcpEndpoint.findUnique).not.toHaveBeenCalled();
     expect(audit).not.toHaveBeenCalled();
+  });
+
+  describe("deleteEndpoint", () => {
+    it("throws 404 when the endpoint does not belong to the project", async () => {
+      database.mcpEndpoint.findFirst.mockResolvedValue(null);
+
+      await expect(
+        deleteEndpoint(
+          { projectId: "project-1", endpointId: "endpoint-1" },
+          { database, audit }
+        )
+      ).rejects.toMatchObject({ message: "Not found", status: 404 });
+
+      expect(database.mcpEndpoint.delete).not.toHaveBeenCalled();
+    });
+
+    it("deletes the endpoint and records an audit row", async () => {
+      database.mcpEndpoint.findFirst.mockResolvedValue({
+        id: "endpoint-1",
+        projectId: "project-1",
+        name: "Production",
+        serviceConnectionId: "connection-1",
+      });
+      database.mcpEndpoint.delete.mockResolvedValue({ id: "endpoint-1" });
+
+      await deleteEndpoint(
+        { projectId: "project-1", endpointId: "endpoint-1" },
+        { database, audit }
+      );
+
+      expect(database.mcpEndpoint.delete).toHaveBeenCalledWith({
+        where: { id: "endpoint-1" },
+      });
+      expect(audit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectId: "project-1",
+          action: "endpoint:delete",
+          status: "success",
+          params: expect.objectContaining({
+            endpointId: "endpoint-1",
+            name: "Production",
+            serviceConnectionId: "connection-1",
+          }),
+        })
+      );
+    });
+  });
+
+  describe("regenerateEndpointKey", () => {
+    it("throws 404 when the endpoint does not belong to the project", async () => {
+      database.mcpEndpoint.findFirst.mockResolvedValue(null);
+
+      await expect(
+        regenerateEndpointKey(
+          { projectId: "project-1", endpointId: "endpoint-1" },
+          { database, audit, apiKeyGenerator: () => "sg_new" }
+        )
+      ).rejects.toMatchObject({ message: "Not found", status: 404 });
+
+      expect(database.mcpEndpoint.update).not.toHaveBeenCalled();
+    });
+
+    it("regenerates the API key and records an audit row", async () => {
+      database.mcpEndpoint.findFirst.mockResolvedValue({ id: "endpoint-1" });
+      database.mcpEndpoint.update.mockResolvedValue({
+        id: "endpoint-1",
+        apiKey: "sg_new",
+      });
+
+      const endpoint = await regenerateEndpointKey(
+        { projectId: "project-1", endpointId: "endpoint-1" },
+        { database, audit, apiKeyGenerator: () => "sg_new" }
+      );
+
+      expect(endpoint.apiKey).toBe("sg_new");
+      expect(database.mcpEndpoint.update).toHaveBeenCalledWith({
+        where: { id: "endpoint-1" },
+        data: { apiKey: "sg_new" },
+        select: { id: true, apiKey: true },
+      });
+      expect(audit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          endpointId: "endpoint-1",
+          projectId: "project-1",
+          action: "endpoint:regenerate_key",
+          status: "success",
+        })
+      );
+    });
   });
 });

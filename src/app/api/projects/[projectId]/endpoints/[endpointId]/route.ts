@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withProjectAuth } from "@/lib/project-access";
-import { recordAudit } from "@/lib/audit";
 import {
   applyEndpointPermissions,
+  deleteEndpoint,
   EndpointPermissionError,
 } from "@/lib/endpoint-permissions";
 
@@ -68,26 +68,21 @@ export const PATCH = withProjectAuth<Params>(
 export const DELETE = withProjectAuth<Params>(
   "owner",
   async (_request, { params: { projectId, endpointId } }) => {
-    const existing = await db.mcpEndpoint.findFirst({
-      where: { id: endpointId, projectId },
-    });
-    if (!existing) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    try {
+      await deleteEndpoint({ projectId, endpointId });
+      return NextResponse.json({ success: true });
+    } catch (error) {
+      if (error instanceof EndpointPermissionError) {
+        return NextResponse.json(
+          { error: error.message },
+          { status: error.status }
+        );
+      }
+
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 }
+      );
     }
-
-    await db.mcpEndpoint.delete({ where: { id: endpointId } });
-
-    await recordAudit({
-      projectId,
-      action: "endpoint:delete",
-      params: {
-        endpointId,
-        name: existing.name,
-        serviceConnectionId: existing.serviceConnectionId,
-      },
-      status: "success",
-    });
-
-    return NextResponse.json({ success: true });
   }
 );

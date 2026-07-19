@@ -8,7 +8,7 @@ type EndpointDatabase = {
   serviceConnection: Pick<typeof db.serviceConnection, "findFirst">;
   mcpEndpoint: Pick<
     typeof db.mcpEndpoint,
-    "create" | "findFirst" | "findUnique" | "update"
+    "create" | "delete" | "findFirst" | "findUnique" | "update"
   >;
   endpointPermission: Pick<
     typeof db.endpointPermission,
@@ -51,6 +51,11 @@ export type UpdateEndpointInput = {
   isActive?: boolean;
   rateLimitPerMinute?: number;
   permissions?: string[];
+};
+
+export type EndpointRefInput = {
+  projectId: string;
+  endpointId: string;
 };
 
 type ServiceOptions = {
@@ -192,4 +197,61 @@ export async function applyEndpointPermissions(
   });
 
   return updated;
+}
+
+export async function deleteEndpoint(
+  input: EndpointRefInput,
+  { database = db, audit = recordAudit }: ServiceOptions = {}
+) {
+  const existing = await database.mcpEndpoint.findFirst({
+    where: { id: input.endpointId, projectId: input.projectId },
+  });
+  if (!existing) {
+    throw new EndpointPermissionError("Not found", 404);
+  }
+
+  await database.mcpEndpoint.delete({ where: { id: input.endpointId } });
+
+  await audit({
+    projectId: input.projectId,
+    action: "endpoint:delete",
+    params: {
+      endpointId: input.endpointId,
+      name: existing.name,
+      serviceConnectionId: existing.serviceConnectionId,
+    },
+    status: "success",
+  });
+}
+
+export async function regenerateEndpointKey(
+  input: EndpointRefInput,
+  {
+    database = db,
+    audit = recordAudit,
+    apiKeyGenerator = generateMcpApiKey,
+  }: ServiceOptions = {}
+) {
+  const existing = await database.mcpEndpoint.findFirst({
+    where: { id: input.endpointId, projectId: input.projectId },
+  });
+  if (!existing) {
+    throw new EndpointPermissionError("Not found", 404);
+  }
+
+  const endpoint = await database.mcpEndpoint.update({
+    where: { id: input.endpointId },
+    data: { apiKey: apiKeyGenerator() },
+    select: { id: true, apiKey: true },
+  });
+
+  await audit({
+    endpointId: input.endpointId,
+    projectId: input.projectId,
+    action: "endpoint:regenerate_key",
+    params: { endpointId: input.endpointId },
+    status: "success",
+  });
+
+  return endpoint;
 }

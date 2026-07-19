@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import type { Prisma, ServiceProvider } from "@/generated/prisma/client";
-import { getCurrentUser } from "@/lib/auth-middleware";
+import {
+  AuthError,
+  UnauthorizedError,
+  authErrorResponse,
+  requireCurrentUser,
+  type CurrentUser,
+} from "@/lib/auth-middleware";
+import { authorizeProject } from "@/lib/project-access";
 import { parseAndVerifyState, parseCookieValue } from "@/lib/oauth-state";
 import { encrypt } from "@/lib/crypto";
 
@@ -23,22 +30,17 @@ export async function handleOAuthStart(
   request: Request,
   opts: OAuthStartOpts,
 ): Promise<NextResponse> {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const { searchParams } = new URL(request.url);
   const projectId = searchParams.get("projectId");
   if (!projectId) {
     return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
   }
 
-  const member = await db.teamMember.findUnique({
-    where: { userId_projectId: { userId: user.userId, projectId } },
-  });
-  if (!member) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  try {
+    const user = await requireCurrentUser();
+    await authorizeProject(user, projectId, "owner");
+  } catch (error) {
+    return authErrorResponse(error);
   }
 
   const csrfToken = crypto.randomUUID();
@@ -188,18 +190,20 @@ export async function handleOAuthCallback<T extends OAuthTokenResult = OAuthToke
     );
   }
 
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.redirect(`${baseUrl}/login`);
-  }
-
-  const member = await db.teamMember.findUnique({
-    where: { userId_projectId: { userId: user.userId, projectId } },
-  });
-  if (!member) {
-    return NextResponse.redirect(
-      `${baseUrl}/projects/${projectId}?tab=services&error=oauth_failed`,
-    );
+  let user: CurrentUser;
+  try {
+    user = await requireCurrentUser();
+    await authorizeProject(user, projectId, "owner");
+  } catch (authError) {
+    if (authError instanceof UnauthorizedError) {
+      return NextResponse.redirect(`${baseUrl}/login`);
+    }
+    if (authError instanceof AuthError) {
+      return NextResponse.redirect(
+        `${baseUrl}/projects/${projectId}?tab=services&error=oauth_failed`,
+      );
+    }
+    throw authError;
   }
 
   const extras: Record<string, string> = {};

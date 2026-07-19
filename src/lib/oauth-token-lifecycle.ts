@@ -285,7 +285,9 @@ type ProviderConfig =
       bufferMs: number;
       // Throws OAuthTokenError on failure. The cron path (refreshForCron) lets the
       // throw drive the circuit breaker (status/backoff); the on-demand path
-      // (getValidAccessTokenForConnection) catches it and falls back to the current token.
+      // (getValidAccessTokenForConnection) records the same transient failure via
+      // recordTransientTokenFailure, then falls back to the current token below the
+      // threshold — and rethrows once it escalates to revoked.
       doExchange: (currentToken: string) => Promise<StandardTokenResponse>;
     };
 
@@ -459,9 +461,20 @@ export async function getValidAccessTokenForConnection(conn: DbConnection): Prom
       let result: StandardTokenResponse;
       try {
         result = await config.doExchange(currentToken);
-      } catch {
-        // On-demand resilience: fall back to the current token if the exchange
-        // fails. The cron path (refreshForCron) owns status/backoff via the breaker.
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown token exchange error";
+        // Same failure-streak/circuit breaker the refresh path drives via handler.ts's
+        // OAuthTokenError catch — without this, exchange failures were invisible and
+        // consecutiveFailures never grew, so a dying connection could exchange-and-fall-back
+        // forever without ever escalating to revoked.
+        const outcome = await recordTransientTokenFailure(fresh.id, message);
+        if (outcome === "revoked") {
+          throw err instanceof OAuthTokenError
+            ? err
+            : new OAuthTokenError(message, { provider: fresh.provider });
+        }
+        // Still below the threshold — on-demand resilience: fall back to the
+        // current token. refreshForCron keeps retrying the exchange on its own schedule.
         return currentToken;
       }
       await tx.serviceConnection.update({

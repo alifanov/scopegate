@@ -121,7 +121,7 @@ describe("metaAds token exchange", () => {
     expect(mockSpan.setAttribute).toHaveBeenCalledWith("error.type", "190");
   });
 
-  it("getValidAccessTokenForConnection falls back to the current token on exchange failure (on-demand resilience)", async () => {
+  it("getValidAccessTokenForConnection falls back to the current token on exchange failure (on-demand resilience), but records the transient failure", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => ({
@@ -130,10 +130,54 @@ describe("metaAds token exchange", () => {
         json: async () => ({ error: { code: 190, message: "expired" } }),
       }))
     );
+    vi.mocked(db.serviceConnection.update).mockResolvedValue({
+      consecutiveFailures: 1,
+    } as never);
 
     const token = await getValidAccessTokenForConnection(baseConn as never);
     expect(token).toBe("short-lived-token");
-    expect(db.serviceConnection.update).not.toHaveBeenCalled();
+    // Same circuit breaker the refresh path drives via handler.ts — exchange
+    // failures must bump the failure streak too, not just fall back silently.
+    expect(db.serviceConnection.update).toHaveBeenCalledWith({
+      where: { id: "conn-1" },
+      data: {
+        status: "error",
+        lastError: expect.stringContaining("code=190"),
+        consecutiveFailures: { increment: 1 },
+      },
+      select: { consecutiveFailures: true },
+    });
+  });
+
+  it("getValidAccessTokenForConnection throws and revokes once repeated exchange failures hit the threshold", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: { code: 190, message: "expired" } }),
+      }))
+    );
+    vi.mocked(db.serviceConnection.update).mockResolvedValue({
+      consecutiveFailures: CONSECUTIVE_FAILURES_THRESHOLD,
+    } as never);
+    vi.mocked(db.serviceConnection.updateMany).mockResolvedValue({ count: 1 });
+    vi.mocked(db.serviceConnection.findUnique).mockResolvedValue({
+      id: "conn-1",
+      status: "error",
+      provider: "metaAds",
+      accountEmail: "u@example.com",
+      projectId: "proj-1",
+    } as never);
+    vi.mocked(db.teamMember.findMany).mockResolvedValue([]);
+
+    await expect(getValidAccessTokenForConnection(baseConn as never)).rejects.toBeInstanceOf(
+      OAuthTokenError
+    );
+    expect(db.serviceConnection.updateMany).toHaveBeenCalledWith({
+      where: { id: "conn-1", status: { not: "revoked" } },
+      data: { status: "revoked", lastError: expect.stringContaining("code=190") },
+    });
   });
 
   it("refreshForCron persists the new token on a successful exchange", async () => {

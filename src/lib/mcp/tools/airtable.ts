@@ -1,30 +1,27 @@
 import { z } from 'zod';
-import { airtableFetch } from '../airtable';
+import { serviceJsonFetch } from '@/lib/mcp/service-fetch';
+import { createFetchTool } from './fetch-tool';
 import type { ToolDefinition } from './types';
 
 export const airtableTools: ToolDefinition[] = [
   // =====================
   // Airtable tools
   // =====================
-  {
+  createFetchTool(serviceJsonFetch, {
     name: "airtable_list_bases",
     description: "List all Airtable bases",
     action: "airtable:list_bases",
     inputSchema: z.object({}),
-    handler: async (_params, context) => {
-      return airtableFetch(context.serviceConnectionId, "/meta/bases");
-    },
-  },
-  {
+    path: "/meta/bases",
+  }),
+  createFetchTool(serviceJsonFetch, {
     name: "airtable_get_base_schema",
     description: "Get the schema of an Airtable base",
     action: "airtable:get_base_schema",
     inputSchema: z.object({ baseId: z.string() }),
-    handler: async (params, context) => {
-      return airtableFetch(context.serviceConnectionId, `/meta/bases/${params.baseId}/tables`);
-    },
-  },
-  {
+    path: (params) => `/meta/bases/${params.baseId}/tables`,
+  }),
+  createFetchTool(serviceJsonFetch, {
     name: "airtable_list_records",
     description: "List records in an Airtable table",
     action: "airtable:list_records",
@@ -34,13 +31,13 @@ export const airtableTools: ToolDefinition[] = [
       maxRecords: z.number().min(1).max(100).optional().default(20),
       view: z.string().optional(),
     }),
-    handler: async (params, context) => {
-      const query = new URLSearchParams({ maxRecords: String(params.maxRecords ?? 20) });
-      if (params.view) query.set("view", params.view as string);
-      return airtableFetch(context.serviceConnectionId, `/${params.baseId}/${params.tableIdOrName}?${query.toString()}`);
-    },
-  },
-  {
+    path: (params) => `/${params.baseId}/${params.tableIdOrName}`,
+    query: (params) => ({
+      maxRecords: (params.maxRecords as number) ?? 20,
+      view: params.view as string | undefined,
+    }),
+  }),
+  createFetchTool(serviceJsonFetch, {
     name: "airtable_get_record",
     description: "Get a specific Airtable record",
     action: "airtable:get_record",
@@ -49,11 +46,9 @@ export const airtableTools: ToolDefinition[] = [
       tableIdOrName: z.string(),
       recordId: z.string(),
     }),
-    handler: async (params, context) => {
-      return airtableFetch(context.serviceConnectionId, `/${params.baseId}/${params.tableIdOrName}/${params.recordId}`);
-    },
-  },
-  {
+    path: (params) => `/${params.baseId}/${params.tableIdOrName}/${params.recordId}`,
+  }),
+  createFetchTool(serviceJsonFetch, {
     name: "airtable_create_record",
     description: "Create a new record in an Airtable table",
     action: "airtable:create_record",
@@ -62,14 +57,11 @@ export const airtableTools: ToolDefinition[] = [
       tableIdOrName: z.string(),
       fields: z.record(z.string(), z.unknown()),
     }),
-    handler: async (params, context) => {
-      return airtableFetch(context.serviceConnectionId, `/${params.baseId}/${params.tableIdOrName}`, {
-        method: "POST",
-        body: JSON.stringify({ fields: params.fields }),
-      });
-    },
-  },
-  {
+    path: (params) => `/${params.baseId}/${params.tableIdOrName}`,
+    method: "POST",
+    body: (params) => ({ fields: params.fields }),
+  }),
+  createFetchTool(serviceJsonFetch, {
     name: "airtable_update_record",
     description: "Update an Airtable record",
     action: "airtable:update_record",
@@ -79,14 +71,11 @@ export const airtableTools: ToolDefinition[] = [
       recordId: z.string(),
       fields: z.record(z.string(), z.unknown()),
     }),
-    handler: async (params, context) => {
-      return airtableFetch(context.serviceConnectionId, `/${params.baseId}/${params.tableIdOrName}/${params.recordId}`, {
-        method: "PATCH",
-        body: JSON.stringify({ fields: params.fields }),
-      });
-    },
-  },
-  {
+    path: (params) => `/${params.baseId}/${params.tableIdOrName}/${params.recordId}`,
+    method: "PATCH",
+    body: (params) => ({ fields: params.fields }),
+  }),
+  createFetchTool(serviceJsonFetch, {
     name: "airtable_delete_record",
     description: "Delete an Airtable record",
     action: "airtable:delete_record",
@@ -95,10 +84,7 @@ export const airtableTools: ToolDefinition[] = [
       tableIdOrName: z.string(),
       recordId: z.string(),
     }),
-    handler: async (params, context) => {
-      return airtableFetch(context.serviceConnectionId, `/${params.baseId}/${params.tableIdOrName}/${params.recordId}`, {
-        method: "DELETE",
-      });
-    },
-  },
+    path: (params) => `/${params.baseId}/${params.tableIdOrName}/${params.recordId}`,
+    method: "DELETE",
+  }),
 ];

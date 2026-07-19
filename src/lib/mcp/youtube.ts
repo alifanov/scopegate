@@ -13,7 +13,7 @@ export function youtubeFetch(
   init?: ServiceFetchOptions,
   options?: { responseType?: "text" }
 ): Promise<unknown> {
-  return serviceJsonFetch(serviceConnectionId, path, "YouTube", init, options);
+  return serviceJsonFetch(serviceConnectionId, path, init, options);
 }
 
 export async function youtubeUploadVideo(

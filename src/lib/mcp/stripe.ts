@@ -16,5 +16,5 @@ export function stripeFetch(
     overrides.body = new URLSearchParams(formData).toString();
   }
 
-  return serviceJsonFetch(serviceConnectionId, path, "Stripe", overrides);
+  return serviceJsonFetch(serviceConnectionId, path, overrides);
 }

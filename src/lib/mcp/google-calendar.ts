@@ -5,5 +5,5 @@ export function googleCalendarFetch(
   path: string,
   init?: ServiceFetchOptions
 ): Promise<unknown> {
-  return serviceJsonFetch(serviceConnectionId, path, "Google Calendar", init);
+  return serviceJsonFetch(serviceConnectionId, path, init);
 }

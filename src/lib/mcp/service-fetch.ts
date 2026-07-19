@@ -5,6 +5,7 @@ import { safeFetch, type SafeFetchOptions } from "@/lib/mcp/safe-fetch";
 import { PROVIDER_REGISTRY } from "@/lib/provider-registry";
 import type { TransportDef } from "@/lib/provider-registry";
 import { isRetriableNetworkError, retry as retryOperation, retryAfterDelayMs } from "@/lib/mcp/retry";
+import { getProviderDisplayName } from "@/lib/provider-names";
 
 const tracer = trace.getTracer("scopegate");
 
@@ -141,18 +142,23 @@ export async function serviceFetch(
 /**
  * Thin envelope over serviceFetch for the common REST-JSON pattern shared by
  * most providers: throw on non-2xx, treat 204 as a bodyless success, else
- * parse JSON. `label` is used in the log line and thrown error message.
+ * parse JSON. The error label is resolved from the connection's provider via
+ * PROVIDER_REGISTRY.displayName — callers don't need to pass it themselves.
  */
 export async function serviceJsonFetch(
   connectionId: string,
   path: string,
-  label: string,
   init?: ServiceFetchOptions,
   opts?: { responseType?: "text" }
 ): Promise<unknown> {
   const res = await serviceFetch(connectionId, path, init);
 
   if (!res.ok) {
+    const conn = await db.serviceConnection.findUnique({
+      where: { id: connectionId },
+      select: { provider: true },
+    });
+    const label = conn ? getProviderDisplayName(conn.provider) : connectionId;
     console.error(`[ScopeGate] ${label} API error (${res.status})`);
     throw new Error(`${label} API request failed`);
   }

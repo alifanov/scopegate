@@ -5,5 +5,5 @@ export function githubFetch(
   path: string,
   init?: ServiceFetchOptions
 ): Promise<unknown> {
-  return serviceJsonFetch(serviceConnectionId, path, "GitHub", init);
+  return serviceJsonFetch(serviceConnectionId, path, init);
 }

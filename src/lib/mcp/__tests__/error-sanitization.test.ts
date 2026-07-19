@@ -2,14 +2,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock serviceFetch before importing the module under test. serviceJsonFetch
 // is re-implemented here (not imported for real) so this stays isolated from
-// the real module's db/Prisma import — it mirrors the throw/204/json envelope.
+// the real module's db/Prisma import — it mirrors the throw/204/json envelope,
+// hardcoding the label since real label resolution (via provider lookup) is
+// covered separately in service-fetch.test.ts.
 const { serviceFetch } = vi.hoisted(() => ({ serviceFetch: vi.fn() }));
 vi.mock("@/lib/mcp/service-fetch", () => ({
   serviceFetch,
-  serviceJsonFetch: vi.fn(async (connectionId: string, path: string, label: string, init?: unknown) => {
+  serviceJsonFetch: vi.fn(async (connectionId: string, path: string, init?: unknown) => {
     const res = await serviceFetch(connectionId, path, init);
     if (!res.ok) {
-      throw new Error(`${label} API request failed`);
+      throw new Error("Google Calendar API request failed");
     }
     if (res.status === 204) return { success: true };
     return res.json();

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/lib/db";
 import { getValidAccessTokenForConnection } from "@/lib/oauth-token-lifecycle";
 import { safeFetch } from "@/lib/mcp/safe-fetch";
-import { serviceFetch } from "@/lib/mcp/service-fetch";
+import { serviceFetch, serviceJsonFetch } from "@/lib/mcp/service-fetch";
 
 const span = {
   setAttribute: vi.fn(),
@@ -25,6 +25,7 @@ vi.mock("@/lib/db", () => ({
   db: {
     serviceConnection: {
       findUniqueOrThrow: vi.fn(),
+      findUnique: vi.fn(),
     },
   },
 }));
@@ -86,5 +87,32 @@ describe("serviceFetch", () => {
 
     expect(res.status).toBe(500);
     expect(safeFetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("serviceJsonFetch", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(db.serviceConnection.findUniqueOrThrow).mockResolvedValue({
+      id: "conn-1",
+      provider: "linkedin",
+    } as never);
+    vi.mocked(getValidAccessTokenForConnection).mockResolvedValue("token-1");
+  });
+
+  it("resolves the error label from the connection's provider via PROVIDER_REGISTRY.displayName", async () => {
+    vi.mocked(safeFetch).mockResolvedValue(new Response("{}", { status: 403 }));
+    vi.mocked(db.serviceConnection.findUnique).mockResolvedValue({ provider: "linkedin" } as never);
+
+    await expect(serviceJsonFetch("conn-1", "/posts")).rejects.toThrow("LinkedIn API request failed");
+  });
+
+  it("does not look up the provider on success", async () => {
+    vi.mocked(safeFetch).mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+
+    const result = await serviceJsonFetch("conn-1", "/posts");
+
+    expect(result).toEqual({ ok: true });
+    expect(db.serviceConnection.findUnique).not.toHaveBeenCalled();
   });
 });

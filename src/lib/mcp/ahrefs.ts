@@ -6,5 +6,5 @@ export function ahrefsFetch(
   params?: Record<string, string>
 ): Promise<unknown> {
   const query = params ? `?${new URLSearchParams(params).toString()}` : "";
-  return serviceJsonFetch(serviceConnectionId, `${path}${query}`, "Ahrefs");
+  return serviceJsonFetch(serviceConnectionId, `${path}${query}`);
 }

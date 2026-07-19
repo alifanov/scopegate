@@ -1,30 +1,27 @@
 import { z } from 'zod';
-import { jiraFetch } from '../jira';
+import { serviceJsonFetch } from '@/lib/mcp/service-fetch';
+import { createFetchTool } from './fetch-tool';
 import type { ToolDefinition } from './types';
 
 export const jiraTools: ToolDefinition[] = [
   // =====================
   // Jira tools
   // =====================
-  {
+  createFetchTool(serviceJsonFetch, {
     name: "jira_list_projects",
     description: "List all Jira projects",
     action: "jira:list_projects",
     inputSchema: z.object({}),
-    handler: async (_params, context) => {
-      return jiraFetch(context.serviceConnectionId, "/rest/api/3/project");
-    },
-  },
-  {
+    path: "/rest/api/3/project",
+  }),
+  createFetchTool(serviceJsonFetch, {
     name: "jira_get_project",
     description: "Get a Jira project by key or ID",
     action: "jira:get_project",
     inputSchema: z.object({ projectIdOrKey: z.string() }),
-    handler: async (params, context) => {
-      return jiraFetch(context.serviceConnectionId, `/rest/api/3/project/${params.projectIdOrKey}`);
-    },
-  },
-  {
+    path: (params) => `/rest/api/3/project/${params.projectIdOrKey}`,
+  }),
+  createFetchTool(serviceJsonFetch, {
     name: "jira_search_issues",
     description: "Search Jira issues using JQL",
     action: "jira:search_issues",
@@ -33,23 +30,18 @@ export const jiraTools: ToolDefinition[] = [
       maxResults: z.number().min(1).max(100).optional().default(20),
       fields: z.array(z.string()).optional(),
     }),
-    handler: async (params, context) => {
-      return jiraFetch(context.serviceConnectionId, "/rest/api/3/search", {
-        method: "POST",
-        body: JSON.stringify({ jql: params.jql, maxResults: params.maxResults, fields: params.fields }),
-      });
-    },
-  },
-  {
+    path: "/rest/api/3/search",
+    method: "POST",
+    body: (params) => ({ jql: params.jql, maxResults: params.maxResults, fields: params.fields }),
+  }),
+  createFetchTool(serviceJsonFetch, {
     name: "jira_get_issue",
     description: "Get a Jira issue by key or ID",
     action: "jira:get_issue",
     inputSchema: z.object({ issueIdOrKey: z.string() }),
-    handler: async (params, context) => {
-      return jiraFetch(context.serviceConnectionId, `/rest/api/3/issue/${params.issueIdOrKey}`);
-    },
-  },
-  {
+    path: (params) => `/rest/api/3/issue/${params.issueIdOrKey}`,
+  }),
+  createFetchTool(serviceJsonFetch, {
     name: "jira_create_issue",
     description: "Create a new Jira issue",
     action: "jira:create_issue",
@@ -61,7 +53,9 @@ export const jiraTools: ToolDefinition[] = [
       assigneeId: z.string().optional(),
       priority: z.string().optional(),
     }),
-    handler: async (params, context) => {
+    path: "/rest/api/3/issue",
+    method: "POST",
+    body: (params) => {
       const fields: Record<string, unknown> = {
         project: { key: params.projectKey },
         summary: params.summary,
@@ -70,13 +64,10 @@ export const jiraTools: ToolDefinition[] = [
       if (params.description) fields.description = params.description;
       if (params.assigneeId) fields.assignee = { accountId: params.assigneeId };
       if (params.priority) fields.priority = { name: params.priority };
-      return jiraFetch(context.serviceConnectionId, "/rest/api/3/issue", {
-        method: "POST",
-        body: JSON.stringify({ fields }),
-      });
+      return { fields };
     },
-  },
-  {
+  }),
+  createFetchTool(serviceJsonFetch, {
     name: "jira_update_issue",
     description: "Update a Jira issue",
     action: "jira:update_issue",
@@ -84,14 +75,11 @@ export const jiraTools: ToolDefinition[] = [
       issueIdOrKey: z.string(),
       fields: z.record(z.string(), z.unknown()),
     }),
-    handler: async (params, context) => {
-      return jiraFetch(context.serviceConnectionId, `/rest/api/3/issue/${params.issueIdOrKey}`, {
-        method: "PUT",
-        body: JSON.stringify({ fields: params.fields }),
-      });
-    },
-  },
-  {
+    path: (params) => `/rest/api/3/issue/${params.issueIdOrKey}`,
+    method: "PUT",
+    body: (params) => ({ fields: params.fields }),
+  }),
+  createFetchTool(serviceJsonFetch, {
     name: "jira_add_comment",
     description: "Add a comment to a Jira issue",
     action: "jira:add_comment",
@@ -99,14 +87,11 @@ export const jiraTools: ToolDefinition[] = [
       issueIdOrKey: z.string(),
       body: z.unknown().describe("Comment body in Atlassian Document Format or simple text"),
     }),
-    handler: async (params, context) => {
-      return jiraFetch(context.serviceConnectionId, `/rest/api/3/issue/${params.issueIdOrKey}/comment`, {
-        method: "POST",
-        body: JSON.stringify({ body: params.body }),
-      });
-    },
-  },
-  {
+    path: (params) => `/rest/api/3/issue/${params.issueIdOrKey}/comment`,
+    method: "POST",
+    body: (params) => ({ body: params.body }),
+  }),
+  createFetchTool(serviceJsonFetch, {
     name: "jira_list_sprints",
     description: "List sprints for a Jira board",
     action: "jira:list_sprints",
@@ -114,21 +99,17 @@ export const jiraTools: ToolDefinition[] = [
       boardId: z.number(),
       state: z.string().optional().describe("active, closed, or future"),
     }),
-    handler: async (params, context) => {
-      const query = params.state ? `?state=${params.state}` : "";
-      return jiraFetch(context.serviceConnectionId, `/rest/agile/1.0/board/${params.boardId}/sprint${query}`);
-    },
-  },
-  {
+    path: (params) => `/rest/agile/1.0/board/${params.boardId}/sprint`,
+    query: (params) => ({ state: params.state as string | undefined }),
+  }),
+  createFetchTool(serviceJsonFetch, {
     name: "jira_get_transitions",
     description: "Get available transitions for a Jira issue",
     action: "jira:get_transitions",
     inputSchema: z.object({ issueIdOrKey: z.string() }),
-    handler: async (params, context) => {
-      return jiraFetch(context.serviceConnectionId, `/rest/api/3/issue/${params.issueIdOrKey}/transitions`);
-    },
-  },
-  {
+    path: (params) => `/rest/api/3/issue/${params.issueIdOrKey}/transitions`,
+  }),
+  createFetchTool(serviceJsonFetch, {
     name: "jira_transition_issue",
     description: "Transition a Jira issue to a new status",
     action: "jira:transition_issue",
@@ -136,11 +117,8 @@ export const jiraTools: ToolDefinition[] = [
       issueIdOrKey: z.string(),
       transitionId: z.string(),
     }),
-    handler: async (params, context) => {
-      return jiraFetch(context.serviceConnectionId, `/rest/api/3/issue/${params.issueIdOrKey}/transitions`, {
-        method: "POST",
-        body: JSON.stringify({ transition: { id: params.transitionId } }),
-      });
-    },
-  },
+    path: (params) => `/rest/api/3/issue/${params.issueIdOrKey}/transitions`,
+    method: "POST",
+    body: (params) => ({ transition: { id: params.transitionId } }),
+  }),
 ];

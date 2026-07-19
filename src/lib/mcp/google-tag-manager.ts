@@ -5,5 +5,5 @@ export function googleTagManagerFetch(
   path: string,
   init?: ServiceFetchOptions
 ): Promise<unknown> {
-  return serviceJsonFetch(serviceConnectionId, path, "Google Tag Manager", init);
+  return serviceJsonFetch(serviceConnectionId, path, init);
 }

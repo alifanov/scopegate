@@ -4,7 +4,7 @@ vi.mock("@/lib/db", () => {
   const db = {
     teamMember: { findUnique: vi.fn() },
     serviceConnection: {
-      findUnique: vi.fn(),
+      findFirst: vi.fn(),
       findMany: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
@@ -35,7 +35,7 @@ import { PROJECT_ROLE } from "@/lib/project-roles";
 
 const mockGetCurrentUser = vi.mocked(requireCurrentUser);
 const mockTeamMemberFindUnique = vi.mocked(db.teamMember.findUnique);
-const mockConnectionFindUnique = vi.mocked(db.serviceConnection.findUnique);
+const mockConnectionFindFirst = vi.mocked(db.serviceConnection.findFirst);
 const mockConnectionFindMany = vi.mocked(db.serviceConnection.findMany);
 const mockConnectionUpdate = vi.mocked(db.serviceConnection.update);
 const mockConnectionDelete = vi.mocked(db.serviceConnection.delete);
@@ -61,7 +61,7 @@ describe("ads-customers route – duplicate-merge atomicity", () => {
       id: "tm-1",
       role: PROJECT_ROLE.owner,
     } as never);
-    mockConnectionFindUnique.mockResolvedValue({
+    mockConnectionFindFirst.mockResolvedValue({
       id: "temp-1",
       projectId: "p1",
       provider: "googleAds",

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { withProjectAuth } from "@/lib/project-access";
+import { withProjectAuth, requireProjectServiceConnection } from "@/lib/project-access";
 import { listAccessibleCustomers } from "@/lib/mcp/google-ads";
 import { reconcileAdsCustomer } from "@/lib/ads-reconciliation";
 
@@ -14,12 +13,7 @@ export const GET = withProjectAuth<{ projectId: string }>(
       return NextResponse.json({ error: "Missing connectionId" }, { status: 400 });
     }
 
-    const connection = await db.serviceConnection.findUnique({
-      where: { id: connectionId },
-    });
-    if (!connection || connection.projectId !== projectId) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
+    await requireProjectServiceConnection(projectId, connectionId);
 
     try {
       const customers = await listAccessibleCustomers(connectionId);
@@ -52,12 +46,7 @@ export const POST = withProjectAuth<{ projectId: string }>(
       );
     }
 
-    const connection = await db.serviceConnection.findUnique({
-      where: { id: connectionId },
-    });
-    if (!connection || connection.projectId !== projectId) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
+    const connection = await requireProjectServiceConnection(projectId, connectionId);
 
     await reconcileAdsCustomer(connection, customerId, customerName);
 

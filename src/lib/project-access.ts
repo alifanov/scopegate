@@ -39,6 +39,23 @@ export async function authorizeProject(
   throw new NotFoundError();
 }
 
+/**
+ * Single source of truth for "does this service connection belong to this
+ * project" — replaces ad-hoc findUnique(id) + manual projectId comparisons,
+ * which are easy to forget and silently open an IDOR if skipped.
+ */
+export async function requireProjectServiceConnection(
+  projectId: string,
+  connectionId: string,
+  serviceConnection: Pick<typeof db.serviceConnection, "findFirst"> = db.serviceConnection
+) {
+  const connection = await serviceConnection.findFirst({
+    where: { id: connectionId, projectId },
+  });
+  if (!connection) throw new NotFoundError("Service connection not found");
+  return connection;
+}
+
 export type ProjectAuthContext<P> = {
   user: CurrentUser;
   member: TeamMember | null;

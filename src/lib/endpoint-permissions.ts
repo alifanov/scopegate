@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { recordAudit } from "@/lib/audit";
 import { generateMcpApiKey } from "@/lib/mcp/api-keys";
 import { ALL_ACTIONS } from "@/lib/mcp/permissions";
+import { requireProjectServiceConnection } from "@/lib/project-access";
 
 type EndpointDatabase = {
   serviceConnection: Pick<typeof db.serviceConnection, "findFirst">;
@@ -81,10 +82,13 @@ export async function createProjectEndpoint(
 ) {
   validateEndpointPermissions(input.permissions);
 
-  const service = await database.serviceConnection.findFirst({
-    where: { id: input.serviceConnectionId, projectId: input.projectId },
-  });
-  if (!service) {
+  try {
+    await requireProjectServiceConnection(
+      input.projectId,
+      input.serviceConnectionId,
+      database.serviceConnection
+    );
+  } catch {
     throw new EndpointPermissionError("Service connection not found", 404);
   }
 

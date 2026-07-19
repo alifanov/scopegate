@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 vi.mock("@/lib/db", () => ({
   db: {
     teamMember: { findUnique: vi.fn() },
+    serviceConnection: { findFirst: vi.fn() },
   },
 }));
 
@@ -17,10 +18,15 @@ vi.mock("@/lib/auth-middleware", async (importOriginal) => {
 
 import { db } from "@/lib/db";
 import { requireCurrentUser, ForbiddenError, NotFoundError } from "@/lib/auth-middleware";
-import { authorizeProject, withProjectAuth } from "@/lib/project-access";
+import {
+  authorizeProject,
+  requireProjectServiceConnection,
+  withProjectAuth,
+} from "@/lib/project-access";
 import { PROJECT_ROLE } from "@/lib/project-roles";
 
 const mockFindUnique = vi.mocked(db.teamMember.findUnique);
+const mockConnectionFindFirst = vi.mocked(db.serviceConnection.findFirst);
 const mockRequireCurrentUser = vi.mocked(requireCurrentUser);
 
 const OWNER = { userId: "owner-1", email: "owner@scopegate.dev" };
@@ -117,5 +123,34 @@ describe("withProjectAuth", () => {
         params: { projectId: "p1" },
       })
     );
+  });
+});
+
+describe("requireProjectServiceConnection", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("rejects a connection scoped to a different project (IDOR)", async () => {
+    // findFirst is given the requesting project's id in its where clause,
+    // so a connection owned by another project never matches — this is
+    // what actually closes the IDOR, not a client-side comparison.
+    mockConnectionFindFirst.mockResolvedValue(null);
+
+    await expect(
+      requireProjectServiceConnection("p1", "connection-owned-by-p2")
+    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(mockConnectionFindFirst).toHaveBeenCalledWith({
+      where: { id: "connection-owned-by-p2", projectId: "p1" },
+    });
+  });
+
+  it("returns the connection when it belongs to the requesting project", async () => {
+    const connection = { id: "connection-1", projectId: "p1" };
+    mockConnectionFindFirst.mockResolvedValue(connection as never);
+
+    await expect(
+      requireProjectServiceConnection("p1", "connection-1")
+    ).resolves.toEqual(connection);
   });
 });

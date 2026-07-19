@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { withProjectAuth } from "@/lib/project-access";
+import { withProjectAuth, requireProjectServiceConnection } from "@/lib/project-access";
 import { revokeProviderToken } from "@/lib/service-revocation";
 import { decrypt } from "@/lib/crypto";
 
@@ -42,13 +42,7 @@ export const DELETE = withProjectAuth<{ projectId: string }>(
       );
     }
 
-    // Verify service belongs to this project
-    const service = await db.serviceConnection.findUnique({
-      where: { id: serviceId },
-    });
-    if (!service || service.projectId !== projectId) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
+    const service = await requireProjectServiceConnection(projectId, serviceId);
 
     // Revoke token with provider before deleting
     try {

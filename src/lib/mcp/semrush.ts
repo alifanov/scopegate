@@ -3,6 +3,23 @@ import { safeFetch } from "@/lib/mcp/safe-fetch";
 
 const SEMRUSH_API_BASE = "https://api.semrush.com";
 
+export function parseSemrushCsv(
+  text: string
+): { data: Record<string, string>[]; raw?: string } {
+  const lines = text.trim().split("\n");
+  if (lines.length < 2) return { data: [], raw: text };
+  const headers = lines[0].split(";");
+  const rows = lines.slice(1).map((line) => {
+    const values = line.split(";");
+    const obj: Record<string, string> = {};
+    headers.forEach((h, i) => {
+      obj[h] = values[i] || "";
+    });
+    return obj;
+  });
+  return { data: rows };
+}
+
 export async function semrushFetch(
   serviceConnectionId: string,
   params: Record<string, string>
@@ -20,17 +37,5 @@ export async function semrushFetch(
   const text = await res.text();
   if (text.startsWith("ERROR")) throw new Error("SEMrush API error");
 
-  // Parse CSV response into objects
-  const lines = text.trim().split("\n");
-  if (lines.length < 2) return { data: [], raw: text };
-  const headers = lines[0].split(";");
-  const rows = lines.slice(1).map((line) => {
-    const values = line.split(";");
-    const obj: Record<string, string> = {};
-    headers.forEach((h, i) => {
-      obj[h] = values[i] || "";
-    });
-    return obj;
-  });
-  return { data: rows };
+  return parseSemrushCsv(text);
 }

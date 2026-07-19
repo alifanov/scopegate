@@ -1,3 +1,5 @@
+import { stripHtml } from "@/lib/mcp/gmail";
+
 /**
  * Simple email source parser to extract text and HTML parts
  * from raw MIME email source without heavy dependencies.
@@ -87,17 +89,7 @@ export function simpleParseEmail(source: string): {
 
   // If we only have HTML, strip tags to create text version
   if (!text && html) {
-    text = html
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-      .replace(/<[^>]+>/g, "")
-      .replace(/&nbsp;/g, " ")
-      .replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&quot;/g, '"')
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
+    text = stripHtml(html);
   }
 
   return { text, html };

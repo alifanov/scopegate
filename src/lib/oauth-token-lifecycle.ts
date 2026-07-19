@@ -92,6 +92,48 @@ export async function markConnectionTokenError(
   });
 }
 
+export type RevokedConnectionNotice = {
+  provider: string;
+  accountEmail: string;
+  projectId: string;
+};
+
+export type NotifyDatabase = {
+  teamMember: Pick<typeof db.teamMember, "findMany">;
+  notification: Pick<typeof db.notification, "createMany">;
+};
+
+// Single source of the "reconnect required" notification: text and team-member
+// fan-out. Both the on-demand revoke path (revokeConnectionWithNotification,
+// below) and the proactive cron path (refreshExpiringConnectionTokens in
+// token-refresh.ts) call this instead of building their own notification rows.
+export async function notifyConnectionRevoked(
+  connections: RevokedConnectionNotice[],
+  database: NotifyDatabase = db
+): Promise<void> {
+  if (connections.length === 0) return;
+
+  const projectIds = [...new Set(connections.map((c) => c.projectId))];
+  const teamMembers = await database.teamMember.findMany({
+    where: { projectId: { in: projectIds } },
+    select: { userId: true, projectId: true },
+  });
+  if (teamMembers.length === 0) return;
+
+  await database.notification.createMany({
+    data: connections.flatMap((connection) =>
+      teamMembers
+        .filter((member) => member.projectId === connection.projectId)
+        .map((member) => ({
+          userId: member.userId,
+          type: "error" as const,
+          title: "Reconnect required",
+          message: `Access to ${connection.provider} (${connection.accountEmail}) was revoked. Reconnect the account in project settings.`,
+        }))
+    ),
+  });
+}
+
 // Marks a connection as permanently revoked and notifies all project team members.
 // Safe to call on an already-revoked connection — skips both the DB write and notifications.
 export async function revokeConnectionWithNotification(
@@ -119,20 +161,9 @@ export async function revokeConnectionWithNotification(
   });
   if (!conn) return;
 
-  const teamMembers = await db.teamMember.findMany({
-    where: { projectId: conn.projectId },
-    select: { userId: true },
-  });
-  if (teamMembers.length > 0) {
-    await db.notification.createMany({
-      data: teamMembers.map((m) => ({
-        userId: m.userId,
-        type: "error",
-        title: "Reconnect required",
-        message: `Access to ${conn.provider} (${conn.accountEmail}) has been revoked. Please reconnect the account in project settings.`,
-      })),
-    });
-  }
+  await notifyConnectionRevoked([
+    { provider: conn.provider, accountEmail: conn.accountEmail, projectId: conn.projectId },
+  ]);
 }
 
 // Applies a transient (not-yet-fatal) OAuth failure on the on-demand path:

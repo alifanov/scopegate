@@ -58,6 +58,7 @@ import {
   getValidAccessTokenForConnection,
   revokeConnectionWithNotification,
   recordTransientTokenFailure,
+  notifyConnectionRevoked,
   classifyOAuthError,
   CONSECUTIVE_FAILURES_THRESHOLD,
   OAuthTokenError,
@@ -229,6 +230,39 @@ describe("metaAds token exchange", () => {
     ]);
 
     expect(db.notification.createMany).toHaveBeenCalledOnce();
+  });
+
+  it("notifyConnectionRevoked fans out one notification per team member per project, deduped by projectId", async () => {
+    vi.mocked(db.teamMember.findMany).mockResolvedValue([
+      { userId: "user-1", projectId: "proj-1" },
+      { userId: "user-2", projectId: "proj-1" },
+      { userId: "user-3", projectId: "proj-2" },
+    ] as never);
+    vi.mocked(db.notification.createMany).mockResolvedValue({ count: 3 } as never);
+
+    await notifyConnectionRevoked([
+      { provider: "metaAds", accountEmail: "a@example.com", projectId: "proj-1" },
+      { provider: "google", accountEmail: "b@example.com", projectId: "proj-2" },
+    ]);
+
+    expect(db.teamMember.findMany).toHaveBeenCalledWith({
+      where: { projectId: { in: ["proj-1", "proj-2"] } },
+      select: { userId: true, projectId: true },
+    });
+    expect(db.notification.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({ userId: "user-1", title: "Reconnect required" }),
+        expect.objectContaining({ userId: "user-2", title: "Reconnect required" }),
+        expect.objectContaining({ userId: "user-3", title: "Reconnect required" }),
+      ],
+    });
+  });
+
+  it("notifyConnectionRevoked skips the DB write for an empty connection list", async () => {
+    await notifyConnectionRevoked([]);
+
+    expect(db.teamMember.findMany).not.toHaveBeenCalled();
+    expect(db.notification.createMany).not.toHaveBeenCalled();
   });
 });
 

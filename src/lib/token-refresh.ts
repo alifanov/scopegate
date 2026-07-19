@@ -5,6 +5,7 @@ import {
   EXCHANGE_PROVIDERS,
   refreshForCron,
   classifyOAuthError,
+  notifyConnectionRevoked,
   CONSECUTIVE_FAILURES_THRESHOLD,
   OAuthTokenError,
   type CronConnection,
@@ -163,27 +164,8 @@ async function createRevokedTokenNotifications(
   revokedRows: RefreshConnectionRow[],
   database: TokenRefreshDatabase
 ): Promise<void> {
-  if (revokedRows.length === 0) return;
-
   try {
-    const projectIds = [...new Set(revokedRows.map((connection) => connection.projectId))];
-    const teamMembers = await database.teamMember.findMany({
-      where: { projectId: { in: projectIds } },
-      select: { userId: true, projectId: true },
-    });
-    await database.notification.createMany({
-      data: revokedRows.flatMap((connection) => {
-        const members = teamMembers.filter(
-          (member) => member.projectId === connection.projectId
-        );
-        return members.map((member) => ({
-          userId: member.userId,
-          type: "error",
-          title: "Reconnect required",
-          message: `Access to ${connection.provider} (${connection.accountEmail}) was revoked by the provider. Reconnect the account in project settings.`,
-        }));
-      }),
-    });
+    await notifyConnectionRevoked(revokedRows, database);
   } catch {
     // best-effort notifications
   }

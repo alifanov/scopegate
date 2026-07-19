@@ -19,7 +19,7 @@ export type RefreshTokenConfig = {
 export type ExchangeTokenConfig = {
   kind: "exchange";
   bufferMs: number;
-  exchangeType: "meta" | "threads";
+  exchangeType: "meta" | "threads" | "instagram";
 };
 
 export type TokenConfig =
@@ -845,6 +845,39 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "threads:lookup_profile",
     ],
   },
+  // ── Instagram ─────────────────────────────────────────────────────────────
+  {
+    key: "instagram",
+    displayName: "Instagram",
+    description: "Publish posts to Instagram (professional accounts)",
+    // Instagram API with Instagram Login: same long-lived-token exchange family
+    // as Threads, but with ig_* grant types on graph.instagram.com.
+    token: { kind: "exchange", bufferMs: 24 * 60 * 60 * 1000, exchangeType: "instagram" },
+    // Same Graph API error family as Meta/Threads — 190/102 mean a dead token.
+    oauthErrors: { permanentCodes: [190, 102] },
+    transport: {
+      baseUrl: "https://graph.instagram.com/v21.0",
+      // Instagram Graph API takes the token as a query param, not a Bearer header.
+      auth: { location: "query", param: "access_token" },
+      timeoutMs: 8_000,
+      retry: {
+        delaysMs: [250, 500],
+        retryNetworkErrors: true,
+      },
+    },
+    oauthStart: {
+      authorizeUrl: "https://api.instagram.com/oauth/authorize",
+      clientIdEnv: "INSTAGRAM_APP_ID",
+      stateProvider: "instagram",
+      scope: "instagram_business_basic,instagram_business_content_publish",
+      extraParams: { response_type: "code" },
+    },
+    actions: [
+      "instagram:create_post",
+      "instagram:list_media",
+      "instagram:get_account",
+    ],
+  },
   // ── Google Tag Manager ────────────────────────────────────────────────────
   {
     key: "googleTagManager",
@@ -968,6 +1001,7 @@ export type OAuthCallbackRouteKey =
   | "github"
   | "google"
   | "hubspot"
+  | "instagram"
   | "jira"
   | "linkedin"
   | "meta"

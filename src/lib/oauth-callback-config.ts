@@ -166,6 +166,25 @@ const OAUTH_CALLBACK_REGISTRY: Record<OAuthCallbackRouteKey, OAuthCallbackFactor
       },
     };
   },
+  instagram: async () => {
+    const { exchangeInstagramCodeForTokens, getInstagramUserInfo } = await import(
+      "@/lib/instagram-oauth"
+    );
+    return {
+      expectedProvider: "instagram",
+      exchange: (code) => exchangeInstagramCodeForTokens(code),
+      getConnectionData: async (tokens) => {
+        const tokenData = tokens as typeof tokens & { user_id: number | string };
+        const userInfo = await getInstagramUserInfo(tokens.access_token);
+        return {
+          accountEmail: userInfo.username || `instagram:${userInfo.id}`,
+          expiresAt: new Date(Date.now() + (tokens.expires_in ?? 0) * 1000),
+          refreshToken: null,
+          metadata: { instagramUserId: String(tokenData.user_id) },
+        };
+      },
+    };
+  },
   jira: async () => {
     const { exchangeJiraCodeForTokens, getJiraCloudInfo } = await import(
       "@/lib/jira-oauth"

@@ -340,6 +340,22 @@ function getProviderConfig(provider: string): ProviderConfig {
     };
   }
 
+  if (et.exchangeType === "instagram") {
+    return {
+      kind: "exchange",
+      bufferMs: et.bufferMs,
+      doExchange: async (currentToken) => {
+        const params = new URLSearchParams({
+          grant_type: "ig_refresh_token",
+          access_token: currentToken,
+        });
+        const res = await fetch(`https://graph.instagram.com/refresh_access_token?${params}`);
+        if (!res.ok) throw new OAuthTokenError(`Instagram token refresh failed (${res.status})`);
+        return res.json() as Promise<StandardTokenResponse>;
+      },
+    };
+  }
+
   // threads
   return {
     kind: "exchange",

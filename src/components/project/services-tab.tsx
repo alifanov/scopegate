@@ -129,6 +129,7 @@ export function ServicesTab({ projectId }: { projectId: string }) {
     salesforce: "salesforce",
     metaAds: "meta",
     threads: "threads",
+    instagram: "instagram",
   };
 
   function handleConnect(providerKey: string) {

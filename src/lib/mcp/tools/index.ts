@@ -25,6 +25,7 @@ import { airtableTools } from './airtable';
 import { calendlyTools } from './calendly';
 import { youtubeTools } from './youtube';
 import { threadsTools } from './threads';
+import { instagramTools } from './instagram';
 import { emailTools } from './email';
 import { googleTagManagerTools } from './google-tag-manager';
 
@@ -53,6 +54,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   ...calendlyTools,
   ...youtubeTools,
   ...threadsTools,
+  ...instagramTools,
   ...emailTools,
   ...googleTagManagerTools,
 ];

@@ -237,6 +237,26 @@ function CalendlyIcon(props: SvgProps) {
   );
 }
 
+function InstagramIcon(props: SvgProps) {
+  return (
+    <svg viewBox="0 0 48 48" {...props}>
+      <defs>
+        <radialGradient id="igGrad" cx="0.3" cy="1" r="1.1">
+          <stop offset="0" stopColor="#FFD776" />
+          <stop offset="0.25" stopColor="#F09433" />
+          <stop offset="0.5" stopColor="#E6683C" />
+          <stop offset="0.7" stopColor="#DC2743" />
+          <stop offset="1" stopColor="#BC1888" />
+        </radialGradient>
+      </defs>
+      <rect width="48" height="48" rx="10" fill="url(#igGrad)" />
+      <rect x="12" y="12" width="24" height="24" rx="7" fill="none" stroke="#fff" strokeWidth="2.5" />
+      <circle cx="24" cy="24" r="6" fill="none" stroke="#fff" strokeWidth="2.5" />
+      <circle cx="31.5" cy="16.5" r="1.8" fill="#fff" />
+    </svg>
+  );
+}
+
 function ThreadsIcon(props: SvgProps) {
   return (
     <svg viewBox="0 0 48 48" {...props}>
@@ -306,6 +326,7 @@ const ICONS: Record<string, (props: SvgProps) => React.ReactElement> = {
   calendly: CalendlyIcon,
   youtube: YouTubeIcon,
   threads: ThreadsIcon,
+  instagram: InstagramIcon,
   email: EmailIcon,
 };
 

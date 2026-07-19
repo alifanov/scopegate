@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import type { Prisma, ServiceProvider } from "@/generated/prisma/client";
 import {
   AuthError,
@@ -11,6 +10,7 @@ import {
 import { authorizeProject } from "@/lib/project-access";
 import { parseAndVerifyState, parseCookieValue } from "@/lib/oauth-state";
 import { encrypt } from "@/lib/crypto";
+import { upsertServiceConnection } from "@/lib/service-connection";
 
 const COOKIE_OPTS = {
   httpOnly: true,
@@ -120,25 +120,14 @@ export async function persistOAuthConnection({
   const { accountEmail, metadata } = connectionData;
   const expiresAt = connectionData.expiresAt ?? null;
 
-  const connection = await db.serviceConnection.upsert({
-    where: { projectId_provider_accountEmail: { projectId, provider, accountEmail } },
-    update: {
-      accessToken: encryptedAccessToken,
-      refreshToken: encryptedRefreshToken,
-      expiresAt,
-      status: "active",
-      lastError: null,
-      ...(metadata != null ? { metadata: metadata as Prisma.InputJsonValue } : {}),
-    },
-    create: {
-      projectId,
-      provider,
-      accountEmail,
-      accessToken: encryptedAccessToken,
-      refreshToken: encryptedRefreshToken,
-      expiresAt,
-      metadata: (metadata as Prisma.InputJsonValue | undefined) ?? undefined,
-    },
+  const connection = await upsertServiceConnection({
+    projectId,
+    provider,
+    accountEmail,
+    accessToken: encryptedAccessToken,
+    refreshToken: encryptedRefreshToken,
+    expiresAt,
+    metadata: metadata as Prisma.InputJsonValue | null | undefined,
   });
 
   return connection.id;

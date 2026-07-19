@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import { withProjectAuth } from "@/lib/project-access";
-import { encrypt } from "@/lib/crypto";
-import { validateEmailConnection } from "@/lib/mcp/email";
+import { connectEmailAccount, ServiceConnectError } from "@/lib/service-connect";
 
 // POST /api/projects/[projectId]/services/connect-email
 export const POST = withProjectAuth<{ projectId: string }>(
@@ -42,56 +40,24 @@ export const POST = withProjectAuth<{ projectId: string }>(
       );
     }
 
-    // Validate connection
-    const validation = await validateEmailConnection({
-      imapHost,
-      imapPort: imapPort || 993,
-      smtpHost,
-      smtpPort: smtpPort || 465,
-      username: email,
-      password,
-      imapSecure: imapSecure !== false,
-      smtpSecure: smtpSecure !== false,
-    });
-
-    if (!validation.valid) {
-      return NextResponse.json(
-        { error: validation.error || "Connection failed" },
-        { status: 422 }
-      );
-    }
-
-    const encryptedPassword = encrypt(password);
-
-    const metadata = {
-      imapHost,
-      imapPort: imapPort || 993,
-      imapSecure: imapSecure !== false,
-      smtpHost,
-      smtpPort: smtpPort || 465,
-      smtpSecure: smtpSecure !== false,
-    };
-
-    await db.serviceConnection.upsert({
-      where: {
-        projectId_provider_accountEmail: { projectId, provider: "email", accountEmail: email },
-      },
-      update: {
-        accessToken: encryptedPassword,
-        refreshToken: null,
-        metadata,
-        status: "active",
-        lastError: null,
-      },
-      create: {
+    try {
+      await connectEmailAccount({
         projectId,
-        provider: "email",
-        accountEmail: email,
-        accessToken: encryptedPassword,
-        refreshToken: null,
-        metadata,
-      },
-    });
+        email,
+        password,
+        imapHost,
+        imapPort,
+        smtpHost,
+        smtpPort,
+        imapSecure,
+        smtpSecure,
+      });
+    } catch (err) {
+      if (err instanceof ServiceConnectError) {
+        return NextResponse.json({ error: err.message }, { status: err.status });
+      }
+      throw err;
+    }
 
     return NextResponse.json({ success: true });
   }

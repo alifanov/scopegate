@@ -4,6 +4,13 @@ import { threadsFetch, ThreadsApiError } from '../threads';
 import { OAuthTokenError } from '@/lib/oauth-token-lifecycle';
 import { recordThreadsPublishOutcome } from '../metrics';
 import type { ToolDefinition } from './types';
+import {
+  classifyContainerStatus,
+  computeStepTimeout,
+  shouldStopPolling,
+  sleep,
+  waitForContainerReady as pollUntilContainerReady,
+} from './container-poll';
 
 // Meta processes media containers asynchronously: the create call returns a container id
 // immediately, but the container is not publishable until its status becomes FINISHED.
@@ -53,56 +60,10 @@ function hasPublishMedia(params: Record<string, unknown>) {
 const THREADS_CAROUSEL_MIN_ITEMS = 2;
 const THREADS_CAROUSEL_MAX_ITEMS = 20;
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 type ThreadsContainerStatus = {
   status?: "EXPIRED" | "ERROR" | "FINISHED" | "IN_PROGRESS" | "PUBLISHED";
   error_message?: string;
 };
-
-// Caps a step's preferred timeout against what's actually left of the overall budget,
-// reserving `reserveMs` for the step(s) after it, with a floor so a near-exhausted
-// budget still gets one last real attempt instead of an instant-timeout request.
-export function computeStepTimeout(
-  preferredMs: number,
-  deadline: number,
-  now: number,
-  reserveMs: number,
-  minMs = 1_000
-): number {
-  return Math.min(preferredMs, Math.max(minMs, deadline - now - reserveMs));
-}
-
-// True once another poll iteration wouldn't finish before the deadline anyway.
-export function shouldStopPolling(
-  now: number,
-  deadline: number,
-  intervalMs: number
-): boolean {
-  return now + intervalMs >= deadline;
-}
-
-export type ContainerPollOutcome =
-  | { kind: "ready" }
-  | { kind: "pending" }
-  | { kind: "failed"; message: string };
-
-// Classifies one status-poll response. Meta's container lifecycle is IN_PROGRESS →
-// FINISHED (ready to publish) or IN_PROGRESS → ERROR/EXPIRED (unrecoverable).
-export function classifyContainerStatus(
-  result: ThreadsContainerStatus
-): ContainerPollOutcome {
-  if (result.status === "FINISHED") return { kind: "ready" };
-  if (result.status === "ERROR" || result.status === "EXPIRED") {
-    return {
-      kind: "failed",
-      message: `Threads media processing ${result.status.toLowerCase()}: ${result.error_message ?? "unknown error"}`,
-    };
-  }
-  return { kind: "pending" };
-}
 
 // Polls a media container until Meta finishes processing it. Returns true once the
 // container reaches FINISHED, false if the deadline passes while still in progress
@@ -112,20 +73,21 @@ async function waitForContainerReady(
   creationId: string,
   deadline: number
 ): Promise<boolean> {
-  while (Date.now() < deadline) {
-    const result = (await threadsFetch(
-      serviceConnectionId,
-      `/${creationId}?fields=status,error_message`,
-      { timeout: THREADS_STATUS_POLL_TIMEOUT_MS, retry: false }
-    )) as ThreadsContainerStatus;
-
-    const outcome = classifyContainerStatus(result);
-    if (outcome.kind === "ready") return true;
-    if (outcome.kind === "failed") throw new Error(outcome.message);
-    if (shouldStopPolling(Date.now(), deadline, THREADS_STATUS_POLL_INTERVAL_MS)) break;
-    await sleep(THREADS_STATUS_POLL_INTERVAL_MS);
-  }
-  return false;
+  return pollUntilContainerReady(
+    deadline,
+    THREADS_STATUS_POLL_INTERVAL_MS,
+    async () => {
+      const result = (await threadsFetch(
+        serviceConnectionId,
+        `/${creationId}?fields=status,error_message`,
+        { timeout: THREADS_STATUS_POLL_TIMEOUT_MS, retry: false }
+      )) as ThreadsContainerStatus;
+      return classifyContainerStatus(
+        { status: result.status, errorMessage: result.error_message },
+        "Threads"
+      );
+    }
+  );
 }
 
 // The publish HTTP response is not atomic with Meta committing the post: a timeout or

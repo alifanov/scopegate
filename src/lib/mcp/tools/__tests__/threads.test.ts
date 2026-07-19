@@ -6,65 +6,10 @@ vi.mock("../../threads", async (importActual) => {
   return { ...actual, threadsFetch: vi.fn() };
 });
 
-import {
-  classifyContainerStatus,
-  computeStepTimeout,
-  shouldStopPolling,
-  threadsTools,
-} from "../threads";
+import { threadsTools } from "../threads";
 
-describe("computeStepTimeout", () => {
-  it("uses the preferred timeout when plenty of budget remains", () => {
-    expect(computeStepTimeout(4_500, /* deadline */ 20_000, /* now */ 0, /* reserve */ 3_500)).toBe(4_500);
-  });
-
-  it("caps to the remaining budget minus the reserve when that is smaller", () => {
-    // deadline - now - reserve = 10_000 - 8_000 - 1_000 = 1_000 < preferred
-    expect(computeStepTimeout(4_500, 10_000, 8_000, 1_000)).toBe(1_000);
-  });
-
-  it("floors at minMs even when the budget is already exhausted", () => {
-    expect(computeStepTimeout(4_500, 10_000, 9_900, 1_000)).toBe(1_000);
-    expect(computeStepTimeout(4_500, 5_000, 20_000, 1_000, 500)).toBe(500);
-  });
-
-  it("respects a custom minMs floor", () => {
-    expect(computeStepTimeout(4_500, 10_000, 9_999, 1_000, 250)).toBe(250);
-  });
-});
-
-describe("shouldStopPolling", () => {
-  it("returns false when another interval fits before the deadline", () => {
-    expect(shouldStopPolling(0, 10_000, 1_000)).toBe(false);
-  });
-
-  it("returns true once the next interval would reach or pass the deadline", () => {
-    expect(shouldStopPolling(9_000, 10_000, 1_000)).toBe(true);
-    expect(shouldStopPolling(9_500, 10_000, 1_000)).toBe(true);
-  });
-});
-
-describe("classifyContainerStatus", () => {
-  it("classifies FINISHED as ready", () => {
-    expect(classifyContainerStatus({ status: "FINISHED" })).toEqual({ kind: "ready" });
-  });
-
-  it("classifies IN_PROGRESS (and undefined) as pending", () => {
-    expect(classifyContainerStatus({ status: "IN_PROGRESS" })).toEqual({ kind: "pending" });
-    expect(classifyContainerStatus({})).toEqual({ kind: "pending" });
-  });
-
-  it("classifies ERROR/EXPIRED as failed with a descriptive message", () => {
-    expect(classifyContainerStatus({ status: "ERROR", error_message: "bad format" })).toEqual({
-      kind: "failed",
-      message: "Threads media processing error: bad format",
-    });
-    expect(classifyContainerStatus({ status: "EXPIRED" })).toEqual({
-      kind: "failed",
-      message: "Threads media processing expired: unknown error",
-    });
-  });
-});
+// Shared container-poll/timeout primitives (computeStepTimeout, shouldStopPolling,
+// classifyContainerStatus, waitForContainerReady) are unit-tested in container-poll.test.ts.
 
 const publishThreadTool = threadsTools.find(
   (tool) => tool.name === "threads_publish_thread"

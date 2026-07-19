@@ -2,6 +2,10 @@ import { z } from "zod";
 import { trace } from "@opentelemetry/api";
 import { instagramFetch } from "../instagram";
 import type { ToolDefinition } from "./types";
+import {
+  classifyContainerStatus,
+  waitForContainerReady as pollUntilContainerReady,
+} from "./container-poll";
 
 // Instagram publishes media asynchronously: creating a container returns an id
 // immediately, but Meta must finish processing it (downloading/transcoding the
@@ -17,10 +21,6 @@ const IG_CAROUSEL_MIN_ITEMS = 2;
 const IG_CAROUSEL_MAX_ITEMS = 10; // Instagram caps carousels at 10 items.
 const IG_MAX_CAPTION_LENGTH = 2_200;
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 type IgContainerStatus = {
   status_code?: "EXPIRED" | "ERROR" | "FINISHED" | "IN_PROGRESS" | "PUBLISHED";
 };
@@ -33,21 +33,18 @@ async function waitForContainerReady(
   creationId: string,
   deadline: number
 ): Promise<boolean> {
-  while (Date.now() < deadline) {
-    const result = (await instagramFetch(
-      serviceConnectionId,
-      `/${creationId}?fields=status_code`,
-      { timeout: IG_STATUS_POLL_TIMEOUT_MS, retry: false }
-    )) as IgContainerStatus;
-
-    if (result.status_code === "FINISHED") return true;
-    if (result.status_code === "ERROR" || result.status_code === "EXPIRED") {
-      throw new Error(`Instagram media processing ${result.status_code.toLowerCase()}`);
+  return pollUntilContainerReady(
+    deadline,
+    IG_STATUS_POLL_INTERVAL_MS,
+    async () => {
+      const result = (await instagramFetch(
+        serviceConnectionId,
+        `/${creationId}?fields=status_code`,
+        { timeout: IG_STATUS_POLL_TIMEOUT_MS, retry: false }
+      )) as IgContainerStatus;
+      return classifyContainerStatus({ status: result.status_code }, "Instagram");
     }
-    if (Date.now() + IG_STATUS_POLL_INTERVAL_MS >= deadline) break;
-    await sleep(IG_STATUS_POLL_INTERVAL_MS);
-  }
-  return false;
+  );
 }
 
 async function publishContainer(

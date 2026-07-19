@@ -140,6 +140,30 @@ describe("safeFetch – SSRF protection", () => {
         "reserved range"
       );
     });
+
+    it("blocks IPv4-mapped IPv6 loopback ::ffff:127.0.0.1", async () => {
+      await expect(
+        safeFetch("https://[::ffff:127.0.0.1]/secret")
+      ).rejects.toThrow("reserved range");
+    });
+
+    it("blocks IPv4-mapped IPv6 AWS metadata [::ffff:169.254.169.254]", async () => {
+      await expect(
+        safeFetch("https://[::ffff:169.254.169.254]/latest/meta-data/")
+      ).rejects.toThrow("reserved range");
+    });
+
+    it("blocks IPv4-mapped IPv6 in compressed hex-group form (::ffff:a9fe:a9fe)", async () => {
+      await expect(
+        safeFetch("https://[::ffff:a9fe:a9fe]/latest/meta-data/")
+      ).rejects.toThrow("reserved range");
+    });
+
+    it("blocks NAT64-mapped private IPv4 (64:ff9b::169.254.169.254)", async () => {
+      await expect(
+        safeFetch("https://[64:ff9b::169.254.169.254]/latest/meta-data/")
+      ).rejects.toThrow("reserved range");
+    });
   });
 
   describe("DNS-based SSRF blocking", () => {
@@ -175,6 +199,13 @@ describe("safeFetch – SSRF protection", () => {
       mockDns({ address: "93.184.216.34", family: 4 }); // example.com
       mockHttpsResponse(200);
       await expect(safeFetch("https://example.com/img.jpg")).resolves.toBeDefined();
+    });
+
+    it("blocks hostname with an AAAA record resolving to an IPv4-mapped private address", async () => {
+      mockDns({ address: "::ffff:169.254.169.254", family: 6 });
+      await expect(
+        safeFetch("https://metadata-v6.internal/latest/meta-data/")
+      ).rejects.toThrow("resolves to reserved IP");
     });
 
     it("blocks when ANY record in multi-A response resolves to a private IP", async () => {

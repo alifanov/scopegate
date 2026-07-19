@@ -32,7 +32,27 @@ const PRIVATE_IPV6: RegExp[] = [
   /^f[cd]/i,   // fc00::/7 — unique local
 ];
 
+// Extracts the embedded IPv4 address from an IPv4-mapped (::ffff:a.b.c.d,
+// ::ffff:0:a.b.c.d) or NAT64 (64:ff9b::a.b.c.d) IPv6 address — in both its
+// dotted-decimal and compressed hex-group form (e.g. ::ffff:a9fe:a9fe) — so
+// the embedded address can be checked against PRIVATE_IPV4 instead of being
+// missed by the IPv6-only regexes below.
+function extractMappedIpv4(ip: string): string | null {
+  const match = ip.toLowerCase().match(/^(?:::ffff:(?:0:)?|64:ff9b::)([0-9a-f.:]+)$/);
+  if (!match) return null;
+  const tail = match[1];
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(tail)) return tail;
+
+  const hex = tail.match(/^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  if (!hex) return null;
+  const hi = parseInt(hex[1], 16);
+  const lo = parseInt(hex[2], 16);
+  return `${hi >> 8}.${hi & 0xff}.${lo >> 8}.${lo & 0xff}`;
+}
+
 function isPrivateIp(ip: string): boolean {
+  const mappedIpv4 = extractMappedIpv4(ip);
+  if (mappedIpv4) return PRIVATE_IPV4.some((r) => r.test(mappedIpv4));
   return PRIVATE_IPV4.some((r) => r.test(ip)) || PRIVATE_IPV6.some((r) => r.test(ip));
 }
 

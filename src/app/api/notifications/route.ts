@@ -1,14 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth-middleware";
+import { withUserAuth } from "@/lib/auth-middleware";
 
 // GET /api/notifications — list notifications for current user
-export async function GET(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export const GET = withUserAuth(async (request, user) => {
   const { searchParams } = new URL(request.url);
   const countOnly = searchParams.get("countOnly") === "true";
 
@@ -30,15 +25,10 @@ export async function GET(request: Request) {
   });
 
   return NextResponse.json({ notifications, unreadCount });
-}
+});
 
 // PATCH /api/notifications — mark notifications as read
-export async function PATCH(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export const PATCH = withUserAuth(async (request, user) => {
   try {
     const { ids } = await request.json();
     if (!Array.isArray(ids) || ids.length === 0) {
@@ -64,4 +54,4 @@ export async function PATCH(request: Request) {
       { status: 500 }
     );
   }
-}
+});

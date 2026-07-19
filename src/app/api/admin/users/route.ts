@@ -1,16 +1,10 @@
 import { NextResponse } from "next/server";
-import { authErrorResponse, requireAdmin } from "@/lib/auth-middleware";
+import { withAdminAuth } from "@/lib/auth-middleware";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { headers } from "next/headers";
 
-export async function GET() {
-  try {
-    await requireAdmin();
-  } catch (error) {
-    return authErrorResponse(error);
-  }
-
+export const GET = withAdminAuth(async () => {
   const users = await db.user.findMany({
     select: {
       id: true,
@@ -22,15 +16,9 @@ export async function GET() {
   });
 
   return NextResponse.json({ users });
-}
+});
 
-export async function POST(request: Request) {
-  try {
-    await requireAdmin();
-  } catch (error) {
-    return authErrorResponse(error);
-  }
-
+export const POST = withAdminAuth(async (request) => {
   const body = await request.json();
   const { email, name, password } = body;
 
@@ -57,4 +45,4 @@ export async function POST(request: Request) {
       error instanceof Error ? error.message : "Failed to create user";
     return NextResponse.json({ error: message }, { status: 400 });
   }
-}
+});

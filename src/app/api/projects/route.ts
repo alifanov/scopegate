@@ -1,15 +1,10 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth-middleware";
+import { withUserAuth } from "@/lib/auth-middleware";
 import { PROJECT_ROLE } from "@/lib/project-roles";
 
 // GET /api/projects — list projects for current user
-export async function GET() {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export const GET = withUserAuth(async (_request, user) => {
   const projects = await db.project.findMany({
     where: { teamMembers: { some: { userId: user.userId } } },
     include: {
@@ -20,15 +15,10 @@ export async function GET() {
   });
 
   return NextResponse.json({ projects });
-}
+});
 
 // POST /api/projects — create a new project
-export async function POST(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export const POST = withUserAuth(async (request, user) => {
   try {
     const { name } = await request.json();
     if (!name) {
@@ -54,4 +44,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

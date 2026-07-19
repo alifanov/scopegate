@@ -1,14 +1,8 @@
 import { NextResponse } from "next/server";
-import { authErrorResponse, requireAdmin } from "@/lib/auth-middleware";
+import { withAdminAuth } from "@/lib/auth-middleware";
 import { db } from "@/lib/db";
 
-export async function GET() {
-  try {
-    await requireAdmin();
-  } catch (error) {
-    return authErrorResponse(error);
-  }
-
+export const GET = withAdminAuth(async () => {
   const projects = await db.project.findMany({
     include: {
       teamMembers: {
@@ -20,4 +14,4 @@ export async function GET() {
   });
 
   return NextResponse.json({ projects });
-}
+});

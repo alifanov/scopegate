@@ -69,3 +69,37 @@ export async function requireAdmin(): Promise<CurrentUser> {
   }
   return user;
 }
+
+/**
+ * Collapses the repeated "require admin, map auth errors" preamble shared
+ * by every admin-only route handler.
+ */
+export function withAdminAuth(
+  handler: (request: Request, user: CurrentUser) => Promise<NextResponse>
+) {
+  return async (request: Request): Promise<NextResponse> => {
+    try {
+      const user = await requireAdmin();
+      return await handler(request, user);
+    } catch (error) {
+      return authErrorResponse(error);
+    }
+  };
+}
+
+/**
+ * Collapses the repeated "require a logged-in user, map auth errors"
+ * preamble shared by every user-scoped (non-project, non-admin) route handler.
+ */
+export function withUserAuth(
+  handler: (request: Request, user: CurrentUser) => Promise<NextResponse>
+) {
+  return async (request: Request): Promise<NextResponse> => {
+    try {
+      const user = await requireCurrentUser();
+      return await handler(request, user);
+    } catch (error) {
+      return authErrorResponse(error);
+    }
+  };
+}

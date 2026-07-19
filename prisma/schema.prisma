@@ -120,6 +120,7 @@ enum ServiceProvider {
   airtable
   calendly
   threads
+  instagram
   googleTagManager
   email
 }

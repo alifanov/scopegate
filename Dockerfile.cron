@@ -1,0 +1,7 @@
+# Cron runner: supercronic curls the app's CRON_SECRET-guarded endpoints on schedule.
+# No app code / Prisma here — it only makes authenticated HTTP calls over the compose network.
+FROM alpine:3.20
+RUN apk add --no-cache curl supercronic
+COPY docker/crontab /crontab
+# supercronic logs to stdout and inherits container env (unlike crond)
+CMD ["supercronic", "/crontab"]

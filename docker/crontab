@@ -1,0 +1,6 @@
+# Schedule for ScopeGate cron jobs. supercronic runs each line via /bin/sh, so $CRON_SECRET expands from container env.
+# Format: min hour day month weekday  command
+# Reachable over the compose network as http://app:3000 — do NOT use the public domain.
+
+# Refresh OAuth tokens every 30 min (Google/Twitter access tokens live ~1h; refresh ahead of expiry).
+*/30 * * * * curl -fsS --max-time 30 -H "Authorization: Bearer $CRON_SECRET" http://app:3000/api/cron/refresh-tokens

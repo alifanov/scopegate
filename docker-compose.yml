@@ -1,6 +1,9 @@
 services:
+  # Local-only Postgres. In production (Coolify) the DB is external — set DATABASE_URL and
+  # do NOT activate this profile. Locally: `docker compose --profile local up`.
   postgres:
     image: postgres:16-alpine
+    profiles: ["local"]
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -22,7 +25,8 @@ services:
         ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@scopegate.local}
         ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/scopegate?schema=public
+      # External DB in prod; falls back to the local `postgres` service for `--profile local`.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/scopegate?schema=public}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-secret-change-in-production}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@scopegate.local}
@@ -34,9 +38,19 @@ services:
       CRON_SECRET: ${CRON_SECRET:-}
     ports:
       - "3000:3000"
+    restart: unless-stopped
+
+  # Triggers CRON_SECRET-guarded endpoints on schedule (see docker/crontab).
+  # Separate service = a single runner, so jobs don't double-fire if app is scaled to >1 replica.
+  cron:
+    build:
+      context: .
+      dockerfile: Dockerfile.cron
+    environment:
+      CRON_SECRET: ${CRON_SECRET:-}
     depends_on:
-      postgres:
-        condition: service_healthy
+      - app
+    restart: unless-stopped
 
 volumes:
   postgres_data:

@@ -36,8 +36,12 @@ services:
       LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID:-}
       LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET:-}
       CRON_SECRET: ${CRON_SECRET:-}
-    ports:
-      - "3000:3000"
+    # Coolify proxies traffic to the container by FQDN over its internal network —
+    # publish the port to the host only for local runs (uncomment for `--profile local`).
+    # ports:
+    #   - "3000:3000"
+    expose:
+      - "3000"
     restart: unless-stopped
 
   # Triggers CRON_SECRET-guarded endpoints on schedule (see docker/crontab).

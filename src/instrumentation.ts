@@ -4,6 +4,9 @@ export async function onRequestError() {
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    const { assertAuthSecretIsStrong } = await import("./lib/crypto");
+    assertAuthSecretIsStrong();
+
     await import("./instrumentation.node");
     const { ensureAdminUser } = await import("./lib/bootstrap");
     try {

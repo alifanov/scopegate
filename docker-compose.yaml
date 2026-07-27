@@ -19,18 +19,13 @@ services:
   app:
     build:
       context: .
-      args:
-        BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-secret-change-in-production}
-        BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
-        ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@scopegate.local}
-        ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
     environment:
       # External DB in prod; falls back to the local `postgres` service for `--profile local`.
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/scopegate?schema=public}
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-secret-change-in-production}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@scopegate.local}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID:-}

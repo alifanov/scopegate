@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { encrypt, decrypt } from "../crypto";
+import { encrypt, decrypt, assertAuthSecretIsStrong } from "../crypto";
 
 describe("crypto – token encryption (Fix 3)", () => {
   const originalSecret = process.env.BETTER_AUTH_SECRET;
@@ -84,5 +84,37 @@ describe("crypto – token encryption (Fix 3)", () => {
     } finally {
       process.env.BETTER_AUTH_SECRET = saved;
     }
+  });
+});
+
+describe("assertAuthSecretIsStrong", () => {
+  const saved = process.env.BETTER_AUTH_SECRET;
+
+  afterAll(() => {
+    if (saved !== undefined) {
+      process.env.BETTER_AUTH_SECRET = saved;
+    } else {
+      delete process.env.BETTER_AUTH_SECRET;
+    }
+  });
+
+  it("throws when missing", () => {
+    delete process.env.BETTER_AUTH_SECRET;
+    expect(() => assertAuthSecretIsStrong()).toThrow("BETTER_AUTH_SECRET is required");
+  });
+
+  it("throws on the known public default value", () => {
+    process.env.BETTER_AUTH_SECRET = "dev-secret-change-in-production";
+    expect(() => assertAuthSecretIsStrong()).toThrow("known public default value");
+  });
+
+  it("throws when shorter than 32 characters", () => {
+    process.env.BETTER_AUTH_SECRET = "short-secret";
+    expect(() => assertAuthSecretIsStrong()).toThrow("at least 32 characters");
+  });
+
+  it("passes for a sufficiently long, non-default secret", () => {
+    process.env.BETTER_AUTH_SECRET = "a".repeat(32);
+    expect(() => assertAuthSecretIsStrong()).not.toThrow();
   });
 });

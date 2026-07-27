@@ -98,7 +98,8 @@
       "esbuild": ">=0.28.1",
       "protobufjs": ">=8.6.6",
       "js-yaml": ">=4.2.0",
-      "@babel/core": ">=7.29.6"
+      "@babel/core": ">=7.29.6",
+      "sharp": ">=0.35.0"
     }
   },
   "devDependencies": {

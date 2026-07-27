@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { recordAudit } from "@/lib/audit";
 import { generateMcpApiKey } from "@/lib/mcp/api-keys";
-import { ALL_ACTIONS } from "@/lib/mcp/permissions";
+import { ALL_ACTIONS, getActionGroup } from "@/lib/mcp/permissions";
 import { requireProjectServiceConnection } from "@/lib/project-access";
 
 type EndpointDatabase = {
@@ -65,10 +65,15 @@ type ServiceOptions = {
   transaction?: TransactionRunner;
 };
 
-export function validateEndpointPermissions(permissions?: string[]): void {
+export function validateEndpointPermissions(
+  permissions?: string[],
+  providerKey?: string
+): void {
   if (!permissions) return;
 
-  const invalid = permissions.filter((action) => !ALL_ACTIONS.includes(action));
+  const invalid = permissions.filter((action) =>
+    providerKey ? getActionGroup(action) !== providerKey : !ALL_ACTIONS.includes(action)
+  );
   if (invalid.length > 0) {
     throw new EndpointPermissionError(
       `Invalid permissions: ${invalid.join(", ")}`,
@@ -85,10 +90,9 @@ export async function createProjectEndpoint(
     apiKeyGenerator = generateMcpApiKey,
   }: ServiceOptions = {}
 ) {
-  validateEndpointPermissions(input.permissions);
-
+  let connection;
   try {
-    await requireProjectServiceConnection(
+    connection = await requireProjectServiceConnection(
       input.projectId,
       input.serviceConnectionId,
       database.serviceConnection
@@ -96,6 +100,8 @@ export async function createProjectEndpoint(
   } catch {
     throw new EndpointPermissionError("Service connection not found", 404);
   }
+
+  validateEndpointPermissions(input.permissions, connection.provider);
 
   const rateLimitPerMinute = input.rateLimitPerMinute ?? 60;
   const endpoint = await database.mcpEndpoint.create({
@@ -142,12 +148,13 @@ export async function applyEndpointPermissions(
 ) {
   const existing = await database.mcpEndpoint.findFirst({
     where: { id: input.endpointId, projectId: input.projectId },
+    include: { serviceConnection: true },
   });
   if (!existing) {
     throw new EndpointPermissionError("Not found", 404);
   }
 
-  validateEndpointPermissions(input.permissions);
+  validateEndpointPermissions(input.permissions, existing.serviceConnection.provider);
 
   // A partial failure here (e.g. after deleteMany but before createMany)
   // would leave the endpoint with zero permissions — keep update +

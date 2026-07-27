@@ -17,14 +17,15 @@ export function createMcpServerForEndpoint(
   endpointName: string,
   allowedActions: string[],
   serviceConnectionId: string,
-  projectId: string
+  projectId: string,
+  provider: string
 ) {
   const server = new McpServer({
     name: `ScopeGate — ${endpointName}`,
     version: "1.0.0",
   });
 
-  const tools = getToolsByActions(allowedActions);
+  const tools = getToolsByActions(allowedActions, provider);
 
   for (const tool of tools) {
     registerTool(server, tool, endpointId, serviceConnectionId, projectId);

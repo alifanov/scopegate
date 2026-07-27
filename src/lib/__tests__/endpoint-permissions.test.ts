@@ -39,6 +39,72 @@ describe("endpoint permission service", () => {
     ).toThrow(EndpointPermissionError);
   });
 
+  describe.each([
+    ["calendar", "calendar:list_events"],
+    ["gmail", "gmail:read_emails"],
+    ["stripe", "stripe:list_charges"],
+  ])("provider scoping for %s", (provider, ownAction) => {
+    it("allows an action that belongs to the connection's own provider", () => {
+      expect(() =>
+        validateEndpointPermissions([ownAction], provider)
+      ).not.toThrow();
+    });
+
+    it("rejects an action that belongs to a different provider", () => {
+      const foreignAction = provider === "stripe" ? "gmail:read_emails" : "stripe:list_charges";
+      expect(() =>
+        validateEndpointPermissions([foreignAction], provider)
+      ).toThrow(EndpointPermissionError);
+    });
+  });
+
+  it("rejects a Gmail connection scoped to a Stripe action end-to-end on create", async () => {
+    database.serviceConnection.findFirst.mockResolvedValue({
+      id: "connection-1",
+      provider: "gmail",
+    });
+
+    await expect(
+      createProjectEndpoint(
+        {
+          projectId: "project-1",
+          name: "Production",
+          serviceConnectionId: "connection-1",
+          permissions: ["stripe:list_charges"],
+        },
+        { database, audit, apiKeyGenerator: () => "sg_test" }
+      )
+    ).rejects.toMatchObject({
+      message: "Invalid permissions: stripe:list_charges",
+      status: 400,
+    });
+
+    expect(database.mcpEndpoint.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a Gmail connection scoped to a Stripe action end-to-end on update", async () => {
+    database.mcpEndpoint.findFirst.mockResolvedValue({
+      id: "endpoint-1",
+      serviceConnection: { provider: "gmail" },
+    });
+
+    await expect(
+      applyEndpointPermissions(
+        {
+          projectId: "project-1",
+          endpointId: "endpoint-1",
+          permissions: ["stripe:list_charges"],
+        },
+        { database, audit, transaction }
+      )
+    ).rejects.toMatchObject({
+      message: "Invalid permissions: stripe:list_charges",
+      status: 400,
+    });
+
+    expect(database.mcpEndpoint.update).not.toHaveBeenCalled();
+  });
+
   it("verifies the service connection belongs to the project before creating an endpoint", async () => {
     database.serviceConnection.findFirst.mockResolvedValue(null);
 
@@ -61,7 +127,10 @@ describe("endpoint permission service", () => {
   });
 
   it("creates endpoint permissions and records audit data in one service call", async () => {
-    database.serviceConnection.findFirst.mockResolvedValue({ id: "connection-1" });
+    database.serviceConnection.findFirst.mockResolvedValue({
+      id: "connection-1",
+      provider: "calendar",
+    });
     database.mcpEndpoint.create.mockResolvedValue({
       id: "endpoint-1",
       permissions: [{ action: "calendar:list_events" }],
@@ -100,7 +169,10 @@ describe("endpoint permission service", () => {
   });
 
   it("replaces endpoint permissions during updates", async () => {
-    database.mcpEndpoint.findFirst.mockResolvedValue({ id: "endpoint-1" });
+    database.mcpEndpoint.findFirst.mockResolvedValue({
+      id: "endpoint-1",
+      serviceConnection: { provider: "calendar" },
+    });
     database.mcpEndpoint.update.mockResolvedValue({ id: "endpoint-1" });
     database.endpointPermission.deleteMany.mockResolvedValue({ count: 1 });
     database.endpointPermission.createMany.mockResolvedValue({ count: 2 });
@@ -108,7 +180,7 @@ describe("endpoint permission service", () => {
       id: "endpoint-1",
       permissions: [
         { action: "calendar:list_events" },
-        { action: "gmail:read_emails" },
+        { action: "calendar:create_event" },
       ],
     });
 
@@ -116,7 +188,7 @@ describe("endpoint permission service", () => {
       {
         projectId: "project-1",
         endpointId: "endpoint-1",
-        permissions: ["calendar:list_events", "gmail:read_emails"],
+        permissions: ["calendar:list_events", "calendar:create_event"],
       },
       { database, audit, transaction }
     );
@@ -127,21 +199,24 @@ describe("endpoint permission service", () => {
     expect(database.endpointPermission.createMany).toHaveBeenCalledWith({
       data: [
         { action: "calendar:list_events", endpointId: "endpoint-1" },
-        { action: "gmail:read_emails", endpointId: "endpoint-1" },
+        { action: "calendar:create_event", endpointId: "endpoint-1" },
       ],
     });
     expect(audit).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "endpoint:update",
         params: expect.objectContaining({
-          permissions: ["calendar:list_events", "gmail:read_emails"],
+          permissions: ["calendar:list_events", "calendar:create_event"],
         }),
       })
     );
   });
 
   it("rolls back the whole update when the permission replacement fails mid-transaction", async () => {
-    database.mcpEndpoint.findFirst.mockResolvedValue({ id: "endpoint-1" });
+    database.mcpEndpoint.findFirst.mockResolvedValue({
+      id: "endpoint-1",
+      serviceConnection: { provider: "calendar" },
+    });
     database.mcpEndpoint.update.mockResolvedValue({ id: "endpoint-1" });
     database.endpointPermission.deleteMany.mockResolvedValue({ count: 1 });
     database.endpointPermission.createMany.mockRejectedValue(new Error("db exploded"));

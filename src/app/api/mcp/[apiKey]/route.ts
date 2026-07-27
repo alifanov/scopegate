@@ -183,7 +183,8 @@ async function handleMcpRequest(
       endpoint.name,
       allowedActions,
       endpoint.serviceConnectionId,
-      endpoint.projectId
+      endpoint.projectId,
+      endpoint.serviceConnection.provider
     );
 
     // Create stateless transport for this request

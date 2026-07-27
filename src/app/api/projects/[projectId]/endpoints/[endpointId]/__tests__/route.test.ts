@@ -91,7 +91,11 @@ describe("endpoint route – IDOR (Fix 1) + permission validation (Fix 4)", () =
     });
 
     it("succeeds when endpoint belongs to project", async () => {
-      mockEndpointFindFirst.mockResolvedValue({ id: "e1", projectId: "p1" } as never);
+      mockEndpointFindFirst.mockResolvedValue({
+        id: "e1",
+        projectId: "p1",
+        serviceConnection: { provider: "calendar" },
+      } as never);
       mockEndpointUpdate.mockResolvedValue({ id: "e1", name: "updated" } as never);
       mockEndpointFindUnique.mockResolvedValue({
         id: "e1",
@@ -181,7 +185,11 @@ describe("endpoint route – IDOR (Fix 1) + permission validation (Fix 4)", () =
 
   describe("PATCH – permission validation", () => {
     it("returns 400 with error for invalid permissions", async () => {
-      mockEndpointFindFirst.mockResolvedValue({ id: "e1", projectId: "p1" } as never);
+      mockEndpointFindFirst.mockResolvedValue({
+        id: "e1",
+        projectId: "p1",
+        serviceConnection: { provider: "calendar" },
+      } as never);
       mockEndpointUpdate.mockResolvedValue({ id: "e1" } as never);
 
       const res = await PATCH(
@@ -214,7 +222,11 @@ describe("endpoint route – IDOR (Fix 1) + permission validation (Fix 4)", () =
     });
 
     it("succeeds with valid permissions", async () => {
-      mockEndpointFindFirst.mockResolvedValue({ id: "e1", projectId: "p1" } as never);
+      mockEndpointFindFirst.mockResolvedValue({
+        id: "e1",
+        projectId: "p1",
+        serviceConnection: { provider: "calendar" },
+      } as never);
       mockEndpointUpdate.mockResolvedValue({ id: "e1" } as never);
       mockPermissionDeleteMany.mockResolvedValue({ count: 0 } as never);
       mockPermissionCreateMany.mockResolvedValue({ count: 2 } as never);
@@ -222,12 +234,12 @@ describe("endpoint route – IDOR (Fix 1) + permission validation (Fix 4)", () =
         id: "e1",
         permissions: [
           { action: "calendar:list_events" },
-          { action: "gmail:read_emails" },
+          { action: "calendar:create_event" },
         ],
       } as never);
 
       const res = await PATCH(
-        makeRequest({ permissions: ["calendar:list_events", "gmail:read_emails"] }),
+        makeRequest({ permissions: ["calendar:list_events", "calendar:create_event"] }),
         makeParams("p1", "e1")
       );
 
@@ -236,13 +248,37 @@ describe("endpoint route – IDOR (Fix 1) + permission validation (Fix 4)", () =
       expect(mockPermissionCreateMany).toHaveBeenCalledWith({
         data: [
           { action: "calendar:list_events", endpointId: "e1" },
-          { action: "gmail:read_emails", endpointId: "e1" },
+          { action: "calendar:create_event", endpointId: "e1" },
         ],
       });
     });
 
+    it("rejects permissions belonging to a different provider than the connection", async () => {
+      mockEndpointFindFirst.mockResolvedValue({
+        id: "e1",
+        projectId: "p1",
+        serviceConnection: { provider: "gmail" },
+      } as never);
+      mockEndpointUpdate.mockResolvedValue({ id: "e1" } as never);
+
+      const res = await PATCH(
+        makeRequest({ permissions: ["stripe:list_charges"] }),
+        makeParams("p1", "e1")
+      );
+
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toContain("Invalid permissions");
+      expect(body.error).toContain("stripe:list_charges");
+      expect(mockEndpointUpdate).not.toHaveBeenCalled();
+    });
+
     it("records an audit row capturing the permission change (#116)", async () => {
-      mockEndpointFindFirst.mockResolvedValue({ id: "e1", projectId: "p1" } as never);
+      mockEndpointFindFirst.mockResolvedValue({
+        id: "e1",
+        projectId: "p1",
+        serviceConnection: { provider: "gmail" },
+      } as never);
       mockEndpointUpdate.mockResolvedValue({ id: "e1" } as never);
       mockPermissionDeleteMany.mockResolvedValue({ count: 0 } as never);
       mockPermissionCreateMany.mockResolvedValue({ count: 1 } as never);

@@ -1,4 +1,5 @@
 import type { ToolDefinition } from './types';
+import { getActionGroup } from '../permissions';
 export type { ToolContext, ToolDefinition } from './types';
 
 import { gmailTools } from './gmail';
@@ -59,7 +60,12 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   ...googleTagManagerTools,
 ];
 
-export function getToolsByActions(actions: string[]): ToolDefinition[] {
+// Belt-and-suspenders: even if an EndpointPermission row exists for an
+// action outside the connection's provider (e.g. created before this check
+// existed), never register the tool for a mismatched connection.
+export function getToolsByActions(actions: string[], provider: string): ToolDefinition[] {
   const actionSet = new Set(actions);
-  return TOOL_DEFINITIONS.filter((t) => actionSet.has(t.action));
+  return TOOL_DEFINITIONS.filter(
+    (t) => actionSet.has(t.action) && getActionGroup(t.action) === provider
+  );
 }

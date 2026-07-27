@@ -27,6 +27,42 @@ function resolveUrl(
   return typeof value === "function" ? value(conn) : value;
 }
 
+// Blocks path traversal via tool params (e.g. page_id="../users") that would
+// redirect a request to a different provider endpoint than the one the MCP
+// endpoint was granted permission for. Checks the decoded path (catches
+// %2e%2e encoding too) for a literal ".." segment.
+function assertSafePath(rawPath: string): void {
+  if (!rawPath.startsWith("/")) {
+    throw new Error(`Invalid provider path: must start with "/" (got "${rawPath}")`);
+  }
+  const pathOnly = rawPath.split("?")[0];
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(pathOnly);
+  } catch {
+    throw new Error(`Invalid provider path: malformed encoding ("${rawPath}")`);
+  }
+  if (decoded.split("/").includes("..")) {
+    throw new Error(`Invalid provider path: path traversal segment ("${rawPath}")`);
+  }
+}
+
+// Defense in depth: after concatenation, the final URL must still resolve
+// under the provider's base origin + base path prefix. Catches cross-API
+// escapes on hosts that share an origin across multiple products (e.g.
+// www.googleapis.com/youtube/v3 vs www.googleapis.com/calendar/v3).
+function assertWithinBase(baseUrl: string, rawPath: string): void {
+  const base = new URL(baseUrl);
+  const final = new URL(baseUrl + rawPath);
+  if (final.origin !== base.origin) {
+    throw new Error(`Invalid provider path: escapes provider origin ("${rawPath}")`);
+  }
+  const basePath = base.pathname.endsWith("/") ? base.pathname : `${base.pathname}/`;
+  if (final.pathname !== base.pathname && !final.pathname.startsWith(basePath)) {
+    throw new Error(`Invalid provider path: escapes provider base path ("${rawPath}")`);
+  }
+}
+
 export type ServiceFetchOptions = Omit<SafeFetchOptions, "headers"> & {
   headers?: Record<string, string>;
   retry?: boolean;
@@ -48,6 +84,8 @@ export async function serviceFetch(
   init?: ServiceFetchOptions
 ): Promise<Response> {
   const { retry: retryOverride, onAttempt, baseUrlKey, ...fetchInit } = init ?? {};
+  assertSafePath(rawPath);
+
   const conn = await db.serviceConnection.findUniqueOrThrow({
     where: { id: connectionId },
   });
@@ -57,9 +95,11 @@ export async function serviceFetch(
     throw new Error(`No transport config for provider: ${conn.provider}`);
   }
 
-  const accessToken = await getValidAccessTokenForConnection(conn);
   const altBaseUrl = baseUrlKey ? config.altBaseUrls?.[baseUrlKey] : undefined;
   const baseUrl = resolveUrl(altBaseUrl ?? config.baseUrl, conn);
+  assertWithinBase(baseUrl, rawPath);
+
+  const accessToken = await getValidAccessTokenForConnection(conn);
   const fixedHeaders =
     typeof config.fixedHeaders === "function" ? config.fixedHeaders() : config.fixedHeaders;
 

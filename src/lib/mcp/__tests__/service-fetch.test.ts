@@ -90,6 +90,74 @@ describe("serviceFetch", () => {
   });
 });
 
+describe("serviceFetch path traversal protection", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getValidAccessTokenForConnection).mockResolvedValue("token-1");
+  });
+
+  it("rejects a notion page_id param that escapes /pages into /users", async () => {
+    vi.mocked(db.serviceConnection.findUniqueOrThrow).mockResolvedValue({
+      id: "conn-1",
+      provider: "notion",
+    } as never);
+
+    await expect(serviceFetch("conn-1", "/pages/../users")).rejects.toThrow(
+      "path traversal segment"
+    );
+    expect(safeFetch).not.toHaveBeenCalled();
+  });
+
+  it("rejects a salesforce objectType param that escapes sobjects into an arbitrary SOQL query endpoint", async () => {
+    vi.mocked(db.serviceConnection.findUniqueOrThrow).mockResolvedValue({
+      id: "conn-1",
+      provider: "salesforce",
+      metadata: { salesforceInstanceUrl: "https://my-org.my.salesforce.com" },
+    } as never);
+
+    await expect(
+      serviceFetch(
+        "conn-1",
+        "/services/data/v59.0/sobjects/../../../../services/data/v59.0/query?q=SELECT+Id+FROM+Account"
+      )
+    ).rejects.toThrow("path traversal segment");
+    expect(safeFetch).not.toHaveBeenCalled();
+  });
+
+  it("rejects a github owner/repo param that escapes /repos into another endpoint", async () => {
+    vi.mocked(db.serviceConnection.findUniqueOrThrow).mockResolvedValue({
+      id: "conn-1",
+      provider: "github",
+    } as never);
+
+    await expect(serviceFetch("conn-1", "/repos/../user/emails")).rejects.toThrow(
+      "path traversal segment"
+    );
+    expect(safeFetch).not.toHaveBeenCalled();
+  });
+
+  it("rejects a path escaping the provider's base path prefix even without a literal '..' surviving normalization", async () => {
+    vi.mocked(db.serviceConnection.findUniqueOrThrow).mockResolvedValue({
+      id: "conn-1",
+      provider: "notion",
+    } as never);
+
+    await expect(serviceFetch("conn-1", "/../v2/secrets")).rejects.toThrow();
+    expect(safeFetch).not.toHaveBeenCalled();
+  });
+
+  it("still allows a well-formed path for the same provider", async () => {
+    vi.mocked(db.serviceConnection.findUniqueOrThrow).mockResolvedValue({
+      id: "conn-1",
+      provider: "notion",
+    } as never);
+    vi.mocked(safeFetch).mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+
+    const res = await serviceFetch("conn-1", "/pages/abc123");
+    expect(res.status).toBe(200);
+  });
+});
+
 describe("serviceJsonFetch", () => {
   beforeEach(() => {
     vi.clearAllMocks();

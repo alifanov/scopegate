@@ -29,12 +29,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { CreateEndpointDialog } from "@/components/project/create-endpoint-dialog";
 import { TabContentSkeleton } from "@/components/skeletons";
 import { getProviderDisplayName } from "@/lib/provider-names";
 import { PERMISSION_GROUPS } from "@/lib/mcp/permissions";
-import { Plug, Unplug, ArrowLeft, RefreshCw, AlertTriangle, XCircle } from "lucide-react";
+import { Plug, Unplug, ArrowLeft, RefreshCw, AlertTriangle, XCircle, Plus } from "lucide-react";
 import { ServiceIcon } from "@/components/service-icons";
 import { toast } from "sonner";
+import { apiGet, apiSend, ApiError } from "@/lib/api-client";
 
 const API_KEY_PROVIDERS = new Set(["openRouter", "telegram", "semrush", "ahrefs", "stripe", "airtable", "calendly"]);
 const EMAIL_PROVIDER = "email";
@@ -67,11 +69,15 @@ export function ServicesTab({ projectId }: { projectId: string }) {
   const searchParams = useSearchParams();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
   const [reconnecting, setReconnecting] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [serviceToDisconnect, setServiceToDisconnect] = useState<string | null>(null);
+
+  // Add-MCP-endpoint dialog state
+  const [mcpServiceId, setMcpServiceId] = useState<string | null>(null);
 
   // API key form state
   const [apiKeyProvider, setApiKeyProvider] = useState<string | null>(null);
@@ -104,14 +110,12 @@ export function ServicesTab({ projectId }: { projectId: string }) {
   }, [projectId]);
 
   async function loadServices() {
+    setError(null);
     try {
-      const res = await fetch(`/api/projects/${projectId}/services`);
-      if (res.ok) {
-        const data = await res.json();
-        setServices(data.services || []);
-      }
-    } catch {
-      toast.error("Failed to load services");
+      const data = await apiGet<{ services: Service[] }>(`/api/projects/${projectId}/services`);
+      setServices(data.services || []);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to load services");
     } finally {
       setLoading(false);
     }
@@ -158,33 +162,20 @@ export function ServicesTab({ projectId }: { projectId: string }) {
 
     setEmailSubmitting(true);
     try {
-      const res = await fetch(
-        `/api/projects/${projectId}/services/connect-email`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: emailForm.email.trim(),
-            password: emailForm.password,
-            imapHost: emailForm.imapHost.trim(),
-            imapPort: parseInt(emailForm.imapPort) || 993,
-            smtpHost: emailForm.smtpHost.trim(),
-            smtpPort: parseInt(emailForm.smtpPort) || 465,
-          }),
-        }
-      );
-
-      if (res.ok) {
-        toast.success("Email connected successfully.");
-        setDialogOpen(false);
-        resetEmailForm();
-        loadServices();
-      } else {
-        const data = await res.json();
-        toast.error(data.error || "Failed to connect email.");
-      }
-    } catch {
-      toast.error("Failed to connect email.");
+      await apiSend(`/api/projects/${projectId}/services/connect-email`, "POST", {
+        email: emailForm.email.trim(),
+        password: emailForm.password,
+        imapHost: emailForm.imapHost.trim(),
+        imapPort: parseInt(emailForm.imapPort) || 993,
+        smtpHost: emailForm.smtpHost.trim(),
+        smtpPort: parseInt(emailForm.smtpPort) || 465,
+      });
+      toast.success("Email connected successfully.");
+      setDialogOpen(false);
+      resetEmailForm();
+      loadServices();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to connect email.");
     } finally {
       setEmailSubmitting(false);
     }
@@ -237,26 +228,13 @@ export function ServicesTab({ projectId }: { projectId: string }) {
         label: apiKeyLabel.trim() || undefined,
       };
 
-      const res = await fetch(
-        `/api/projects/${projectId}/services/connect-api-key`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      if (res.ok) {
-        toast.success("Service connected successfully.");
-        setDialogOpen(false);
-        resetApiKeyForm();
-        loadServices();
-      } else {
-        const data = await res.json();
-        toast.error(data.error || "Failed to connect service.");
-      }
-    } catch {
-      toast.error("Failed to connect service.");
+      await apiSend(`/api/projects/${projectId}/services/connect-api-key`, "POST", payload);
+      toast.success("Service connected successfully.");
+      setDialogOpen(false);
+      resetApiKeyForm();
+      loadServices();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to connect service.");
     } finally {
       setApiKeySubmitting(false);
     }
@@ -271,18 +249,11 @@ export function ServicesTab({ projectId }: { projectId: string }) {
     if (!serviceToDisconnect) return;
     setDisconnecting(serviceToDisconnect);
     try {
-      const res = await fetch(
-        `/api/projects/${projectId}/services?serviceId=${serviceToDisconnect}`,
-        { method: "DELETE" }
-      );
-      if (res.ok) {
-        setServices((prev) => prev.filter((s) => s.id !== serviceToDisconnect));
-        toast.success("Service disconnected.");
-      } else {
-        toast.error("Failed to disconnect service.");
-      }
-    } catch {
-      toast.error("Failed to disconnect service.");
+      await apiSend(`/api/projects/${projectId}/services?serviceId=${serviceToDisconnect}`, "DELETE");
+      setServices((prev) => prev.filter((s) => s.id !== serviceToDisconnect));
+      toast.success("Service disconnected.");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to disconnect service.");
     } finally {
       setDisconnecting(null);
       setConfirmOpen(false);
@@ -510,6 +481,14 @@ export function ServicesTab({ projectId }: { projectId: string }) {
         </DialogContent>
       </Dialog>
 
+      <CreateEndpointDialog
+        projectId={projectId}
+        open={mcpServiceId !== null}
+        onOpenChange={(open) => !open && setMcpServiceId(null)}
+        onCreated={loadServices}
+        initialServiceId={mcpServiceId ?? undefined}
+      />
+
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
@@ -522,7 +501,17 @@ export function ServicesTab({ projectId }: { projectId: string }) {
         loading={disconnecting !== null}
       />
 
-      {services.length === 0 ? (
+      {error ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Failed to load services</CardTitle>
+            <CardDescription>{error}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" onClick={loadServices}>Retry</Button>
+          </CardContent>
+        </Card>
+      ) : services.length === 0 ? (
         <Card>
           <CardHeader>
             <CardTitle>No services connected</CardTitle>
@@ -581,6 +570,16 @@ export function ServicesTab({ projectId }: { projectId: string }) {
                     <Badge variant="secondary">
                       {service._count.mcpEndpoints} endpoint(s)
                     </Badge>
+                    {service._count.mcpEndpoints === 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setMcpServiceId(service.id)}
+                      >
+                        <Plus className="size-4" />
+                        Add MCP
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"

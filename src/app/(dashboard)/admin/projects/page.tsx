@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { ApiError, apiGet } from "@/lib/api-client";
 import {
   Card,
   CardContent,
@@ -8,13 +9,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ManageMembers } from "@/components/project/manage-members";
 import { TableSkeleton } from "@/components/skeletons";
 import type { ProjectRole } from "@/generated/prisma/client";
 import { isProjectOwner } from "@/lib/project-roles";
 import { Users } from "lucide-react";
-import { toast } from "sonner";
 
 interface Member {
   id: string;
@@ -32,18 +33,15 @@ interface Project {
 export default function AdminProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchProjects = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/projects");
-      if (res.ok) {
-        const data = await res.json();
-        setProjects(data.projects || []);
-      } else if (res.status === 403) {
-        toast.error("You do not have admin access");
-      }
-    } catch {
-      toast.error("Failed to load projects");
+      const data = await apiGet<{ projects: Project[] }>("/api/admin/projects");
+      setProjects(data.projects || []);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to load projects");
     } finally {
       setLoading(false);
     }
@@ -63,6 +61,13 @@ export default function AdminProjectsPage() {
 
       {loading ? (
         <TableSkeleton />
+      ) : error ? (
+        <div className="space-y-3">
+          <p className="text-destructive">{error}</p>
+          <Button variant="outline" onClick={fetchProjects} className="cursor-pointer">
+            Retry
+          </Button>
+        </div>
       ) : projects.length === 0 ? (
         <p className="text-muted-foreground">No projects found.</p>
       ) : (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { ApiError, apiGet } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -15,7 +16,6 @@ import { TableSkeleton } from "@/components/skeletons";
 import { CreateUserDialog } from "@/components/admin/create-user-dialog";
 import { GenerateInviteDialog } from "@/components/admin/generate-invite-dialog";
 import { UserPlus, Link2 } from "lucide-react";
-import { toast } from "sonner";
 
 interface User {
   id: string;
@@ -27,20 +27,17 @@ interface User {
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/users");
-      if (res.ok) {
-        const data = await res.json();
-        setUsers(data.users || []);
-      } else if (res.status === 403) {
-        toast.error("You do not have admin access");
-      }
-    } catch {
-      toast.error("Failed to load users");
+      const data = await apiGet<{ users: User[] }>("/api/admin/users");
+      setUsers(data.users || []);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to load users");
     } finally {
       setLoading(false);
     }
@@ -77,6 +74,13 @@ export default function AdminUsersPage() {
 
       {loading ? (
         <TableSkeleton />
+      ) : error ? (
+        <div className="space-y-3">
+          <p className="text-destructive">{error}</p>
+          <Button variant="outline" onClick={fetchUsers} className="cursor-pointer">
+            Retry
+          </Button>
+        </div>
       ) : users.length === 0 ? (
         <p className="text-muted-foreground">No users found.</p>
       ) : (

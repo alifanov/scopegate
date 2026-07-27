@@ -23,6 +23,7 @@ import { EndpointDetailSkeleton } from "@/components/skeletons";
 import { useProject } from "@/components/project/project-context";
 import { getProviderDisplayName } from "@/lib/provider-names";
 import { ServiceIcon } from "@/components/service-icons";
+import { apiGet, apiSend, ApiError } from "@/lib/api-client";
 
 interface EndpointDetails {
   id: string;
@@ -46,6 +47,7 @@ export default function EndpointDetailPage() {
   const [endpoint, setEndpoint] = useState<EndpointDetails | null>(null);
   const [projectName, setProjectName] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
 
   // Confirm dialogs
@@ -67,76 +69,52 @@ export default function EndpointDetailPage() {
   // Edit permissions
   const [permDialogOpen, setPermDialogOpen] = useState(false);
 
+  async function loadEndpoint() {
+    try {
+      const data = await apiGet<{ endpoint: EndpointDetails }>(
+        `/api/projects/${projectId}/endpoints/${endpointId}`
+      );
+      setEndpoint(data.endpoint);
+      setEditName(data.endpoint.name);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to load endpoint");
+    }
+  }
+
   useEffect(() => {
     async function init() {
-      try {
-        await Promise.all([
-          fetch(`/api/projects/${projectId}/endpoints/${endpointId}`)
-            .then((r) => (r.ok ? r.json() : null))
-            .then((data) => {
-              if (data?.endpoint) {
-                setEndpoint(data.endpoint);
-                setEditName(data.endpoint.name);
-              }
-            })
-            .catch(() => {
-              toast.error("Failed to load endpoint");
-            }),
-          fetch(`/api/projects/${projectId}`)
-            .then((r) => (r.ok ? r.json() : null))
-            .then((data) => {
-              if (data?.project) {
-                setProjectName(data.project.name);
-                setProject({
-                  projectId: data.project.id,
-                  projectName: data.project.name,
-                });
-              }
-            }),
-        ]);
-      } finally {
-        setLoading(false);
-      }
+      await Promise.all([
+        loadEndpoint(),
+        apiGet<{ project: { id: string; name: string } }>(`/api/projects/${projectId}`)
+          .then((data) => {
+            setProjectName(data.project.name);
+            setProject({
+              projectId: data.project.id,
+              projectName: data.project.name,
+            });
+          })
+          .catch(() => {}),
+      ]);
+      setLoading(false);
     }
     init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, endpointId]);
 
-  async function loadEndpoint() {
-    try {
-      const res = await fetch(
-        `/api/projects/${projectId}/endpoints/${endpointId}`
-      );
-      if (res.ok) {
-        const data = await res.json();
-        setEndpoint(data.endpoint);
-        setEditName(data.endpoint.name);
-      }
-    } catch {
-      toast.error("Failed to load endpoint");
-    }
-  }
-
   async function handleToggleActive() {
     if (!endpoint) return;
     setToggling(true);
     try {
-      const res = await fetch(
+      await apiSend(
         `/api/projects/${projectId}/endpoints/${endpointId}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ isActive: !endpoint.isActive }),
-        }
+        "PATCH",
+        { isActive: !endpoint.isActive }
       );
-      if (res.ok) {
-        toast.success(endpoint.isActive ? "Endpoint deactivated" : "Endpoint activated");
-        loadEndpoint();
-      } else {
-        toast.error("Failed to update endpoint status");
-      }
-    } catch {
-      toast.error("Failed to update endpoint status");
+      toast.success(endpoint.isActive ? "Endpoint deactivated" : "Endpoint activated");
+      loadEndpoint();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to update endpoint status");
     } finally {
       setToggling(false);
       setToggleOpen(false);
@@ -146,18 +124,14 @@ export default function EndpointDetailPage() {
   async function handleRegenerateKey() {
     setRegenerating(true);
     try {
-      const res = await fetch(
+      await apiSend(
         `/api/projects/${projectId}/endpoints/${endpointId}/regenerate-key`,
-        { method: "POST" }
+        "POST"
       );
-      if (res.ok) {
-        toast.success("API key regenerated");
-        loadEndpoint();
-      } else {
-        toast.error("Failed to regenerate API key");
-      }
-    } catch {
-      toast.error("Failed to regenerate API key");
+      toast.success("API key regenerated");
+      loadEndpoint();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to regenerate API key");
     } finally {
       setRegenerating(false);
       setRegenerateOpen(false);
@@ -168,23 +142,16 @@ export default function EndpointDetailPage() {
     if (!editName.trim()) return;
     setRenaming(true);
     try {
-      const res = await fetch(
+      await apiSend(
         `/api/projects/${projectId}/endpoints/${endpointId}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: editName }),
-        }
+        "PATCH",
+        { name: editName }
       );
-      if (res.ok) {
-        toast.success("Endpoint renamed");
-        setEditingName(false);
-        loadEndpoint();
-      } else {
-        toast.error("Failed to rename endpoint");
-      }
-    } catch {
-      toast.error("Failed to rename endpoint");
+      toast.success("Endpoint renamed");
+      setEditingName(false);
+      loadEndpoint();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to rename endpoint");
     } finally {
       setRenaming(false);
     }
@@ -193,18 +160,14 @@ export default function EndpointDetailPage() {
   async function handleDelete() {
     setDeleting(true);
     try {
-      const res = await fetch(
+      await apiSend(
         `/api/projects/${projectId}/endpoints/${endpointId}`,
-        { method: "DELETE" }
+        "DELETE"
       );
-      if (res.ok) {
-        toast.success("Endpoint deleted");
-        router.push(`/projects/${projectId}?tab=endpoints`);
-      } else {
-        toast.error("Failed to delete endpoint");
-      }
-    } catch {
-      toast.error("Failed to delete endpoint");
+      toast.success("Endpoint deleted");
+      router.push(`/projects/${projectId}?tab=endpoints`);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to delete endpoint");
     } finally {
       setDeleting(false);
       setDeleteOpen(false);
@@ -212,7 +175,17 @@ export default function EndpointDetailPage() {
   }
 
   if (loading) return <EndpointDetailSkeleton />;
-  if (!endpoint) return <p className="text-destructive">Endpoint not found</p>;
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <p className="text-destructive">{error}</p>
+        <Button onClick={loadEndpoint}>Retry</Button>
+      </div>
+    );
+  }
+
+  if (!endpoint) return null;
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const mcpUrl = `${origin}/api/mcp/${endpoint.apiKey}`;

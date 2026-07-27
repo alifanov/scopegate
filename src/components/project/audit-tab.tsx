@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { TableSkeleton } from "@/components/skeletons";
 import { Filter, ChevronLeft, ChevronRight } from "lucide-react";
-import { toast } from "sonner";
+import { apiGet, ApiError } from "@/lib/api-client";
 
 interface AuditEntry {
   id: string;
@@ -53,6 +53,7 @@ export function AuditTab({ projectId }: { projectId: string }) {
   const [logs, setLogs] = useState<AuditEntry[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [endpointFilter, setEndpointFilter] = useState<string | null>(null);
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
@@ -62,11 +63,8 @@ export function AuditTab({ projectId }: { projectId: string }) {
   useEffect(() => {
     async function loadEndpoints() {
       try {
-        const res = await fetch(`/api/projects/${projectId}/endpoints`);
-        if (res.ok) {
-          const data = await res.json();
-          setEndpoints(data.endpoints || []);
-        }
+        const data = await apiGet<{ endpoints: Endpoint[] }>(`/api/projects/${projectId}/endpoints`);
+        setEndpoints(data.endpoints || []);
       } catch {
         // silently ignore — filter just won't be populated
       }
@@ -74,29 +72,28 @@ export function AuditTab({ projectId }: { projectId: string }) {
     loadEndpoints();
   }, [projectId]);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const params = new URLSearchParams({ page: String(page), limit: "50" });
-        if (statusFilter) params.set("status", statusFilter);
-        if (endpointFilter) params.set("endpointId", endpointFilter);
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      const params = new URLSearchParams({ page: String(page), limit: "50" });
+      if (statusFilter) params.set("status", statusFilter);
+      if (endpointFilter) params.set("endpointId", endpointFilter);
 
-        const res = await fetch(
-          `/api/projects/${projectId}/audit?${params}`
-        );
-        if (res.ok) {
-          const data = await res.json();
-          setLogs(data.logs || []);
-          setPagination(data.pagination);
-        }
-      } catch {
-        toast.error("Failed to load audit logs");
-      } finally {
-        setLoading(false);
-      }
+      const data = await apiGet<{ logs: AuditEntry[]; pagination: Pagination }>(
+        `/api/projects/${projectId}/audit?${params}`
+      );
+      setLogs(data.logs || []);
+      setPagination(data.pagination);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to load audit logs");
+    } finally {
+      setLoading(false);
     }
-    load();
   }, [projectId, page, statusFilter, endpointFilter]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const statusVariant = (status: string) => {
     switch (status) {
@@ -161,7 +158,12 @@ export function AuditTab({ projectId }: { projectId: string }) {
         </DropdownMenu>
       </div>
 
-      {logs.length === 0 ? (
+      {error ? (
+        <div className="space-y-2">
+          <p className="text-destructive text-sm">{error}</p>
+          <Button variant="outline" size="sm" onClick={load}>Retry</Button>
+        </div>
+      ) : logs.length === 0 ? (
         <p className="text-muted-foreground">No audit logs yet.</p>
       ) : (
         <>

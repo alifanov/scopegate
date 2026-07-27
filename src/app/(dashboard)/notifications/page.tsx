@@ -6,8 +6,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BellOff, CheckCheck } from "lucide-react";
+import { BellOff, CheckCheck, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { apiGet, apiSend, ApiError } from "@/lib/api-client";
 
 interface Notification {
   id: string;
@@ -21,20 +22,18 @@ interface Notification {
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [marking, setMarking] = useState(false);
 
   const fetchNotifications = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const res = await fetch("/api/notifications");
-      if (res.ok) {
-        const data = await res.json();
-        setNotifications(data.notifications || []);
-      } else {
-        toast.error("Failed to load notifications");
-      }
-    } catch {
-      toast.error("Failed to load notifications");
+      const data = await apiGet<{ notifications: Notification[] }>("/api/notifications");
+      setNotifications(data.notifications || []);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to load notifications");
     } finally {
       setLoading(false);
     }
@@ -69,22 +68,14 @@ export default function NotificationsPage() {
     if (selected.size === 0) return;
     setMarking(true);
     try {
-      const res = await fetch("/api/notifications", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: Array.from(selected) }),
-      });
-      if (res.ok) {
-        setNotifications((prev) =>
-          prev.map((n) => (selected.has(n.id) ? { ...n, isRead: true } : n))
-        );
-        setSelected(new Set());
-        toast.success("Marked as read");
-      } else {
-        toast.error("Failed to mark as read");
-      }
-    } catch {
-      toast.error("Failed to mark as read");
+      await apiSend("/api/notifications", "PATCH", { ids: Array.from(selected) });
+      setNotifications((prev) =>
+        prev.map((n) => (selected.has(n.id) ? { ...n, isRead: true } : n))
+      );
+      setSelected(new Set());
+      toast.success("Marked as read");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to mark as read");
     } finally {
       setMarking(false);
     }
@@ -126,6 +117,17 @@ export default function NotificationsPage() {
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-16 w-full rounded-lg" />
           ))}
+        </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
+          <div className="rounded-full bg-destructive/10 p-4 mb-4">
+            <AlertTriangle className="size-8 text-destructive" />
+          </div>
+          <h3 className="text-lg font-semibold">Failed to load notifications</h3>
+          <p className="text-sm text-muted-foreground mt-1 mb-4 max-w-sm">
+            {error}
+          </p>
+          <Button onClick={fetchNotifications}>Retry</Button>
         </div>
       ) : notifications.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">

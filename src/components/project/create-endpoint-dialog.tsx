@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,7 @@ import { getProviderDisplayName } from "@/lib/provider-names";
 import { Plus } from "lucide-react";
 import { ServiceIcon } from "@/components/service-icons";
 import { toast } from "sonner";
+import { apiGet, apiSend, ApiError } from "@/lib/api-client";
 
 interface Service {
   id: string;
@@ -37,6 +38,8 @@ interface CreateEndpointDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
+  /** Preselect this service connection when the dialog opens. */
+  initialServiceId?: string;
 }
 
 export function CreateEndpointDialog({
@@ -44,6 +47,7 @@ export function CreateEndpointDialog({
   open,
   onOpenChange,
   onCreated,
+  initialServiceId,
 }: CreateEndpointDialogProps) {
   const router = useRouter();
   const [services, setServices] = useState<Service[]>([]);
@@ -54,16 +58,45 @@ export function CreateEndpointDialog({
   );
   const [loading, setLoading] = useState(false);
   const [loadingServices, setLoadingServices] = useState(false);
+  const [servicesError, setServicesError] = useState<string | null>(null);
+
+  function selectService(s: Service, all: Service[]) {
+    setSelectedService(s.id);
+    setSelectedPermissions(new Set());
+    const baseName = getProviderDisplayName(s.provider)
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "");
+    const hasMultiple = all.filter((s2) => s2.provider === s.provider).length > 1;
+    const accountLabel = hasMultiple
+      ? ((s.metadata?.googleAdsCustomerName as string | undefined) ?? s.accountEmail.split("@")[0])
+      : "";
+    const suffix = accountLabel
+      ? `-${accountLabel.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}`
+      : "";
+    setName(`${baseName}${suffix}`);
+  }
+
+  const loadServices = useCallback(async () => {
+    setLoadingServices(true);
+    setServicesError(null);
+    try {
+      const data = await apiGet<{ services: Service[] }>(`/api/projects/${projectId}/services`);
+      const list = data.services || [];
+      setServices(list);
+      const preselect = initialServiceId && list.find((s) => s.id === initialServiceId);
+      if (preselect) selectService(preselect, list);
+    } catch (err) {
+      setServicesError(err instanceof ApiError ? err.message : "Failed to load services");
+    } finally {
+      setLoadingServices(false);
+    }
+  }, [projectId, initialServiceId]);
 
   useEffect(() => {
     if (!open) return;
-    setLoadingServices(true);
-    fetch(`/api/projects/${projectId}/services`)
-      .then((res) => (res.ok ? res.json() : { services: [] }))
-      .then((data) => setServices(data.services || []))
-      .catch(() => toast.error("Failed to load services"))
-      .finally(() => setLoadingServices(false));
-  }, [projectId, open]);
+    loadServices();
+  }, [open, loadServices]);
 
   function togglePermission(action: string) {
     setSelectedPermissions((prev) => {
@@ -89,31 +122,25 @@ export function CreateEndpointDialog({
     setLoading(true);
 
     try {
-      const res = await fetch(`/api/projects/${projectId}/endpoints`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const data = await apiSend<{ endpoint: { id: string } }>(
+        `/api/projects/${projectId}/endpoints`,
+        "POST",
+        {
           name,
           serviceConnectionId: selectedService,
           permissions: Array.from(selectedPermissions),
-        }),
-      });
+        }
+      );
 
-      if (res.ok) {
-        const data = await res.json();
-        toast.success("Endpoint created");
-        setSelectedService("");
-        setName("");
-        setSelectedPermissions(new Set());
-        onOpenChange(false);
-        onCreated();
-        router.push(`/projects/${projectId}/endpoints/${data.endpoint.id}`);
-      } else {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.error || "Failed to create endpoint");
-      }
-    } catch {
-      toast.error("Failed to create endpoint");
+      toast.success("Endpoint created");
+      setSelectedService("");
+      setName("");
+      setSelectedPermissions(new Set());
+      onOpenChange(false);
+      onCreated();
+      router.push(`/projects/${projectId}/endpoints/${data.endpoint.id}`);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to create endpoint");
     } finally {
       setLoading(false);
     }
@@ -128,6 +155,13 @@ export function CreateEndpointDialog({
 
         {loadingServices ? (
           <p className="text-sm text-muted-foreground">Loading services...</p>
+        ) : servicesError ? (
+          <div className="space-y-2">
+            <p className="text-sm text-destructive">{servicesError}</p>
+            <Button type="button" variant="outline" size="sm" onClick={loadServices}>
+              Retry
+            </Button>
+          </div>
         ) : services.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No services connected. Connect a service first before creating an
@@ -164,22 +198,7 @@ export function CreateEndpointDialog({
                         name="service"
                         value={s.id}
                         checked={selectedService === s.id}
-                        onChange={() => {
-                          setSelectedService(s.id);
-                          setSelectedPermissions(new Set());
-                          const baseName = getProviderDisplayName(s.provider)
-                            .toLowerCase()
-                            .replace(/\s+/g, "-")
-                            .replace(/[^a-z0-9-]/g, "");
-                          const hasMultiple = services.filter((s2) => s2.provider === s.provider).length > 1;
-                          const accountLabel = hasMultiple
-                            ? ((s.metadata?.googleAdsCustomerName as string | undefined) ?? s.accountEmail.split("@")[0])
-                            : "";
-                          const suffix = accountLabel
-                            ? `-${accountLabel.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}`
-                            : "";
-                          setName(`${baseName}${suffix}`);
-                        }}
+                        onChange={() => selectService(s, services)}
                         className="mr-3"
                       />
                       <ServiceIcon provider={s.provider} className="size-6 shrink-0" />

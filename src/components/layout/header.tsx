@@ -15,6 +15,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { authClient } from "@/lib/auth-client";
 import { useSidebar } from "@/components/layout/sidebar-context";
+import { apiGet } from "@/lib/api-client";
 
 export function Header() {
   const router = useRouter();
@@ -24,11 +25,10 @@ export function Header() {
 
   const fetchUnreadCount = useCallback(async () => {
     try {
-      const res = await fetch("/api/notifications?countOnly=true");
-      if (res.ok) {
-        const data = await res.json();
-        setUnreadCount(data.unreadCount);
-      }
+      const data = await apiGet<{ unreadCount: number }>(
+        "/api/notifications?countOnly=true"
+      );
+      setUnreadCount(data.unreadCount);
     } catch {
       // silently ignore
     }

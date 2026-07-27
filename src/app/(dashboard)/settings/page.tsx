@@ -24,8 +24,9 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { TabContentSkeleton, TableSkeleton } from "@/components/skeletons";
 import { CreateUserDialog } from "@/components/admin/create-user-dialog";
 import { authClient } from "@/lib/auth-client";
-import { Save, Lock, UserPlus } from "lucide-react";
+import { Save, Lock, UserPlus, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { apiGet, ApiError } from "@/lib/api-client";
 
 interface User {
   id: string;
@@ -36,6 +37,7 @@ interface User {
 
 export default function UserSettingsPage() {
   const [loading, setLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [savingName, setSavingName] = useState(false);
@@ -54,12 +56,9 @@ export default function UserSettingsPage() {
 
   const fetchUsers = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/users");
-      if (res.ok) {
-        const data = await res.json();
-        setUsers(data.users || []);
-        setIsAdmin(true);
-      }
+      const data = await apiGet<{ users: User[] }>("/api/admin/users");
+      setUsers(data.users || []);
+      setIsAdmin(true);
     } catch {
       // not admin or failed
     } finally {
@@ -67,24 +66,24 @@ export default function UserSettingsPage() {
     }
   }, []);
 
-  useEffect(() => {
-    async function loadProfile() {
-      try {
-        const res = await fetch("/api/auth/me");
-        if (res.ok) {
-          const data = await res.json();
-          setEmail(data.email);
-          setName(data.name || "");
-        }
-      } catch {
-        toast.error("Failed to load profile");
-      } finally {
-        setLoading(false);
-      }
+  const loadProfile = useCallback(async () => {
+    setLoading(true);
+    setProfileError(null);
+    try {
+      const data = await apiGet<{ email: string; name: string | null }>("/api/auth/me");
+      setEmail(data.email);
+      setName(data.name || "");
+    } catch (err) {
+      setProfileError(err instanceof ApiError ? err.message : "Failed to load profile");
+    } finally {
+      setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
     loadProfile();
     fetchUsers();
-  }, [fetchUsers]);
+  }, [loadProfile, fetchUsers]);
 
   async function handleSaveName(e: React.FormEvent) {
     e.preventDefault();
@@ -135,6 +134,24 @@ export default function UserSettingsPage() {
   }
 
   if (loading) return <TabContentSkeleton />;
+
+  if (profileError) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-6">
+        <Breadcrumbs items={[{ label: "Settings" }]} />
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
+          <div className="rounded-full bg-destructive/10 p-4 mb-4">
+            <AlertTriangle className="size-8 text-destructive" />
+          </div>
+          <h3 className="text-lg font-semibold">Failed to load profile</h3>
+          <p className="text-sm text-muted-foreground mt-1 mb-4 max-w-sm">
+            {profileError}
+          </p>
+          <Button onClick={loadProfile}>Retry</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">

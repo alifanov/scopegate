@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Link2, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
+import { apiSend, ApiError } from "@/lib/api-client";
 
 interface GenerateInviteDialogProps {
   open: boolean;
@@ -43,21 +44,12 @@ export function GenerateInviteDialog({
     const email = formData.get("email") as string;
 
     try {
-      const res = await fetch("/api/admin/invites", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email || undefined }),
+      const data = await apiSend<{ inviteUrl: string }>("/api/admin/invites", "POST", {
+        email: email || undefined,
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        setInviteUrl(data.inviteUrl);
-      } else {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.error || "Failed to generate invite link");
-      }
-    } catch {
-      toast.error("Failed to generate invite link");
+      setInviteUrl(data.inviteUrl);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to generate invite link");
     } finally {
       setLoading(false);
     }

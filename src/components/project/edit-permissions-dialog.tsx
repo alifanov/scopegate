@@ -14,6 +14,7 @@ import {
 import { PERMISSION_GROUPS } from "@/lib/mcp/permissions";
 import { Shield } from "lucide-react";
 import { toast } from "sonner";
+import { apiSend, ApiError } from "@/lib/api-client";
 
 interface EditPermissionsDialogProps {
   projectId: string;
@@ -69,26 +70,14 @@ export function EditPermissionsDialog({
   async function handleSave() {
     setSaving(true);
     try {
-      const res = await fetch(
-        `/api/projects/${projectId}/endpoints/${endpointId}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            permissions: Array.from(selectedPermissions),
-          }),
-        }
-      );
-      if (res.ok) {
-        toast.success("Permissions updated");
-        onOpenChange(false);
-        onSaved();
-      } else {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.error || "Failed to update permissions");
-      }
-    } catch {
-      toast.error("Failed to update permissions");
+      await apiSend(`/api/projects/${projectId}/endpoints/${endpointId}`, "PATCH", {
+        permissions: Array.from(selectedPermissions),
+      });
+      toast.success("Permissions updated");
+      onOpenChange(false);
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to update permissions");
     } finally {
       setSaving(false);
     }

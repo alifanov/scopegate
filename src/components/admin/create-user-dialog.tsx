@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { UserPlus } from "lucide-react";
 import { toast } from "sonner";
+import { apiSend, ApiError } from "@/lib/api-client";
 
 interface CreateUserDialogProps {
   open: boolean;
@@ -36,22 +37,12 @@ export function CreateUserDialog({
     const password = formData.get("password") as string;
 
     try {
-      const res = await fetch("/api/admin/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name, password }),
-      });
-
-      if (res.ok) {
-        toast.success("User created");
-        onOpenChange(false);
-        onCreated();
-      } else {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.error || "Failed to create user");
-      }
-    } catch {
-      toast.error("Failed to create user");
+      await apiSend("/api/admin/users", "POST", { email, name, password });
+      toast.success("User created");
+      onOpenChange(false);
+      onCreated();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to create user");
     } finally {
       setLoading(false);
     }

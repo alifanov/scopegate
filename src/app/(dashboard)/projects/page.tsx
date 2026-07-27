@@ -22,8 +22,9 @@ import { Label } from "@/components/ui/label";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ProjectListSkeleton } from "@/components/skeletons";
 import type { ProjectRole } from "@/generated/prisma/client";
-import { Plus, FolderOpen } from "lucide-react";
+import { Plus, FolderOpen, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { apiGet, apiSend, ApiError } from "@/lib/api-client";
 
 interface Project {
   id: string;
@@ -36,20 +37,18 @@ interface Project {
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
 
   const fetchProjects = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const res = await fetch("/api/projects");
-      if (res.ok) {
-        const data = await res.json();
-        setProjects(data.projects || []);
-      } else {
-        toast.error("Failed to load projects");
-      }
-    } catch {
-      toast.error("Failed to load projects");
+      const data = await apiGet<{ projects: Project[] }>("/api/projects");
+      setProjects(data.projects || []);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to load projects");
     } finally {
       setLoading(false);
     }
@@ -66,22 +65,12 @@ export default function ProjectsPage() {
     const name = formData.get("name") as string;
 
     try {
-      const res = await fetch("/api/projects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-
-      if (res.ok) {
-        toast.success("Project created");
-        setDialogOpen(false);
-        fetchProjects();
-      } else {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.error || "Failed to create project");
-      }
-    } catch {
-      toast.error("Failed to create project");
+      await apiSend("/api/projects", "POST", { name });
+      toast.success("Project created");
+      setDialogOpen(false);
+      fetchProjects();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to create project");
     } finally {
       setCreating(false);
     }
@@ -122,6 +111,17 @@ export default function ProjectsPage() {
 
       {loading ? (
         <ProjectListSkeleton />
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
+          <div className="rounded-full bg-destructive/10 p-4 mb-4">
+            <AlertTriangle className="size-8 text-destructive" />
+          </div>
+          <h3 className="text-lg font-semibold">Failed to load projects</h3>
+          <p className="text-sm text-muted-foreground mt-1 mb-4 max-w-sm">
+            {error}
+          </p>
+          <Button onClick={fetchProjects}>Retry</Button>
+        </div>
       ) : projects.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
           <div className="rounded-full bg-primary/10 p-4 mb-4">

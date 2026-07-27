@@ -17,7 +17,7 @@ import { CreateEndpointDialog } from "@/components/project/create-endpoint-dialo
 import { getProviderDisplayName } from "@/lib/provider-names";
 import { Plus } from "lucide-react";
 import { ServiceIcon } from "@/components/service-icons";
-import { toast } from "sonner";
+import { apiGet, ApiError } from "@/lib/api-client";
 
 interface Endpoint {
   id: string;
@@ -34,17 +34,16 @@ interface Endpoint {
 export function EndpointsTab({ projectId }: { projectId: string }) {
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const fetchEndpoints = useCallback(async () => {
+    setError(null);
     try {
-      const res = await fetch(`/api/projects/${projectId}/endpoints`);
-      if (res.ok) {
-        const data = await res.json();
-        setEndpoints(data.endpoints || []);
-      }
-    } catch {
-      toast.error("Failed to load endpoints");
+      const data = await apiGet<{ endpoints: Endpoint[] }>(`/api/projects/${projectId}/endpoints`);
+      setEndpoints(data.endpoints || []);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to load endpoints");
     } finally {
       setLoading(false);
     }
@@ -69,7 +68,12 @@ export function EndpointsTab({ projectId }: { projectId: string }) {
         onCreated={fetchEndpoints}
       />
 
-      {endpoints.length === 0 ? (
+      {error ? (
+        <div className="space-y-2">
+          <p className="text-destructive text-sm">{error}</p>
+          <Button variant="outline" size="sm" onClick={fetchEndpoints}>Retry</Button>
+        </div>
+      ) : endpoints.length === 0 ? (
         <p className="text-muted-foreground">
           No endpoints yet. Connect a service first, then create an endpoint.
         </p>

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
+import { ApiError, apiGet, apiSend } from "@/lib/api-client";
 import {
   Card,
   CardContent,
@@ -35,36 +36,50 @@ export default function SelectAdsAccountPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [projectName, setProjectName] = useState<string>("");
 
-  useEffect(() => {
-    async function load() {
-      // Load project name
-      const projectRes = await fetch(`/api/projects/${projectId}`);
-      if (projectRes.ok) {
-        const data = await projectRes.json();
-        setProjectName(data.project.name);
-        setProject({ projectId: data.project.id, projectName: data.project.name });
+  const saveAndRedirect = useCallback(
+    async (customerId: string, customerName?: string) => {
+      try {
+        await apiSend(`/api/projects/${projectId}/services/ads-customers`, "POST", {
+          connectionId,
+          customerId,
+          customerName,
+        });
+        router.replace(`/projects/${projectId}?tab=services`);
+      } catch (err) {
+        toast.error(err instanceof ApiError ? err.message : "Failed to save account selection");
+        setLoading(false);
+        setSubmitting(false);
       }
+    },
+    [projectId, connectionId, router]
+  );
 
-      if (!connectionId) {
-        router.replace(`/projects/${projectId}?tab=services&error=oauth_failed`);
-        return;
-      }
+  const load = useCallback(async () => {
+    try {
+      const projectData = await apiGet<{ project: { id: string; name: string } }>(
+        `/api/projects/${projectId}`
+      );
+      setProjectName(projectData.project.name);
+      setProject({ projectId: projectData.project.id, projectName: projectData.project.name });
+    } catch {
+      // Non-critical — breadcrumb project name only
+    }
 
-      // Load customers
-      const res = await fetch(
+    if (!connectionId) {
+      router.replace(`/projects/${projectId}?tab=services&error=oauth_failed`);
+      return;
+    }
+
+    setError(null);
+    try {
+      const data = await apiGet<{ customers?: Customer[] }>(
         `/api/projects/${projectId}/services/ads-customers?connectionId=${connectionId}`
       );
-      if (!res.ok) {
-        toast.error("Failed to load Google Ads accounts");
-        router.replace(`/projects/${projectId}?tab=services&error=oauth_failed`);
-        return;
-      }
-
-      const data = await res.json();
       const list: Customer[] = data.customers ?? [];
 
       if (list.length === 0) {
@@ -81,29 +96,18 @@ export default function SelectAdsAccountPage() {
 
       setCustomers(list);
       setLoading(false);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to load Google Ads accounts");
+      setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, connectionId, router, saveAndRedirect]);
+
+  useEffect(() => {
     load();
     return () => setProject(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, connectionId]);
-
-  async function saveAndRedirect(customerId: string, customerName?: string) {
-    const res = await fetch(
-      `/api/projects/${projectId}/services/ads-customers`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ connectionId, customerId, customerName }),
-      }
-    );
-    if (res.ok) {
-      router.replace(`/projects/${projectId}?tab=services`);
-    } else {
-      toast.error("Failed to save account selection");
-      setLoading(false);
-      setSubmitting(false);
-    }
-  }
 
   async function handleConnect() {
     if (!selected) return;
@@ -119,9 +123,7 @@ export default function SelectAdsAccountPage() {
     }
     setCancelling(true);
     try {
-      await fetch(`/api/projects/${projectId}/services?serviceId=${connectionId}`, {
-        method: "DELETE",
-      });
+      await apiSend(`/api/projects/${projectId}/services?serviceId=${connectionId}`, "DELETE");
     } catch {
       // Ignore errors on cancel
     }
@@ -137,6 +139,26 @@ export default function SelectAdsAccountPage() {
           {[1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-20 w-full" />
           ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-2xl space-y-6">
+        <Breadcrumbs
+          items={[
+            { label: "Projects", href: "/projects" },
+            { label: projectName || "Project", href: `/projects/${projectId}` },
+            { label: "Select Google Ads Account" },
+          ]}
+        />
+        <div className="space-y-3">
+          <p className="text-destructive">{error}</p>
+          <Button variant="outline" onClick={load} className="cursor-pointer">
+            Retry
+          </Button>
         </div>
       </div>
     );

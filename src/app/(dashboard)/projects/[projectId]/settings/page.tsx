@@ -21,6 +21,7 @@ import { ManageMembers } from "@/components/project/manage-members";
 import type { ProjectRole } from "@/generated/prisma/client";
 import { Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { apiGet, apiSend, ApiError } from "@/lib/api-client";
 
 interface TeamMember {
   id: string;
@@ -40,25 +41,31 @@ export default function SettingsPage() {
   const { setProject } = useProject();
   const [project, setProjectLocal] = useState<ProjectDetails | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    async function load() {
-      const res = await fetch(`/api/projects/${projectId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setProjectLocal(data.project);
-        setName(data.project.name);
-        setProject({
-          projectId: data.project.id,
-          projectName: data.project.name,
-        });
-      }
+  async function load() {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await apiGet<{ project: ProjectDetails }>(`/api/projects/${projectId}`);
+      setProjectLocal(data.project);
+      setName(data.project.name);
+      setProject({
+        projectId: data.project.id,
+        projectName: data.project.name,
+      });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to load project");
+    } finally {
       setLoading(false);
     }
+  }
+
+  useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
@@ -67,20 +74,12 @@ export default function SettingsPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-      if (res.ok) {
-        toast.success("Project name saved");
-        setProject({ projectId, projectName: name });
-        router.push(`/projects/${projectId}`);
-      } else {
-        toast.error("Failed to save project name");
-      }
-    } catch {
-      toast.error("Failed to save project name");
+      await apiSend(`/api/projects/${projectId}`, "PATCH", { name });
+      toast.success("Project name saved");
+      setProject({ projectId, projectName: name });
+      router.push(`/projects/${projectId}`);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to save project name");
     } finally {
       setSaving(false);
     }
@@ -89,17 +88,11 @@ export default function SettingsPage() {
   async function handleDelete() {
     setDeleting(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
-        toast.success("Project deleted");
-        router.push("/projects");
-      } else {
-        toast.error("Failed to delete project");
-      }
-    } catch {
-      toast.error("Failed to delete project");
+      await apiSend(`/api/projects/${projectId}`, "DELETE");
+      toast.success("Project deleted");
+      router.push("/projects");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to delete project");
     } finally {
       setDeleting(false);
       setDeleteOpen(false);
@@ -107,7 +100,17 @@ export default function SettingsPage() {
   }
 
   if (loading) return <TabContentSkeleton />;
-  if (!project) return <p className="text-destructive">Project not found</p>;
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <p className="text-destructive">{error}</p>
+        <Button onClick={load}>Retry</Button>
+      </div>
+    );
+  }
+
+  if (!project) return null;
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -156,10 +159,11 @@ export default function SettingsPage() {
             projectId={projectId}
             members={project.teamMembers}
             onChanged={async () => {
-              const res = await fetch(`/api/projects/${projectId}`);
-              if (res.ok) {
-                const data = await res.json();
+              try {
+                const data = await apiGet<{ project: ProjectDetails }>(`/api/projects/${projectId}`);
                 setProjectLocal(data.project);
+              } catch (err) {
+                toast.error(err instanceof ApiError ? err.message : "Failed to refresh team members");
               }
             }}
           />

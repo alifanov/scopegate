@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import Image from "next/image";
 import { UserPlus } from "lucide-react";
+import { apiSend, ApiError } from "@/lib/api-client";
 
 export default function InvitePage({
   params,
@@ -44,21 +45,15 @@ export default function InvitePage({
     }
 
     try {
-      const res = await fetch("/api/auth/accept-invite", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, email, name, password }),
+      await apiSend("/api/auth/accept-invite", "POST", {
+        token,
+        email,
+        name,
+        password,
       });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (res.ok) {
-        router.push("/projects");
-      } else {
-        setError(data.error || "Failed to create account");
-      }
-    } catch {
-      setError("Something went wrong");
+      router.push("/projects");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong");
     } finally {
       setLoading(false);
     }

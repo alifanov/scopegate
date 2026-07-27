@@ -12,6 +12,7 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { useProject } from "@/components/project/project-context";
 import { TabContentSkeleton } from "@/components/skeletons";
 import { Settings } from "lucide-react";
+import { apiGet, ApiError } from "@/lib/api-client";
 
 interface ProjectDetails {
   id: string;
@@ -25,19 +26,25 @@ export default function ProjectPage() {
   const { setProject } = useProject();
   const [project, setProjectLocal] = useState<ProjectDetails | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const currentTab = searchParams.get("tab") || "endpoints";
 
-  useEffect(() => {
-    async function load() {
-      const res = await fetch(`/api/projects/${projectId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setProjectLocal(data.project);
-        setProject({ projectId: data.project.id, projectName: data.project.name });
-      }
+  async function load() {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await apiGet<{ project: ProjectDetails }>(`/api/projects/${projectId}`);
+      setProjectLocal(data.project);
+      setProject({ projectId: data.project.id, projectName: data.project.name });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to load project");
+    } finally {
       setLoading(false);
     }
+  }
+
+  useEffect(() => {
     load();
     return () => setProject(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -57,7 +64,16 @@ export default function ProjectPage() {
     );
   }
 
-  if (!project) return <p className="text-destructive">Project not found</p>;
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <p className="text-destructive">{error}</p>
+        <Button onClick={load}>Retry</Button>
+      </div>
+    );
+  }
+
+  if (!project) return null;
 
   return (
     <div className="space-y-6">

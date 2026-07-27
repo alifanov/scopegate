@@ -8,6 +8,7 @@ import type { ProjectRole } from "@/generated/prisma/client";
 import { isProjectOwner } from "@/lib/project-roles";
 import { UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
+import { apiSend, ApiError } from "@/lib/api-client";
 
 interface Member {
   id: string;
@@ -35,21 +36,12 @@ export function ManageMembers({
     if (!email.trim()) return;
     setAdding(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}/members`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        toast.success("Member added");
-        setEmail("");
-        onChanged();
-      } else {
-        toast.error(data.error || "Failed to add member");
-      }
-    } catch {
-      toast.error("Failed to add member");
+      await apiSend(`/api/projects/${projectId}/members`, "POST", { email: email.trim() });
+      toast.success("Member added");
+      setEmail("");
+      onChanged();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to add member");
     } finally {
       setAdding(false);
     }
@@ -58,19 +50,11 @@ export function ManageMembers({
   async function handleRemove(userId: string) {
     setRemovingId(userId);
     try {
-      const res = await fetch(
-        `/api/projects/${projectId}/members/${userId}`,
-        { method: "DELETE" }
-      );
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        toast.success("Member removed");
-        onChanged();
-      } else {
-        toast.error(data.error || "Failed to remove member");
-      }
-    } catch {
-      toast.error("Failed to remove member");
+      await apiSend(`/api/projects/${projectId}/members/${userId}`, "DELETE");
+      toast.success("Member removed");
+      onChanged();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to remove member");
     } finally {
       setRemovingId(null);
     }

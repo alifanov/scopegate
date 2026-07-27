@@ -28,7 +28,7 @@ overrides:
   effect: '>=3.20.0'
   esbuild: '>=0.28.1'
   protobufjs: '>=8.6.6'
-  js-yaml: '>=4.2.0'
+  js-yaml: '>=4.3.0'
   '@babel/core': '>=7.29.6'
   sharp: '>=0.35.0'
   '@opentelemetry/propagator-jaeger': '>=2.9.0'
@@ -4130,8 +4130,8 @@ packages:
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
-  js-yaml@4.2.0:
-    resolution: {integrity: sha512-ePWsvanv0DWuDRsW8dnt+R4jQ31SCRCQ7hhNcPXZPsoBZiemuZNYGf7adZdqX2D86j6rvKp3RpCxVTSb8WQlOw==}
+  js-yaml@5.2.2:
+    resolution: {integrity: sha512-dayzUzKkJ1MkuUtZglSebU43utNXH0OWQByK9rKOOuYIO8M5TV1y+n8ALMdG0rdzBnfNkOmZEqrURepb0ejqBw==}
     hasBin: true
 
   jsesc@3.1.0:
@@ -6105,7 +6105,7 @@ snapshots:
       globals: 14.0.0
       ignore: 5.3.2
       import-fresh: 3.3.1
-      js-yaml: 4.2.0
+      js-yaml: 5.2.2
       minimatch: 10.2.4
       strip-json-comments: 3.1.1
     transitivePeerDependencies:
@@ -8816,7 +8816,7 @@ snapshots:
     dependencies:
       env-paths: 2.2.1
       import-fresh: 3.3.1
-      js-yaml: 4.2.0
+      js-yaml: 5.2.2
       parse-json: 5.2.0
     optionalDependencies:
       typescript: 5.9.3
@@ -9921,7 +9921,7 @@ snapshots:
 
   js-tokens@4.0.0: {}
 
-  js-yaml@4.2.0:
+  js-yaml@5.2.2:
     dependencies:
       argparse: 2.0.1
 

@@ -50,27 +50,85 @@ async function getEmailConfig(serviceConnectionId: string): Promise<{
   };
 }
 
-async function createImapClient(config: EmailConnectionConfig): Promise<ImapFlow> {
-  const target = await resolveMailTarget(config.host, config.port, "imap");
+// A hung IMAP host must not hold the request until the 30s per-tool timeout
+// (see handler.ts) — these bound each phase of the connection individually.
+const IMAP_CONNECTION_TIMEOUT_MS = 10_000;
+const IMAP_GREETING_TIMEOUT_MS = 10_000;
+const IMAP_SOCKET_TIMEOUT_MS = 20_000;
+
+type ImapClientFactory = (config: EmailConnectionConfig) => Promise<ImapFlow> | ImapFlow;
+
+// The one place that constructs an ImapFlow instance.
+function buildImapClient(
+  target: { host: string; servername: string; port: number },
+  auth: { username: string; password: string; secure?: boolean }
+): ImapFlow {
   return new ImapFlow({
     host: target.host,
     port: target.port,
     servername: target.servername,
-    secure: config.secure !== false,
+    secure: auth.secure !== false,
     auth: {
-      user: config.username,
-      pass: config.password,
+      user: auth.username,
+      pass: auth.password,
     },
     logger: false,
+    connectionTimeout: IMAP_CONNECTION_TIMEOUT_MS,
+    greetingTimeout: IMAP_GREETING_TIMEOUT_MS,
+    socketTimeout: IMAP_SOCKET_TIMEOUT_MS,
   });
 }
 
-export async function emailListMailboxes(serviceConnectionId: string) {
-  const { imap } = await getEmailConfig(serviceConnectionId);
-  const client = await createImapClient(imap);
+async function createImapClient(config: EmailConnectionConfig): Promise<ImapFlow> {
+  const target = await resolveMailTarget(config.host, config.port, "imap");
+  return buildImapClient(target, config);
+}
 
+// The one place that connects and logs out — every caller below runs through this.
+async function withImapClient<T>(
+  client: ImapFlow,
+  fn: (client: ImapFlow) => Promise<T>
+): Promise<T> {
   try {
     await client.connect();
+    return await fn(client);
+  } finally {
+    await client.logout().catch(() => {});
+  }
+}
+
+async function withImap<T>(
+  serviceConnectionId: string,
+  fn: (client: ImapFlow) => Promise<T>,
+  clientFactory: ImapClientFactory = createImapClient
+): Promise<T> {
+  const { imap } = await getEmailConfig(serviceConnectionId);
+  const client = await clientFactory(imap);
+  return withImapClient(client, fn);
+}
+
+async function withMailbox<T>(
+  serviceConnectionId: string,
+  mailbox: string,
+  fn: (client: ImapFlow) => Promise<T>,
+  clientFactory?: ImapClientFactory
+): Promise<T> {
+  return withImap(
+    serviceConnectionId,
+    async (client) => {
+      const lock = await client.getMailboxLock(mailbox);
+      try {
+        return await fn(client);
+      } finally {
+        lock.release();
+      }
+    },
+    clientFactory
+  );
+}
+
+export async function emailListMailboxes(serviceConnectionId: string) {
+  return withImap(serviceConnectionId, async (client) => {
     const mailboxes = await client.list();
     return mailboxes.map((m) => ({
       path: m.path,
@@ -80,9 +138,7 @@ export async function emailListMailboxes(serviceConnectionId: string) {
       specialUse: m.specialUse || null,
       listed: m.listed,
     }));
-  } finally {
-    await client.logout().catch(() => {});
-  }
+  });
 }
 
 export async function emailListMessages(
@@ -91,103 +147,28 @@ export async function emailListMessages(
   limit: number = 20,
   page: number = 1
 ) {
-  const { imap } = await getEmailConfig(serviceConnectionId);
-  const client = await createImapClient(imap);
+  return withMailbox(serviceConnectionId, mailbox, async (client) => {
+    const status = client.mailbox;
+    if (!status) return { messages: [], total: 0 };
+    const total = status.exists || 0;
 
-  try {
-    await client.connect();
-    const lock = await client.getMailboxLock(mailbox);
+    if (total === 0) return { messages: [], total: 0 };
 
-    try {
-      const status = client.mailbox;
-      if (!status) return { messages: [], total: 0 };
-      const total = status.exists || 0;
+    // Calculate range (newest first)
+    const end = total - (page - 1) * limit;
+    const start = Math.max(1, end - limit + 1);
 
-      if (total === 0) return { messages: [], total: 0 };
+    if (end < 1) return { messages: [], total, page };
 
-      // Calculate range (newest first)
-      const end = total - (page - 1) * limit;
-      const start = Math.max(1, end - limit + 1);
-
-      if (end < 1) return { messages: [], total, page };
-
-      const messages: Array<Record<string, unknown>> = [];
-      for await (const msg of client.fetch(`${start}:${end}`, {
-        envelope: true,
-        flags: true,
-        bodyStructure: true,
-        size: true,
-      })) {
-        messages.push({
-          seq: msg.seq,
-          uid: msg.uid,
-          flags: Array.from(msg.flags || []),
-          size: msg.size,
-          envelope: {
-            date: msg.envelope?.date?.toISOString() || null,
-            subject: msg.envelope?.subject,
-            from: msg.envelope?.from?.map((a: MessageAddressObject) => ({
-              name: a.name,
-              address: a.address,
-            })),
-            to: msg.envelope?.to?.map((a: MessageAddressObject) => ({
-              name: a.name,
-              address: a.address,
-            })),
-            messageId: msg.envelope?.messageId,
-            inReplyTo: msg.envelope?.inReplyTo,
-          },
-        });
-      }
-
-      // Reverse so newest is first
-      messages.reverse();
-
-      return { messages, total, page, limit };
-    } finally {
-      lock.release();
-    }
-  } finally {
-    await client.logout().catch(() => {});
-  }
-}
-
-export async function emailReadMessage(
-  serviceConnectionId: string,
-  mailbox: string,
-  uid: number
-) {
-  const { imap } = await getEmailConfig(serviceConnectionId);
-  const client = await createImapClient(imap);
-
-  try {
-    await client.connect();
-    const lock = await client.getMailboxLock(mailbox);
-
-    try {
-      const msg = await client.fetchOne(String(uid), {
-        envelope: true,
-        flags: true,
-        source: true,
-        size: true,
-      }, { uid: true });
-
-      if (!msg) return null;
-
-      // Parse the raw source to extract text/html parts
-      const source = msg.source?.toString("utf-8") || "";
-
-      // Simple extraction of body content
-      let textBody = "";
-      let htmlBody = "";
-
-      // Try to extract text content from the source
-      const { simpleParseEmail } = await import("./email-parser");
-      const parsed = simpleParseEmail(source);
-      textBody = parsed.text;
-      htmlBody = parsed.html;
-
-      return {
+    const messages: Array<Record<string, unknown>> = [];
+    for await (const msg of client.fetch(`${start}:${end}`, {
+      envelope: true,
+      flags: true,
+      bodyStructure: true,
+      size: true,
+    })) {
+      messages.push({
+        seq: msg.seq,
         uid: msg.uid,
         flags: Array.from(msg.flags || []),
         size: msg.size,
@@ -202,24 +183,70 @@ export async function emailReadMessage(
             name: a.name,
             address: a.address,
           })),
-          cc: msg.envelope?.cc?.map((a: MessageAddressObject) => ({
-            name: a.name,
-            address: a.address,
-          })),
           messageId: msg.envelope?.messageId,
           inReplyTo: msg.envelope?.inReplyTo,
         },
-        body: {
-          text: textBody,
-          html: htmlBody,
-        },
-      };
-    } finally {
-      lock.release();
+      });
     }
-  } finally {
-    await client.logout().catch(() => {});
-  }
+
+    // Reverse so newest is first
+    messages.reverse();
+
+    return { messages, total, page, limit };
+  });
+}
+
+export async function emailReadMessage(
+  serviceConnectionId: string,
+  mailbox: string,
+  uid: number
+) {
+  return withMailbox(serviceConnectionId, mailbox, async (client) => {
+    const msg = await client.fetchOne(String(uid), {
+      envelope: true,
+      flags: true,
+      source: true,
+      size: true,
+    }, { uid: true });
+
+    if (!msg) return null;
+
+    // Parse the raw source to extract text/html parts
+    const source = msg.source?.toString("utf-8") || "";
+
+    const { simpleParseEmail } = await import("./email-parser");
+    const parsed = simpleParseEmail(source);
+    const textBody = parsed.text;
+    const htmlBody = parsed.html;
+
+    return {
+      uid: msg.uid,
+      flags: Array.from(msg.flags || []),
+      size: msg.size,
+      envelope: {
+        date: msg.envelope?.date?.toISOString() || null,
+        subject: msg.envelope?.subject,
+        from: msg.envelope?.from?.map((a: MessageAddressObject) => ({
+          name: a.name,
+          address: a.address,
+        })),
+        to: msg.envelope?.to?.map((a: MessageAddressObject) => ({
+          name: a.name,
+          address: a.address,
+        })),
+        cc: msg.envelope?.cc?.map((a: MessageAddressObject) => ({
+          name: a.name,
+          address: a.address,
+        })),
+        messageId: msg.envelope?.messageId,
+        inReplyTo: msg.envelope?.inReplyTo,
+      },
+      body: {
+        text: textBody,
+        html: htmlBody,
+      },
+    };
+  });
 }
 
 export async function emailSearchMessages(
@@ -228,67 +255,55 @@ export async function emailSearchMessages(
   query: Record<string, unknown>,
   limit: number = 20
 ) {
-  const { imap } = await getEmailConfig(serviceConnectionId);
-  const client = await createImapClient(imap);
+  return withMailbox(serviceConnectionId, mailbox, async (client) => {
+    // Build search criteria
+    const searchCriteria: Record<string, unknown> = {};
 
-  try {
-    await client.connect();
-    const lock = await client.getMailboxLock(mailbox);
+    if (query.from) searchCriteria.from = query.from;
+    if (query.to) searchCriteria.to = query.to;
+    if (query.subject) searchCriteria.subject = query.subject;
+    if (query.body) searchCriteria.body = query.body;
+    if (query.since) searchCriteria.since = new Date(query.since as string);
+    if (query.before) searchCriteria.before = new Date(query.before as string);
+    if (query.unseen) searchCriteria.seen = false;
+    if (query.flagged) searchCriteria.flagged = true;
 
-    try {
-      // Build search criteria
-      const searchCriteria: Record<string, unknown> = {};
+    const uids = await client.search(searchCriteria, { uid: true });
+    if (!uids) return { messages: [], total: 0 };
+    const resultUids = uids.slice(-limit).reverse();
 
-      if (query.from) searchCriteria.from = query.from;
-      if (query.to) searchCriteria.to = query.to;
-      if (query.subject) searchCriteria.subject = query.subject;
-      if (query.body) searchCriteria.body = query.body;
-      if (query.since) searchCriteria.since = new Date(query.since as string);
-      if (query.before) searchCriteria.before = new Date(query.before as string);
-      if (query.unseen) searchCriteria.seen = false;
-      if (query.flagged) searchCriteria.flagged = true;
+    if (resultUids.length === 0) return { messages: [], total: 0 };
 
-      const uids = await client.search(searchCriteria, { uid: true });
-      if (!uids) return { messages: [], total: 0 };
-      const resultUids = uids.slice(-limit).reverse();
-
-      if (resultUids.length === 0) return { messages: [], total: 0 };
-
-      const messages: Array<Record<string, unknown>> = [];
-      for await (const msg of client.fetch(resultUids.join(","), {
-        envelope: true,
-        flags: true,
-        size: true,
-      }, { uid: true })) {
-        messages.push({
-          uid: msg.uid,
-          flags: Array.from(msg.flags || []),
-          size: msg.size,
-          envelope: {
-            date: msg.envelope?.date?.toISOString() || null,
-            subject: msg.envelope?.subject,
-            from: msg.envelope?.from?.map((a: MessageAddressObject) => ({
-              name: a.name,
-              address: a.address,
-            })),
-            to: msg.envelope?.to?.map((a: MessageAddressObject) => ({
-              name: a.name,
-              address: a.address,
-            })),
-            messageId: msg.envelope?.messageId,
-          },
-        });
-      }
-
-      messages.reverse();
-
-      return { messages, total: uids.length };
-    } finally {
-      lock.release();
+    const messages: Array<Record<string, unknown>> = [];
+    for await (const msg of client.fetch(resultUids.join(","), {
+      envelope: true,
+      flags: true,
+      size: true,
+    }, { uid: true })) {
+      messages.push({
+        uid: msg.uid,
+        flags: Array.from(msg.flags || []),
+        size: msg.size,
+        envelope: {
+          date: msg.envelope?.date?.toISOString() || null,
+          subject: msg.envelope?.subject,
+          from: msg.envelope?.from?.map((a: MessageAddressObject) => ({
+            name: a.name,
+            address: a.address,
+          })),
+          to: msg.envelope?.to?.map((a: MessageAddressObject) => ({
+            name: a.name,
+            address: a.address,
+          })),
+          messageId: msg.envelope?.messageId,
+        },
+      });
     }
-  } finally {
-    await client.logout().catch(() => {});
-  }
+
+    messages.reverse();
+
+    return { messages, total: uids.length };
+  });
 }
 
 export async function emailSendMessage(
@@ -353,22 +368,10 @@ export async function emailMoveMessage(
   uid: number,
   destination: string
 ) {
-  const { imap } = await getEmailConfig(serviceConnectionId);
-  const client = await createImapClient(imap);
-
-  try {
-    await client.connect();
-    const lock = await client.getMailboxLock(mailbox);
-
-    try {
-      await client.messageMove(String(uid), destination, { uid: true });
-      return { success: true };
-    } finally {
-      lock.release();
-    }
-  } finally {
-    await client.logout().catch(() => {});
-  }
+  return withMailbox(serviceConnectionId, mailbox, async (client) => {
+    await client.messageMove(String(uid), destination, { uid: true });
+    return { success: true };
+  });
 }
 
 export async function emailDeleteMessage(
@@ -376,22 +379,10 @@ export async function emailDeleteMessage(
   mailbox: string,
   uid: number
 ) {
-  const { imap } = await getEmailConfig(serviceConnectionId);
-  const client = await createImapClient(imap);
-
-  try {
-    await client.connect();
-    const lock = await client.getMailboxLock(mailbox);
-
-    try {
-      await client.messageDelete(String(uid), { uid: true });
-      return { success: true };
-    } finally {
-      lock.release();
-    }
-  } finally {
-    await client.logout().catch(() => {});
-  }
+  return withMailbox(serviceConnectionId, mailbox, async (client) => {
+    await client.messageDelete(String(uid), { uid: true });
+    return { success: true };
+  });
 }
 
 export async function emailMarkRead(
@@ -400,26 +391,14 @@ export async function emailMarkRead(
   uid: number,
   seen: boolean
 ) {
-  const { imap } = await getEmailConfig(serviceConnectionId);
-  const client = await createImapClient(imap);
-
-  try {
-    await client.connect();
-    const lock = await client.getMailboxLock(mailbox);
-
-    try {
-      if (seen) {
-        await client.messageFlagsAdd(String(uid), ["\\Seen"], { uid: true });
-      } else {
-        await client.messageFlagsRemove(String(uid), ["\\Seen"], { uid: true });
-      }
-      return { success: true, seen };
-    } finally {
-      lock.release();
+  return withMailbox(serviceConnectionId, mailbox, async (client) => {
+    if (seen) {
+      await client.messageFlagsAdd(String(uid), ["\\Seen"], { uid: true });
+    } else {
+      await client.messageFlagsRemove(String(uid), ["\\Seen"], { uid: true });
     }
-  } finally {
-    await client.logout().catch(() => {});
-  }
+    return { success: true, seen };
+  });
 }
 
 const GENERIC_CONNECTION_ERROR = "Failed to connect to the mail server";
@@ -447,21 +426,13 @@ export async function validateEmailConnection(config: {
   }
 
   // Validate IMAP connection
-  const client = new ImapFlow({
-    host: imapTarget.host,
-    port: imapTarget.port,
-    servername: imapTarget.servername,
-    secure: config.imapSecure !== false,
-    auth: {
-      user: config.username,
-      pass: config.password,
-    },
-    logger: false,
-  });
-
   try {
-    await client.connect();
-    await client.logout();
+    const client = buildImapClient(imapTarget, {
+      username: config.username,
+      password: config.password,
+      secure: config.imapSecure,
+    });
+    await withImapClient(client, async () => {});
   } catch (err) {
     console.error("[ScopeGate] IMAP connection failed:", err);
     return { valid: false, error: GENERIC_CONNECTION_ERROR };

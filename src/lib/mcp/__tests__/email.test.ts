@@ -15,9 +15,20 @@ vi.mock("@/lib/crypto", () => ({
 
 const mockConnect = vi.fn();
 const mockLogout = vi.fn();
+const mockList = vi.fn();
+const mockGetMailboxLock = vi.fn();
+const mockMessageMove = vi.fn();
+const mailboxState: { exists: number } = { exists: 0 };
 vi.mock("imapflow", () => ({
   ImapFlow: vi.fn().mockImplementation(function () {
-    return { connect: mockConnect, logout: mockLogout };
+    return {
+      connect: mockConnect,
+      logout: mockLogout,
+      list: mockList,
+      getMailboxLock: mockGetMailboxLock,
+      messageMove: mockMessageMove,
+      mailbox: mailboxState,
+    };
   }),
 }));
 
@@ -31,13 +42,28 @@ vi.mock("nodemailer", () => ({
 import { ImapFlow } from "imapflow";
 import nodemailer from "nodemailer";
 import { lookup } from "dns/promises";
-import { validateEmailConnection } from "../email";
+import { db } from "@/lib/db";
+import {
+  validateEmailConnection,
+  emailListMailboxes,
+  emailMoveMessage,
+} from "../email";
 
 const mockLookup = vi.mocked(lookup);
 
 function mockDns(...addresses: Array<{ address: string; family: number }>) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   mockLookup.mockResolvedValue(addresses as any);
+}
+
+function mockConnection() {
+  vi.mocked(db.serviceConnection.findUniqueOrThrow).mockResolvedValue({
+    id: "conn-1",
+    accessToken: "encrypted",
+    accountEmail: "user@example.com",
+    metadata: { imapHost: "imap.example.com", imapPort: 993 },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any);
 }
 
 describe("validateEmailConnection", () => {
@@ -127,5 +153,65 @@ describe("validateEmailConnection", () => {
     });
 
     expect(result).toEqual({ valid: true });
+  });
+});
+
+describe("IMAP resource lifecycle (withImap / withMailbox)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockDns({ address: "93.184.216.34", family: 4 });
+    mockConnection();
+    mockConnect.mockResolvedValue(undefined);
+    mockLogout.mockResolvedValue(undefined);
+    mailboxState.exists = 0;
+  });
+
+  it("logs out after a successful call with no mailbox lock involved", async () => {
+    mockList.mockResolvedValue([]);
+
+    await emailListMailboxes("conn-1");
+
+    expect(mockConnect).toHaveBeenCalledTimes(1);
+    expect(mockLogout).toHaveBeenCalledTimes(1);
+  });
+
+  it("still logs out when the callback throws with no mailbox lock involved", async () => {
+    mockList.mockRejectedValue(new Error("boom"));
+
+    await expect(emailListMailboxes("conn-1")).rejects.toThrow("boom");
+
+    expect(mockLogout).toHaveBeenCalledTimes(1);
+  });
+
+  it("releases the mailbox lock and logs out on success", async () => {
+    const release = vi.fn();
+    mockGetMailboxLock.mockResolvedValue({ release });
+    mockMessageMove.mockResolvedValue(undefined);
+
+    await emailMoveMessage("conn-1", "INBOX", 1, "Archive");
+
+    expect(release).toHaveBeenCalledTimes(1);
+    expect(mockLogout).toHaveBeenCalledTimes(1);
+  });
+
+  it("still releases the mailbox lock and logs out when the callback throws", async () => {
+    const release = vi.fn();
+    mockGetMailboxLock.mockResolvedValue({ release });
+    mockMessageMove.mockRejectedValue(new Error("move failed"));
+
+    await expect(emailMoveMessage("conn-1", "INBOX", 1, "Archive")).rejects.toThrow(
+      "move failed"
+    );
+
+    expect(release).toHaveBeenCalledTimes(1);
+    expect(mockLogout).toHaveBeenCalledTimes(1);
+  });
+
+  it("still attempts logout (swallowed) when connect itself fails", async () => {
+    mockConnect.mockRejectedValue(new Error("ETIMEDOUT"));
+
+    await expect(emailListMailboxes("conn-1")).rejects.toThrow("ETIMEDOUT");
+
+    expect(mockLogout).toHaveBeenCalledTimes(1);
   });
 });

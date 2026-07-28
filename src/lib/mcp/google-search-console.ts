@@ -68,7 +68,13 @@ async function gscFetch(
     console.error(
       `[ScopeGate] Google Search Console API error (${res.status}): ${baseUrlKey}${path}`
     );
-    throw new Error("Google Search Console API request failed");
+    const body = (await res.json().catch(() => null)) as {
+      error?: { message?: string; status?: string };
+    } | null;
+    const reason = body?.error?.message
+      ? ` — ${body.error.message}${body.error.status ? ` (${body.error.status})` : ""}`
+      : "";
+    throw new Error(`Google Search Console API request failed (${res.status})${reason}`);
   }
 
   if (res.status === 204) {

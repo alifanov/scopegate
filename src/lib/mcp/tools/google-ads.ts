@@ -1,62 +1,7 @@
 import { z } from 'zod';
 import { googleAdsQuery, googleAdsMutate, googleAdsApplyRecommendation, googleAdsDismissRecommendation, getGoogleAdsCustomerId } from '../google-ads';
+import { GaqlBuilder, gaqlNumericId, gaqlDate, gaqlDatePreset, gaqlCampaignStatus, gaqlAdGroupStatus, gaqlAdStatus, gaqlEnum } from '../gaql';
 import type { ToolDefinition } from './types';
-function buildDateCondition(params: Record<string, unknown>): string {
-    if (params.dateRangeStart && params.dateRangeEnd) {
-        return `segments.date BETWEEN '${params.dateRangeStart}' AND '${params.dateRangeEnd}'`;
-    }
-    if (params.datePreset) {
-        return `segments.date DURING ${params.datePreset}`;
-    }
-    return "segments.date DURING LAST_30_DAYS";
-}
-class GaqlBuilder {
-    private conditions: string[] = [];
-    private orderClause?: string;
-    private limitClause?: number;
-    constructor(private readonly fields: string[], private readonly resource: string) { }
-    where(condition: string | false | null | undefined) {
-        if (condition)
-            this.conditions.push(condition);
-        return this;
-    }
-    date(params: Record<string, unknown>) {
-        return this.where(buildDateCondition(params));
-    }
-    orderBy(orderClause: string) {
-        this.orderClause = orderClause;
-        return this;
-    }
-    limit(limit: unknown, fallback: number) {
-        this.limitClause = typeof limit === "number" ? limit : fallback;
-        return this;
-    }
-    toString() {
-        const parts = [`SELECT ${this.fields.join(", ")} FROM ${this.resource}`];
-        if (this.conditions.length > 0) {
-            parts.push(`WHERE ${this.conditions.join(" AND ")}`);
-        }
-        if (this.orderClause) {
-            parts.push(`ORDER BY ${this.orderClause}`);
-        }
-        if (this.limitClause !== undefined) {
-            parts.push(`LIMIT ${this.limitClause}`);
-        }
-        return parts.join(" ");
-    }
-}
-// Google Ads GAQL validation helpers — prevents GAQL injection via AI-agent parameters
-const gaqlNumericId = z.string().regex(/^\d+$/, "Must be a numeric Google Ads ID");
-const gaqlDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD");
-const gaqlDatePreset = z.enum([
-    "TODAY", "YESTERDAY", "LAST_7_DAYS", "LAST_14_DAYS", "LAST_30_DAYS", "LAST_90_DAYS",
-    "LAST_BUSINESS_WEEK", "THIS_WEEK_SUN_TODAY", "THIS_WEEK_MON_TODAY",
-    "LAST_WEEK_SUN_SAT", "LAST_WEEK_MON_SUN", "THIS_MONTH", "LAST_MONTH", "ALL_TIME",
-]);
-const gaqlCampaignStatus = z.enum(["ENABLED", "PAUSED", "REMOVED"]);
-const gaqlAdGroupStatus = z.enum(["ENABLED", "PAUSED", "REMOVED"]);
-const gaqlAdStatus = z.enum(["ENABLED", "PAUSED", "DISABLED", "REMOVED"]);
-const gaqlEnum = z.string().regex(/^[A-Z][A-Z0-9_]*$/, "Must be a valid Google Ads enum value");
 export const googleAdsTools: ToolDefinition[] = [
     // Google Ads tools — Read: Campaigns
     {
@@ -65,11 +10,11 @@ export const googleAdsTools: ToolDefinition[] = [
         action: "googleAds:list_campaigns",
         inputSchema: z.object({
             status: gaqlCampaignStatus.optional(),
-            maxResults: z.number().optional().default(50),
+            maxResults: z.number().int().positive().optional().default(50),
         }),
         handler: async (params, context) => {
             const query = new GaqlBuilder(["campaign.id", "campaign.name", "campaign.status", "campaign.advertising_channel_type", "campaign.campaign_budget"], "campaign")
-                .where(params.status ? `campaign.status = '${params.status}'` : null)
+                .eqEnum("campaign.status", params.status)
                 .limit(params.maxResults, 50)
                 .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
@@ -87,8 +32,8 @@ export const googleAdsTools: ToolDefinition[] = [
         }),
         handler: async (params, context) => {
             const query = new GaqlBuilder(["campaign.id", "campaign.name", "metrics.impressions", "metrics.clicks", "metrics.cost_micros", "metrics.conversions", "metrics.ctr", "metrics.average_cpc", "segments.date"], "campaign")
-                .where(`campaign.id = ${params.campaignId}`)
-                .date(params)
+                .eqId("campaign.id", params.campaignId)
+                .dateRange(params)
                 .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
         },
@@ -101,13 +46,13 @@ export const googleAdsTools: ToolDefinition[] = [
         inputSchema: z.object({
             campaignId: gaqlNumericId,
             status: gaqlAdGroupStatus.optional(),
-            maxResults: z.number().optional().default(50),
+            maxResults: z.number().int().positive().optional().default(50),
         }),
         handler: async (params, context) => {
             const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
             const query = new GaqlBuilder(["ad_group.id", "ad_group.name", "ad_group.status", "ad_group.campaign", "ad_group.cpc_bid_micros"], "ad_group")
-                .where(`ad_group.campaign = 'customers/${cid}/campaigns/${params.campaignId}'`)
-                .where(params.status ? `ad_group.status = '${params.status}'` : null)
+                .resourceEq("ad_group.campaign", `customers/${cid}/campaigns/{id}`, params.campaignId)
+                .eqEnum("ad_group.status", params.status)
                 .limit(params.maxResults, 50)
                 .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
@@ -125,8 +70,8 @@ export const googleAdsTools: ToolDefinition[] = [
         }),
         handler: async (params, context) => {
             const query = new GaqlBuilder(["ad_group.id", "ad_group.name", "metrics.impressions", "metrics.clicks", "metrics.cost_micros", "metrics.conversions", "metrics.ctr", "metrics.average_cpc", "segments.date"], "ad_group")
-                .where(`ad_group.id = ${params.adGroupId}`)
-                .date(params)
+                .eqId("ad_group.id", params.adGroupId)
+                .dateRange(params)
                 .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
         },
@@ -139,13 +84,13 @@ export const googleAdsTools: ToolDefinition[] = [
         inputSchema: z.object({
             adGroupId: gaqlNumericId,
             status: gaqlAdStatus.optional(),
-            maxResults: z.number().optional().default(50),
+            maxResults: z.number().int().positive().optional().default(50),
         }),
         handler: async (params, context) => {
             const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
             const query = new GaqlBuilder(["ad_group_ad.ad.id", "ad_group_ad.ad.type", "ad_group_ad.status", "ad_group_ad.ad.responsive_search_ad.headlines", "ad_group_ad.ad.responsive_search_ad.descriptions", "ad_group_ad.ad.final_urls"], "ad_group_ad")
-                .where(`ad_group_ad.ad_group = 'customers/${cid}/adGroups/${params.adGroupId}'`)
-                .where(params.status ? `ad_group_ad.status = '${params.status}'` : null)
+                .resourceEq("ad_group_ad.ad_group", `customers/${cid}/adGroups/{id}`, params.adGroupId)
+                .eqEnum("ad_group_ad.status", params.status)
                 .limit(params.maxResults, 50)
                 .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
@@ -165,9 +110,9 @@ export const googleAdsTools: ToolDefinition[] = [
         handler: async (params, context) => {
             const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
             const query = new GaqlBuilder(["ad_group_ad.ad.id", "ad_group_ad.ad_group", "metrics.impressions", "metrics.clicks", "metrics.cost_micros", "metrics.conversions", "metrics.ctr", "segments.date"], "ad_group_ad")
-                .where(`ad_group_ad.ad_group = 'customers/${cid}/adGroups/${params.adGroupId}'`)
-                .where(`ad_group_ad.ad.id = ${params.adId}`)
-                .date(params)
+                .resourceEq("ad_group_ad.ad_group", `customers/${cid}/adGroups/{id}`, params.adGroupId)
+                .eqId("ad_group_ad.ad.id", params.adId)
+                .dateRange(params)
                 .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
         },
@@ -179,12 +124,12 @@ export const googleAdsTools: ToolDefinition[] = [
         action: "googleAds:list_keywords",
         inputSchema: z.object({
             adGroupId: gaqlNumericId,
-            maxResults: z.number().optional().default(50),
+            maxResults: z.number().int().positive().optional().default(50),
         }),
         handler: async (params, context) => {
             const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
             const query = new GaqlBuilder(["ad_group_criterion.criterion_id", "ad_group_criterion.keyword.text", "ad_group_criterion.keyword.match_type", "ad_group_criterion.status", "ad_group_criterion.cpc_bid_micros"], "ad_group_criterion")
-                .where(`ad_group_criterion.ad_group = 'customers/${cid}/adGroups/${params.adGroupId}'`)
+                .resourceEq("ad_group_criterion.ad_group", `customers/${cid}/adGroups/{id}`, params.adGroupId)
                 .where("ad_group_criterion.type = 'KEYWORD'")
                 .limit(params.maxResults, 50)
                 .toString();
@@ -205,10 +150,10 @@ export const googleAdsTools: ToolDefinition[] = [
         handler: async (params, context) => {
             const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
             const query = new GaqlBuilder(["ad_group_criterion.criterion_id", "ad_group_criterion.keyword.text", "metrics.impressions", "metrics.clicks", "metrics.cost_micros", "metrics.conversions", "metrics.quality_info.quality_score", "segments.date"], "ad_group_criterion")
-                .where(`ad_group_criterion.ad_group = 'customers/${cid}/adGroups/${params.adGroupId}'`)
-                .where(`ad_group_criterion.criterion_id = ${params.keywordId}`)
+                .resourceEq("ad_group_criterion.ad_group", `customers/${cid}/adGroups/{id}`, params.adGroupId)
+                .eqId("ad_group_criterion.criterion_id", params.keywordId)
                 .where("ad_group_criterion.type = 'KEYWORD'")
-                .date(params)
+                .dateRange(params)
                 .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
         },
@@ -221,16 +166,26 @@ export const googleAdsTools: ToolDefinition[] = [
         inputSchema: z.object({
             campaignId: gaqlNumericId.optional(),
             adGroupId: gaqlNumericId.optional(),
-            maxResults: z.number().optional().default(50),
+            maxResults: z.number().int().positive().optional().default(50),
         }),
         handler: async (params, context) => {
             const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
             if (params.adGroupId) {
-                const query = `SELECT ad_group_criterion.criterion_id, ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group_criterion.status FROM ad_group_criterion WHERE ad_group_criterion.ad_group = 'customers/${cid}/adGroups/${params.adGroupId}' AND ad_group_criterion.type = 'KEYWORD' AND ad_group_criterion.negative = TRUE LIMIT ${params.maxResults ?? 50}`;
+                const query = new GaqlBuilder(["ad_group_criterion.criterion_id", "ad_group_criterion.keyword.text", "ad_group_criterion.keyword.match_type", "ad_group_criterion.status"], "ad_group_criterion")
+                    .resourceEq("ad_group_criterion.ad_group", `customers/${cid}/adGroups/{id}`, params.adGroupId)
+                    .where("ad_group_criterion.type = 'KEYWORD'")
+                    .where("ad_group_criterion.negative = TRUE")
+                    .limit(params.maxResults, 50)
+                    .toString();
                 return googleAdsQuery(context.serviceConnectionId, query);
             }
             if (params.campaignId) {
-                const query = `SELECT campaign_criterion.criterion_id, campaign_criterion.keyword.text, campaign_criterion.keyword.match_type FROM campaign_criterion WHERE campaign_criterion.campaign = 'customers/${cid}/campaigns/${params.campaignId}' AND campaign_criterion.type = 'KEYWORD' AND campaign_criterion.negative = TRUE LIMIT ${params.maxResults ?? 50}`;
+                const query = new GaqlBuilder(["campaign_criterion.criterion_id", "campaign_criterion.keyword.text", "campaign_criterion.keyword.match_type"], "campaign_criterion")
+                    .resourceEq("campaign_criterion.campaign", `customers/${cid}/campaigns/{id}`, params.campaignId)
+                    .where("campaign_criterion.type = 'KEYWORD'")
+                    .where("campaign_criterion.negative = TRUE")
+                    .limit(params.maxResults, 50)
+                    .toString();
                 return googleAdsQuery(context.serviceConnectionId, query);
             }
             throw new Error("Either campaignId or adGroupId is required");
@@ -246,13 +201,13 @@ export const googleAdsTools: ToolDefinition[] = [
             dateRangeStart: gaqlDate.optional(),
             dateRangeEnd: gaqlDate.optional(),
             datePreset: gaqlDatePreset.optional(),
-            maxResults: z.number().optional().default(100),
+            maxResults: z.number().int().positive().optional().default(100),
         }),
         handler: async (params, context) => {
             const query = new GaqlBuilder(["search_term_view.search_term", "search_term_view.ad_group", "metrics.impressions", "metrics.clicks", "metrics.cost_micros", "metrics.conversions", "segments.date"], "search_term_view")
-                .date(params)
-                .where(params.campaignId ? `campaign.id = ${params.campaignId}` : null)
-                .where(params.adGroupId ? `ad_group.id = ${params.adGroupId}` : null)
+                .dateRange(params)
+                .eqId("campaign.id", params.campaignId)
+                .eqId("ad_group.id", params.adGroupId)
                 .limit(params.maxResults, 100)
                 .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
@@ -270,7 +225,7 @@ export const googleAdsTools: ToolDefinition[] = [
         }),
         handler: async (params, context) => {
             const query = new GaqlBuilder(["customer.id", "customer.descriptive_name", "metrics.impressions", "metrics.clicks", "metrics.cost_micros", "metrics.conversions", "metrics.ctr", "metrics.average_cpc", "segments.date"], "customer")
-                .date(params)
+                .dateRange(params)
                 .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
         },
@@ -281,10 +236,12 @@ export const googleAdsTools: ToolDefinition[] = [
         description: "List audiences configured in the Google Ads account",
         action: "googleAds:list_audiences",
         inputSchema: z.object({
-            maxResults: z.number().optional().default(50),
+            maxResults: z.number().int().positive().optional().default(50),
         }),
         handler: async (params, context) => {
-            const query = `SELECT audience.id, audience.name, audience.description, audience.status FROM audience LIMIT ${params.maxResults ?? 50}`;
+            const query = new GaqlBuilder(["audience.id", "audience.name", "audience.description", "audience.status"], "audience")
+                .limit(params.maxResults, 50)
+                .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
         },
     },
@@ -301,9 +258,9 @@ export const googleAdsTools: ToolDefinition[] = [
         }),
         handler: async (params, context) => {
             const query = new GaqlBuilder(["campaign_audience_view.resource_name", "metrics.impressions", "metrics.clicks", "metrics.conversions", "metrics.cost_micros", "segments.date"], "campaign_audience_view")
-                .where(`campaign_audience_view.resource_name LIKE '%${params.audienceId}%'`)
-                .where(params.campaignId ? `campaign.id = ${params.campaignId}` : null)
-                .date(params)
+                .containsId("campaign_audience_view.resource_name", params.audienceId)
+                .eqId("campaign.id", params.campaignId)
+                .dateRange(params)
                 .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
         },
@@ -314,10 +271,12 @@ export const googleAdsTools: ToolDefinition[] = [
         description: "List conversion actions configured in the account",
         action: "googleAds:list_conversions",
         inputSchema: z.object({
-            maxResults: z.number().optional().default(50),
+            maxResults: z.number().int().positive().optional().default(50),
         }),
         handler: async (params, context) => {
-            const query = `SELECT conversion_action.id, conversion_action.name, conversion_action.type, conversion_action.status, conversion_action.category FROM conversion_action LIMIT ${params.maxResults ?? 50}`;
+            const query = new GaqlBuilder(["conversion_action.id", "conversion_action.name", "conversion_action.type", "conversion_action.status", "conversion_action.category"], "conversion_action")
+                .limit(params.maxResults, 50)
+                .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
         },
     },
@@ -339,9 +298,9 @@ export const googleAdsTools: ToolDefinition[] = [
                 : null;
             const fromResource = params.campaignId ? "campaign" : "customer";
             const query = new GaqlBuilder(["segments.conversion_action", "segments.conversion_action_name", "metrics.conversions", "metrics.conversions_value", "metrics.cost_per_conversion", "segments.date"], fromResource)
-                .where(params.conversionActionId ? `segments.conversion_action = 'customers/${cid}/conversionActions/${params.conversionActionId}'` : null)
-                .where(params.campaignId ? `campaign.id = ${params.campaignId}` : null)
-                .date(params)
+                .resourceEq("segments.conversion_action", `customers/${cid}/conversionActions/{id}`, params.conversionActionId)
+                .eqId("campaign.id", params.campaignId)
+                .dateRange(params)
                 .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
         },
@@ -354,11 +313,11 @@ export const googleAdsTools: ToolDefinition[] = [
         inputSchema: z.object({
             type: gaqlEnum.optional(),
             campaignId: gaqlNumericId.optional(),
-            maxResults: z.number().optional().default(50),
+            maxResults: z.number().int().positive().optional().default(50),
         }),
         handler: async (params, context) => {
             const query = new GaqlBuilder(["asset.id", "asset.type", "asset.name", "asset.sitelink_asset", "asset.callout_asset", "asset.structured_snippet_asset"], "asset")
-                .where(params.type ? `asset.type = '${params.type}'` : null)
+                .eqEnum("asset.type", params.type)
                 .limit(params.maxResults, 50)
                 .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
@@ -370,10 +329,12 @@ export const googleAdsTools: ToolDefinition[] = [
         description: "List campaign budgets",
         action: "googleAds:list_budgets",
         inputSchema: z.object({
-            maxResults: z.number().optional().default(50),
+            maxResults: z.number().int().positive().optional().default(50),
         }),
         handler: async (params, context) => {
-            const query = `SELECT campaign_budget.id, campaign_budget.name, campaign_budget.amount_micros, campaign_budget.delivery_method, campaign_budget.status, campaign_budget.total_amount_micros FROM campaign_budget LIMIT ${params.maxResults ?? 50}`;
+            const query = new GaqlBuilder(["campaign_budget.id", "campaign_budget.name", "campaign_budget.amount_micros", "campaign_budget.delivery_method", "campaign_budget.status", "campaign_budget.total_amount_micros"], "campaign_budget")
+                .limit(params.maxResults, 50)
+                .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
         },
     },
@@ -385,7 +346,9 @@ export const googleAdsTools: ToolDefinition[] = [
             budgetId: gaqlNumericId,
         }),
         handler: async (params, context) => {
-            const query = `SELECT campaign_budget.id, campaign_budget.name, campaign_budget.amount_micros, campaign_budget.delivery_method, campaign_budget.status, campaign_budget.total_amount_micros, campaign_budget.period, campaign_budget.explicitly_shared FROM campaign_budget WHERE campaign_budget.id = ${params.budgetId}`;
+            const query = new GaqlBuilder(["campaign_budget.id", "campaign_budget.name", "campaign_budget.amount_micros", "campaign_budget.delivery_method", "campaign_budget.status", "campaign_budget.total_amount_micros", "campaign_budget.period", "campaign_budget.explicitly_shared"], "campaign_budget")
+                .eqId("campaign_budget.id", params.budgetId)
+                .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
         },
     },
@@ -394,10 +357,12 @@ export const googleAdsTools: ToolDefinition[] = [
         description: "List bidding strategies in the account",
         action: "googleAds:list_bid_strategies",
         inputSchema: z.object({
-            maxResults: z.number().optional().default(50),
+            maxResults: z.number().int().positive().optional().default(50),
         }),
         handler: async (params, context) => {
-            const query = `SELECT bidding_strategy.id, bidding_strategy.name, bidding_strategy.type, bidding_strategy.status FROM bidding_strategy LIMIT ${params.maxResults ?? 50}`;
+            const query = new GaqlBuilder(["bidding_strategy.id", "bidding_strategy.name", "bidding_strategy.type", "bidding_strategy.status"], "bidding_strategy")
+                .limit(params.maxResults, 50)
+                .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
         },
     },
@@ -413,8 +378,8 @@ export const googleAdsTools: ToolDefinition[] = [
         }),
         handler: async (params, context) => {
             const query = new GaqlBuilder(["bidding_strategy.id", "bidding_strategy.name", "metrics.impressions", "metrics.clicks", "metrics.cost_micros", "metrics.conversions", "segments.date"], "bidding_strategy")
-                .where(`bidding_strategy.id = ${params.bidStrategyId}`)
-                .date(params)
+                .eqId("bidding_strategy.id", params.bidStrategyId)
+                .dateRange(params)
                 .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
         },
@@ -427,15 +392,15 @@ export const googleAdsTools: ToolDefinition[] = [
         inputSchema: z.object({
             type: gaqlEnum.optional(),
             campaignId: gaqlNumericId.optional(),
-            maxResults: z.number().optional().default(50),
+            maxResults: z.number().int().positive().optional().default(50),
         }),
         handler: async (params, context) => {
             const cid = params.campaignId
                 ? await getGoogleAdsCustomerId(context.serviceConnectionId)
                 : null;
             const query = new GaqlBuilder(["recommendation.resource_name", "recommendation.type", "recommendation.impact", "recommendation.campaign"], "recommendation")
-                .where(params.type ? `recommendation.type = '${params.type}'` : null)
-                .where(params.campaignId ? `recommendation.campaign = 'customers/${cid}/campaigns/${params.campaignId}'` : null)
+                .eqEnum("recommendation.type", params.type)
+                .resourceEq("recommendation.campaign", `customers/${cid}/campaigns/{id}`, params.campaignId)
                 .limit(params.maxResults, 50)
                 .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
@@ -450,12 +415,12 @@ export const googleAdsTools: ToolDefinition[] = [
             dateRangeStart: gaqlDate.optional(),
             dateRangeEnd: gaqlDate.optional(),
             resourceType: gaqlEnum.optional(),
-            maxResults: z.number().optional().default(50),
+            maxResults: z.number().int().positive().optional().default(50),
         }),
         handler: async (params, context) => {
             const query = new GaqlBuilder(["change_event.change_date_time", "change_event.change_resource_type", "change_event.resource_name", "change_event.old_resource", "change_event.new_resource", "change_event.user_email"], "change_event")
-                .where(params.dateRangeStart && params.dateRangeEnd ? `change_event.change_date_time >= '${params.dateRangeStart}' AND change_event.change_date_time <= '${params.dateRangeEnd}'` : null)
-                .where(params.resourceType ? `change_event.change_resource_type = '${params.resourceType}'` : null)
+                .betweenDates("change_event.change_date_time", params.dateRangeStart, params.dateRangeEnd)
+                .eqEnum("change_event.change_resource_type", params.resourceType)
                 .orderBy("change_event.change_date_time DESC")
                 .limit(params.maxResults, 50)
                 .toString();
@@ -468,10 +433,12 @@ export const googleAdsTools: ToolDefinition[] = [
         description: "List labels in the Google Ads account",
         action: "googleAds:list_labels",
         inputSchema: z.object({
-            maxResults: z.number().optional().default(50),
+            maxResults: z.number().int().positive().optional().default(50),
         }),
         handler: async (params, context) => {
-            const query = `SELECT label.id, label.name, label.description, label.status FROM label LIMIT ${params.maxResults ?? 50}`;
+            const query = new GaqlBuilder(["label.id", "label.name", "label.description", "label.status"], "label")
+                .limit(params.maxResults, 50)
+                .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
         },
     },
@@ -482,11 +449,11 @@ export const googleAdsTools: ToolDefinition[] = [
         action: "googleAds:list_assets",
         inputSchema: z.object({
             type: gaqlEnum.optional(),
-            maxResults: z.number().optional().default(50),
+            maxResults: z.number().int().positive().optional().default(50),
         }),
         handler: async (params, context) => {
             const query = new GaqlBuilder(["asset.id", "asset.type", "asset.name", "asset.final_urls"], "asset")
-                .where(params.type ? `asset.type = '${params.type}'` : null)
+                .eqEnum("asset.type", params.type)
                 .limit(params.maxResults, 50)
                 .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
@@ -498,11 +465,14 @@ export const googleAdsTools: ToolDefinition[] = [
         action: "googleAds:list_asset_groups",
         inputSchema: z.object({
             campaignId: gaqlNumericId,
-            maxResults: z.number().optional().default(50),
+            maxResults: z.number().int().positive().optional().default(50),
         }),
         handler: async (params, context) => {
             const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
-            const query = `SELECT asset_group.id, asset_group.name, asset_group.status, asset_group.campaign FROM asset_group WHERE asset_group.campaign = 'customers/${cid}/campaigns/${params.campaignId}' LIMIT ${params.maxResults ?? 50}`;
+            const query = new GaqlBuilder(["asset_group.id", "asset_group.name", "asset_group.status", "asset_group.campaign"], "asset_group")
+                .resourceEq("asset_group.campaign", `customers/${cid}/campaigns/{id}`, params.campaignId)
+                .limit(params.maxResults, 50)
+                .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
         },
     },
@@ -516,12 +486,12 @@ export const googleAdsTools: ToolDefinition[] = [
             dateRangeStart: gaqlDate.optional(),
             dateRangeEnd: gaqlDate.optional(),
             datePreset: gaqlDatePreset.optional(),
-            maxResults: z.number().optional().default(50),
+            maxResults: z.number().int().positive().optional().default(50),
         }),
         handler: async (params, context) => {
             const query = new GaqlBuilder(["geographic_view.country_criterion_id", "geographic_view.location_type", "metrics.impressions", "metrics.clicks", "metrics.cost_micros", "metrics.conversions", "segments.date"], "geographic_view")
-                .where(params.campaignId ? `campaign.id = ${params.campaignId}` : null)
-                .date(params)
+                .eqId("campaign.id", params.campaignId)
+                .dateRange(params)
                 .limit(params.maxResults, 50)
                 .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
@@ -539,8 +509,8 @@ export const googleAdsTools: ToolDefinition[] = [
         }),
         handler: async (params, context) => {
             const query = new GaqlBuilder(["segments.device", "metrics.impressions", "metrics.clicks", "metrics.cost_micros", "metrics.conversions", "metrics.ctr", "segments.date"], "campaign")
-                .where(params.campaignId ? `campaign.id = ${params.campaignId}` : null)
-                .date(params)
+                .eqId("campaign.id", params.campaignId)
+                .dateRange(params)
                 .toString();
             return googleAdsQuery(context.serviceConnectionId, query);
         },

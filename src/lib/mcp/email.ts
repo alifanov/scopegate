@@ -2,6 +2,7 @@ import { ImapFlow, type MessageAddressObject } from "imapflow";
 import nodemailer from "nodemailer";
 import { db } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
+import { resolveMailTarget } from "./mail-safety";
 
 interface EmailConnectionConfig {
   host: string;
@@ -49,10 +50,12 @@ async function getEmailConfig(serviceConnectionId: string): Promise<{
   };
 }
 
-function createImapClient(config: EmailConnectionConfig): ImapFlow {
+async function createImapClient(config: EmailConnectionConfig): Promise<ImapFlow> {
+  const target = await resolveMailTarget(config.host, config.port, "imap");
   return new ImapFlow({
-    host: config.host,
-    port: config.port,
+    host: target.host,
+    port: target.port,
+    servername: target.servername,
     secure: config.secure !== false,
     auth: {
       user: config.username,
@@ -64,7 +67,7 @@ function createImapClient(config: EmailConnectionConfig): ImapFlow {
 
 export async function emailListMailboxes(serviceConnectionId: string) {
   const { imap } = await getEmailConfig(serviceConnectionId);
-  const client = createImapClient(imap);
+  const client = await createImapClient(imap);
 
   try {
     await client.connect();
@@ -89,7 +92,7 @@ export async function emailListMessages(
   page: number = 1
 ) {
   const { imap } = await getEmailConfig(serviceConnectionId);
-  const client = createImapClient(imap);
+  const client = await createImapClient(imap);
 
   try {
     await client.connect();
@@ -155,7 +158,7 @@ export async function emailReadMessage(
   uid: number
 ) {
   const { imap } = await getEmailConfig(serviceConnectionId);
-  const client = createImapClient(imap);
+  const client = await createImapClient(imap);
 
   try {
     await client.connect();
@@ -226,7 +229,7 @@ export async function emailSearchMessages(
   limit: number = 20
 ) {
   const { imap } = await getEmailConfig(serviceConnectionId);
-  const client = createImapClient(imap);
+  const client = await createImapClient(imap);
 
   try {
     await client.connect();
@@ -304,11 +307,13 @@ export async function emailSendMessage(
 ) {
   const config = await getEmailConfig(serviceConnectionId);
   const { smtp, email } = config;
+  const target = await resolveMailTarget(smtp.host, smtp.port, "smtp");
 
   const transporter = nodemailer.createTransport({
-    host: smtp.host,
-    port: smtp.port,
+    host: target.host,
+    port: target.port,
     secure: smtp.secure !== false,
+    tls: { servername: target.servername },
     auth: {
       user: smtp.username,
       pass: smtp.password,
@@ -349,7 +354,7 @@ export async function emailMoveMessage(
   destination: string
 ) {
   const { imap } = await getEmailConfig(serviceConnectionId);
-  const client = createImapClient(imap);
+  const client = await createImapClient(imap);
 
   try {
     await client.connect();
@@ -372,7 +377,7 @@ export async function emailDeleteMessage(
   uid: number
 ) {
   const { imap } = await getEmailConfig(serviceConnectionId);
-  const client = createImapClient(imap);
+  const client = await createImapClient(imap);
 
   try {
     await client.connect();
@@ -396,7 +401,7 @@ export async function emailMarkRead(
   seen: boolean
 ) {
   const { imap } = await getEmailConfig(serviceConnectionId);
-  const client = createImapClient(imap);
+  const client = await createImapClient(imap);
 
   try {
     await client.connect();
@@ -417,6 +422,8 @@ export async function emailMarkRead(
   }
 }
 
+const GENERIC_CONNECTION_ERROR = "Failed to connect to the mail server";
+
 export async function validateEmailConnection(config: {
   imapHost: string;
   imapPort: number;
@@ -427,10 +434,23 @@ export async function validateEmailConnection(config: {
   imapSecure?: boolean;
   smtpSecure?: boolean;
 }): Promise<{ valid: boolean; error?: string }> {
+  let imapTarget: { host: string; servername: string; port: number };
+  let smtpTarget: { host: string; servername: string; port: number };
+  try {
+    imapTarget = await resolveMailTarget(config.imapHost, config.imapPort, "imap");
+    smtpTarget = await resolveMailTarget(config.smtpHost, config.smtpPort, "smtp");
+  } catch (err) {
+    return {
+      valid: false,
+      error: err instanceof Error ? err.message : "Invalid mail server address",
+    };
+  }
+
   // Validate IMAP connection
   const client = new ImapFlow({
-    host: config.imapHost,
-    port: config.imapPort,
+    host: imapTarget.host,
+    port: imapTarget.port,
+    servername: imapTarget.servername,
     secure: config.imapSecure !== false,
     auth: {
       user: config.username,
@@ -443,17 +463,16 @@ export async function validateEmailConnection(config: {
     await client.connect();
     await client.logout();
   } catch (err) {
-    return {
-      valid: false,
-      error: `IMAP connection failed: ${err instanceof Error ? err.message : "Unknown error"}`,
-    };
+    console.error("[ScopeGate] IMAP connection failed:", err);
+    return { valid: false, error: GENERIC_CONNECTION_ERROR };
   }
 
   // Validate SMTP connection
   const transporter = nodemailer.createTransport({
-    host: config.smtpHost,
-    port: config.smtpPort,
+    host: smtpTarget.host,
+    port: smtpTarget.port,
     secure: config.smtpSecure !== false,
+    tls: { servername: smtpTarget.servername },
     auth: {
       user: config.username,
       pass: config.password,
@@ -463,10 +482,8 @@ export async function validateEmailConnection(config: {
   try {
     await transporter.verify();
   } catch (err) {
-    return {
-      valid: false,
-      error: `SMTP connection failed: ${err instanceof Error ? err.message : "Unknown error"}`,
-    };
+    console.error("[ScopeGate] SMTP connection failed:", err);
+    return { valid: false, error: GENERIC_CONNECTION_ERROR };
   }
 
   return { valid: true };

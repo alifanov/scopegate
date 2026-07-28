@@ -50,7 +50,7 @@ function extractMappedIpv4(ip: string): string | null {
   return `${hi >> 8}.${hi & 0xff}.${lo >> 8}.${lo & 0xff}`;
 }
 
-function isPrivateIp(ip: string): boolean {
+export function isPrivateIp(ip: string): boolean {
   const mappedIpv4 = extractMappedIpv4(ip);
   if (mappedIpv4) return PRIVATE_IPV4.some((r) => r.test(mappedIpv4));
   return PRIVATE_IPV4.some((r) => r.test(ip)) || PRIVATE_IPV6.some((r) => r.test(ip));
@@ -79,6 +79,31 @@ async function resolveAllAndValidate(host: string): Promise<{ address: string; f
   return records[0];
 }
 
+// Resolves a bare hostname/IP literal to a validated, non-private IP to pin a
+// connection to. Shared by assertSafeUrl (HTTPS fetch) and any other transport
+// (e.g. IMAP/SMTP) that needs the same SSRF check without going through a URL.
+export async function resolveSafeIp(
+  rawHost: string
+): Promise<{ address: string; family: number }> {
+  // Strip IPv6 brackets: [::1] → ::1
+  const host = rawHost.replace(/^\[|\]$/g, "");
+
+  // Block bare IP literals in private ranges immediately (no DNS round-trip needed)
+  if (isPrivateIp(host)) {
+    throw new Error(`SSRF protection: IP address "${host}" is in a reserved range`);
+  }
+
+  // If it's already a public IP literal, use it directly as the pinned address
+  const isIpv4Literal = /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
+  const isIpv6Literal = host.includes(":");
+  if (isIpv4Literal || isIpv6Literal) {
+    return { address: host, family: isIpv6Literal ? 6 : 4 };
+  }
+
+  // Resolve hostname — validates ALL A/AAAA records, not just the first
+  return resolveAllAndValidate(host);
+}
+
 // Validates URL scheme and host. Returns parsed URL + the IP to pin the connection to.
 // The pinned IP is used in the custom lookup so the TCP connection goes to the
 // already-validated address instead of re-resolving the hostname (prevents DNS rebinding).
@@ -98,23 +123,7 @@ async function assertSafeUrl(
     );
   }
 
-  // Strip IPv6 brackets: [::1] → ::1
-  const host = parsed.hostname.replace(/^\[|\]$/g, "");
-
-  // Block bare IP literals in private ranges immediately (no DNS round-trip needed)
-  if (isPrivateIp(host)) {
-    throw new Error(`SSRF protection: IP address "${host}" is in a reserved range`);
-  }
-
-  // If it's already a public IP literal, use it directly as the pinned address
-  const isIpv4Literal = /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
-  const isIpv6Literal = host.includes(":");
-  if (isIpv4Literal || isIpv6Literal) {
-    return { parsed, pinnedIp: host, pinnedFamily: isIpv6Literal ? 6 : 4 };
-  }
-
-  // Resolve hostname — validates ALL A/AAAA records, not just the first
-  const { address, family } = await resolveAllAndValidate(host);
+  const { address, family } = await resolveSafeIp(parsed.hostname);
   return { parsed, pinnedIp: address, pinnedFamily: family };
 }
 

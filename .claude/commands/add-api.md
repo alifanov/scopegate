@@ -58,7 +58,7 @@ Add a complete API integration for the specified service.
    - Follow existing structure
 
 8. **Add to service connection UI**
-   - Update provider list in `src/components/` where other providers are listed
+   - Set `connect: { method: "oauth" | "apiKey" | "email", startRoute?, extraQuery? }` on the provider's entry in `src/lib/provider-registry.ts` — `services-tab.tsx` derives the Connect/Reconnect button behavior and auth-type badge from this via `getConnectTarget()`; it holds no provider lists of its own
    - Add provider logo/icon if available
 
 9. **Update token refresh cron** (`src/app/api/cron/refresh-tokens/route.ts`)

@@ -73,6 +73,14 @@ export type OAuthStartConfig = {
   extraParams?: Record<string, string>;
 };
 
+// How the "Connect"/"Reconnect" buttons in the client should acquire this
+// provider's credentials — single source of truth for services-tab.tsx so it
+// never has to re-derive this from token/oauthStart shape.
+export type ConnectConfig =
+  | { method: "email" }
+  | { method: "apiKey" }
+  | { method: "oauth"; startRoute: string; extraQuery?: Record<string, string> };
+
 export type ProviderDef = {
   key: string;
   displayName: string;
@@ -82,6 +90,7 @@ export type ProviderDef = {
   actions: string[];
   oauthErrors?: OAuthErrorClassification;
   oauthStart?: OAuthStartConfig;
+  connect: ConnectConfig;
 };
 
 // ─── Shared token configs ──────────────────────────────────────────────────────
@@ -131,6 +140,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "gmail:list_attachments",
       "gmail:get_attachment",
     ],
+    connect: { method: "oauth", startRoute: "google", extraQuery: { provider: "gmail" } },
   },
   {
     key: "calendar",
@@ -144,6 +154,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "calendar:update_event",
       "calendar:delete_event",
     ],
+    connect: { method: "oauth", startRoute: "google", extraQuery: { provider: "calendar" } },
   },
   {
     key: "drive",
@@ -156,6 +167,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "drive:create_file",
       "drive:delete_file",
     ],
+    connect: { method: "oauth", startRoute: "google", extraQuery: { provider: "drive" } },
   },
   {
     key: "googleAds",
@@ -244,6 +256,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "googleAds:update_callout",
       "googleAds:remove_extension",
     ],
+    connect: { method: "oauth", startRoute: "google", extraQuery: { provider: "googleAds" } },
   },
   {
     key: "searchConsole",
@@ -271,6 +284,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "searchConsole:submit_sitemap",
       "searchConsole:delete_sitemap",
     ],
+    connect: { method: "oauth", startRoute: "google", extraQuery: { provider: "searchConsole" } },
   },
   {
     key: "youtube",
@@ -324,6 +338,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "youtube:get_rating",
       "youtube:unset_watermark",
     ],
+    connect: { method: "oauth", startRoute: "google", extraQuery: { provider: "youtube" } },
   },
   // ── OpenRouter ────────────────────────────────────────────────────────────
   {
@@ -343,6 +358,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "openRouter:list_providers",
       "openRouter:create_embeddings",
     ],
+    connect: { method: "apiKey" },
   },
   // ── LinkedIn ──────────────────────────────────────────────────────────────
   {
@@ -389,6 +405,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "linkedin:comment_on_post",
       "linkedin:get_post_comments",
     ],
+    connect: { method: "oauth", startRoute: "linkedin" },
   },
   // ── Twitter / X ───────────────────────────────────────────────────────────
   {
@@ -435,6 +452,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "twitter:send_dm",
       "twitter:get_dm_events",
     ],
+    connect: { method: "oauth", startRoute: "twitter", extraQuery: { provider: "twitter" } },
   },
   // ── Twitter Ads ───────────────────────────────────────────────────────────
   {
@@ -454,6 +472,9 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "twitterAds:get_campaign_stats",
       "twitterAds:update_campaign_status",
     ],
+    // Shares Twitter's PKCE OAuth flow (route "twitter") but is stored under
+    // a distinct provider key — the callback disambiguates via ?provider=.
+    connect: { method: "oauth", startRoute: "twitter", extraQuery: { provider: "twitterAds" } },
   },
   // ── Slack ─────────────────────────────────────────────────────────────────
   {
@@ -479,6 +500,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "slack:list_users",
       "slack:upload_file",
     ],
+    connect: { method: "oauth", startRoute: "slack" },
   },
   // ── Notion ────────────────────────────────────────────────────────────────
   {
@@ -509,6 +531,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "notion:delete_block",
       "notion:list_users",
     ],
+    connect: { method: "oauth", startRoute: "notion" },
   },
   // ── HubSpot ───────────────────────────────────────────────────────────────
   {
@@ -548,6 +571,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "hubspot:update_company",
       "hubspot:search_companies",
     ],
+    connect: { method: "oauth", startRoute: "hubspot" },
   },
   // ── GitHub ────────────────────────────────────────────────────────────────
   {
@@ -580,6 +604,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "github:search_repos",
       "github:search_issues",
     ],
+    connect: { method: "oauth", startRoute: "github" },
   },
   // ── Jira ──────────────────────────────────────────────────────────────────
   {
@@ -622,6 +647,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "jira:get_transitions",
       "jira:transition_issue",
     ],
+    connect: { method: "oauth", startRoute: "jira" },
   },
   // ── Salesforce ────────────────────────────────────────────────────────────
   {
@@ -664,6 +690,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "salesforce:list_objects",
       "salesforce:search",
     ],
+    connect: { method: "oauth", startRoute: "salesforce" },
   },
   // ── Meta Ads ──────────────────────────────────────────────────────────────
   {
@@ -701,6 +728,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "metaAds:update_campaign_status",
       "metaAds:update_adset_status",
     ],
+    connect: { method: "oauth", startRoute: "meta" },
   },
   // ── Telegram ──────────────────────────────────────────────────────────────
   {
@@ -718,6 +746,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "telegram:pin_message",
       "telegram:unpin_message",
     ],
+    connect: { method: "apiKey" },
   },
   // ── SEMrush ───────────────────────────────────────────────────────────────
   {
@@ -733,6 +762,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "semrush:keyword_difficulty",
       "semrush:backlinks_overview",
     ],
+    connect: { method: "apiKey" },
   },
   // ── Ahrefs ────────────────────────────────────────────────────────────────
   {
@@ -751,6 +781,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "ahrefs:referring_domains",
       "ahrefs:subscription_info",
     ],
+    connect: { method: "apiKey" },
   },
   // ── Stripe ────────────────────────────────────────────────────────────────
   {
@@ -771,6 +802,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "stripe:list_charges",
       "stripe:list_payment_intents",
     ],
+    connect: { method: "apiKey" },
   },
   // ── Airtable ──────────────────────────────────────────────────────────────
   {
@@ -788,6 +820,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "airtable:update_record",
       "airtable:delete_record",
     ],
+    connect: { method: "apiKey" },
   },
   // ── Calendly ──────────────────────────────────────────────────────────────
   {
@@ -804,6 +837,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "calendly:list_invitees",
       "calendly:cancel_event",
     ],
+    connect: { method: "apiKey" },
   },
   // ── Threads ───────────────────────────────────────────────────────────────
   {
@@ -844,6 +878,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "threads:get_publishing_limit",
       "threads:lookup_profile",
     ],
+    connect: { method: "oauth", startRoute: "threads" },
   },
   // ── Instagram ─────────────────────────────────────────────────────────────
   {
@@ -877,6 +912,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "instagram:list_media",
       "instagram:get_account",
     ],
+    connect: { method: "oauth", startRoute: "instagram" },
   },
   // ── Google Tag Manager ────────────────────────────────────────────────────
   {
@@ -966,6 +1002,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "googleTagManager:update_user_permission",
       "googleTagManager:delete_user_permission",
     ],
+    connect: { method: "oauth", startRoute: "google", extraQuery: { provider: "googleTagManager" } },
   },
   // ── Email (IMAP/SMTP) ─────────────────────────────────────────────────────
   {
@@ -984,6 +1021,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "email:delete_message",
       "email:mark_read",
     ],
+    connect: { method: "email" },
   },
 ];
 
@@ -1022,4 +1060,23 @@ export function getOAuthStartConfig(routeKey: OAuthCallbackRouteKey): OAuthStart
   const config = getProviderDef(providerKey)?.oauthStart;
   if (!config) throw new Error(`No oauthStart config registered for route "${routeKey}"`);
   return config;
+}
+
+// ─── Client connect target ─────────────────────────────────────────────────────
+// Single source of truth for how the Connect/Reconnect buttons acquire a
+// provider's credentials — derived from ProviderDef.connect so the client
+// never needs its own provider lists or classification logic.
+
+export type ConnectTarget =
+  | { kind: "redirect"; url: string }
+  | { kind: "dialog"; dialog: "apiKey" | "email" };
+
+export function getConnectTarget(providerKey: string, projectId: string): ConnectTarget {
+  const def = getProviderDef(providerKey);
+  if (!def) throw new Error(`Unknown provider "${providerKey}"`);
+  const { connect } = def;
+  if (connect.method === "email") return { kind: "dialog", dialog: "email" };
+  if (connect.method === "apiKey") return { kind: "dialog", dialog: "apiKey" };
+  const params = new URLSearchParams({ projectId, ...connect.extraQuery });
+  return { kind: "redirect", url: `/api/oauth/${connect.startRoute}?${params.toString()}` };
 }

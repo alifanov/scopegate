@@ -33,13 +33,11 @@ import { CreateEndpointDialog } from "@/components/project/create-endpoint-dialo
 import { TabContentSkeleton } from "@/components/skeletons";
 import { getProviderDisplayName } from "@/lib/provider-names";
 import { PERMISSION_GROUPS } from "@/lib/mcp/permissions";
+import { getConnectTarget } from "@/lib/provider-registry";
 import { Plug, Unplug, ArrowLeft, RefreshCw, AlertTriangle, XCircle, Plus } from "lucide-react";
 import { ServiceIcon } from "@/components/service-icons";
 import { toast } from "sonner";
 import { apiGet, apiSend, ApiError } from "@/lib/api-client";
-
-const API_KEY_PROVIDERS = new Set(["openRouter", "telegram", "semrush", "ahrefs", "stripe", "airtable", "calendly"]);
-const EMAIL_PROVIDER = "email";
 
 const API_KEY_PLACEHOLDERS: Record<string, string> = {
   openRouter: "sk-or-...",
@@ -121,32 +119,13 @@ export function ServicesTab({ projectId }: { projectId: string }) {
     }
   }
 
-  const STANDALONE_OAUTH_PROVIDERS: Record<string, string> = {
-    twitter: "twitter",
-    twitterAds: "twitter",
-    linkedin: "linkedin",
-    slack: "slack",
-    notion: "notion",
-    hubspot: "hubspot",
-    github: "github",
-    jira: "jira",
-    salesforce: "salesforce",
-    metaAds: "meta",
-    threads: "threads",
-    instagram: "instagram",
-  };
-
   function handleConnect(providerKey: string) {
-    if (providerKey === EMAIL_PROVIDER) {
-      setEmailFormOpen(true);
-    } else if (API_KEY_PROVIDERS.has(providerKey)) {
-      setApiKeyProvider(providerKey);
-    } else if (STANDALONE_OAUTH_PROVIDERS[providerKey]) {
-      const oauthRoute = STANDALONE_OAUTH_PROVIDERS[providerKey];
-      const url = `/api/oauth/${oauthRoute}?projectId=${projectId}${oauthRoute === "twitter" ? `&provider=${providerKey}` : ""}`;
-      window.location.href = url;
+    const target = getConnectTarget(providerKey, projectId);
+    if (target.kind === "dialog") {
+      if (target.dialog === "email") setEmailFormOpen(true);
+      else setApiKeyProvider(providerKey);
     } else {
-      window.location.href = `/api/oauth/google?projectId=${projectId}&provider=${providerKey}`;
+      window.location.href = target.url;
     }
   }
 
@@ -183,20 +162,14 @@ export function ServicesTab({ projectId }: { projectId: string }) {
 
   function handleReconnect(service: Service) {
     setReconnecting(service.id);
-    if (service.provider === EMAIL_PROVIDER) {
-      setEmailFormOpen(true);
+    const target = getConnectTarget(service.provider, projectId);
+    if (target.kind === "dialog") {
+      if (target.dialog === "email") setEmailFormOpen(true);
+      else setApiKeyProvider(service.provider);
       setDialogOpen(true);
       setReconnecting(null);
-    } else if (API_KEY_PROVIDERS.has(service.provider)) {
-      setApiKeyProvider(service.provider);
-      setDialogOpen(true);
-      setReconnecting(null);
-    } else if (STANDALONE_OAUTH_PROVIDERS[service.provider]) {
-      const oauthRoute = STANDALONE_OAUTH_PROVIDERS[service.provider];
-      const url = `/api/oauth/${oauthRoute}?projectId=${projectId}${oauthRoute === "twitter" ? `&provider=${service.provider}` : ""}`;
-      window.location.href = url;
     } else {
-      window.location.href = `/api/oauth/google?projectId=${projectId}&provider=${service.provider}`;
+      window.location.href = target.url;
     }
   }
 
@@ -464,7 +437,14 @@ export function ServicesTab({ projectId }: { projectId: string }) {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">
-                          {provider.key === EMAIL_PROVIDER ? "IMAP/SMTP" : API_KEY_PROVIDERS.has(provider.key) ? "API Key" : "OAuth"}
+                          {(() => {
+                            const target = getConnectTarget(provider.key, projectId);
+                            return target.kind === "redirect"
+                              ? "OAuth"
+                              : target.dialog === "email"
+                                ? "IMAP/SMTP"
+                                : "API Key";
+                          })()}
                         </Badge>
                       </TableCell>
                       <TableCell>

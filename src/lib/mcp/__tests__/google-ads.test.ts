@@ -1,8 +1,25 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/mcp/service-fetch", () => ({
+  serviceFetch: vi.fn(),
+}));
+
+vi.mock("@/lib/db", () => ({
+  db: {
+    serviceConnection: {
+      findUniqueOrThrow: vi.fn().mockResolvedValue({
+        metadata: { googleAdsCustomerId: "1234567890" },
+      }),
+    },
+  },
+}));
+
+import { serviceFetch } from "@/lib/mcp/service-fetch";
 import {
   extractCustomerIds,
   flattenSearchStreamResults,
   googleAdsAccountEmail,
+  googleAdsQuery,
   parseCustomerCheckResult,
   stripPendingAccountEmail,
 } from "@/lib/mcp/google-ads";
@@ -106,6 +123,48 @@ describe("googleAdsAccountEmail", () => {
   it("strips a still-pending suffix before appending the customerId", () => {
     expect(googleAdsAccountEmail("user@example.com#pending:abc", "123")).toBe(
       "user@example.com (123)"
+    );
+  });
+});
+
+describe("googleAdsQuery error reporting", () => {
+  it("includes the GoogleAdsFailure detail message when present", async () => {
+    vi.mocked(serviceFetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          error: {
+            message: "Request contains an invalid argument.",
+            status: "INVALID_ARGUMENT",
+            details: [
+              {
+                errors: [{ message: "The developer token is not approved for this account." }],
+              },
+            ],
+          },
+        }),
+        { status: 403 }
+      )
+    );
+    await expect(googleAdsQuery("conn-1", "SELECT customer.id FROM customer")).rejects.toThrow(
+      "Google Ads API query failed (403) — The developer token is not approved for this account."
+    );
+  });
+
+  it("falls back to error.message when no detail message is present", async () => {
+    vi.mocked(serviceFetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: { message: "Invalid GAQL query." } }), {
+        status: 400,
+      })
+    );
+    await expect(googleAdsQuery("conn-1", "SELECT bad FROM customer")).rejects.toThrow(
+      "Google Ads API query failed (400) — Invalid GAQL query."
+    );
+  });
+
+  it("falls back to a generic message when the body isn't JSON", async () => {
+    vi.mocked(serviceFetch).mockResolvedValueOnce(new Response("not json", { status: 500 }));
+    await expect(googleAdsQuery("conn-1", "SELECT customer.id FROM customer")).rejects.toThrow(
+      "Google Ads API query failed (500)"
     );
   });
 });

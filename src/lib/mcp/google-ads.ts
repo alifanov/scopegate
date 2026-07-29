@@ -3,6 +3,18 @@ import { db } from "@/lib/db";
 
 const PENDING_ACCOUNT_EMAIL_RE = /#pending:[^#]+$/;
 
+// Google Ads API error bodies nest the specific failure reason inside
+// error.details[].errors[] (GoogleAdsFailure) — error.message alone is often a generic
+// "Request contains an invalid argument."; prefer the detail message when present.
+async function googleAdsErrorReason(res: Response): Promise<string> {
+  const body = (await res.json().catch(() => null)) as {
+    error?: { message?: string; details?: Array<{ errors?: Array<{ message?: string }> }> };
+  } | null;
+  const detailMessage = body?.error?.details?.[0]?.errors?.[0]?.message;
+  const reason = detailMessage ?? body?.error?.message;
+  return reason ? ` — ${reason}` : "";
+}
+
 // A googleAds connection is inserted under a temp-unique accountEmail (see
 // oauth-callback-config.ts) until its Google Ads customerId is known; this recovers the
 // real account identity for dedupe lookups before that finalization happens.
@@ -58,8 +70,9 @@ export async function listAccessibleCustomers(
   const res = await serviceFetch(serviceConnectionId, "/customers:listAccessibleCustomers");
 
   if (!res.ok) {
-    console.error(`[ScopeGate] Google Ads listAccessibleCustomers error (${res.status})`);
-    throw new Error("Failed to list accessible Google Ads customers");
+    const reason = await googleAdsErrorReason(res);
+    console.error(`[ScopeGate] Google Ads listAccessibleCustomers error (${res.status})${reason}`);
+    throw new Error(`Failed to list accessible Google Ads customers (${res.status})${reason}`);
   }
 
   const data = (await res.json()) as { resourceNames: string[] };
@@ -162,8 +175,9 @@ export async function googleAdsQuery(
   );
 
   if (!res.ok) {
-    console.error(`[ScopeGate] Google Ads query error (${res.status})`);
-    throw new Error("Google Ads API query failed");
+    const reason = await googleAdsErrorReason(res);
+    console.error(`[ScopeGate] Google Ads query error (${res.status})${reason}`);
+    throw new Error(`Google Ads API query failed (${res.status})${reason}`);
   }
 
   return flattenSearchStreamResults(await res.json());
@@ -183,8 +197,9 @@ export async function googleAdsMutate(
   );
 
   if (!res.ok) {
-    console.error(`[ScopeGate] Google Ads mutate error (${res.status})`);
-    throw new Error("Google Ads API mutate failed");
+    const reason = await googleAdsErrorReason(res);
+    console.error(`[ScopeGate] Google Ads mutate error (${res.status})${reason}`);
+    throw new Error(`Google Ads API mutate failed (${res.status})${reason}`);
   }
 
   return res.json();
@@ -203,8 +218,9 @@ export async function googleAdsApplyRecommendation(
   );
 
   if (!res.ok) {
-    console.error(`[ScopeGate] Google Ads apply recommendation error (${res.status})`);
-    throw new Error("Google Ads API apply recommendation failed");
+    const reason = await googleAdsErrorReason(res);
+    console.error(`[ScopeGate] Google Ads apply recommendation error (${res.status})${reason}`);
+    throw new Error(`Google Ads API apply recommendation failed (${res.status})${reason}`);
   }
 
   return res.json();
@@ -223,8 +239,9 @@ export async function googleAdsDismissRecommendation(
   );
 
   if (!res.ok) {
-    console.error(`[ScopeGate] Google Ads dismiss recommendation error (${res.status})`);
-    throw new Error("Google Ads API dismiss recommendation failed");
+    const reason = await googleAdsErrorReason(res);
+    console.error(`[ScopeGate] Google Ads dismiss recommendation error (${res.status})${reason}`);
+    throw new Error(`Google Ads API dismiss recommendation failed (${res.status})${reason}`);
   }
 
   return res.json();

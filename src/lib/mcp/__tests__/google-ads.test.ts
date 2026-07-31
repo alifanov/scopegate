@@ -23,6 +23,7 @@ import {
   parseCustomerCheckResult,
   stripPendingAccountEmail,
 } from "@/lib/mcp/google-ads";
+import { googleAdsTools } from "@/lib/mcp/tools/google-ads";
 
 describe("extractCustomerIds", () => {
   it("pulls the numeric id out of each resource name", () => {
@@ -166,5 +167,38 @@ describe("googleAdsQuery error reporting", () => {
     await expect(googleAdsQuery("conn-1", "SELECT customer.id FROM customer")).rejects.toThrow(
       "Google Ads API query failed (500)"
     );
+  });
+});
+
+describe("googleAds_update_conversion_action", () => {
+  const tool = () =>
+    googleAdsTools.find((t) => t.name === "googleAds_update_conversion_action")!;
+
+  it("sends only the changed fields in the updateMask", async () => {
+    vi.mocked(serviceFetch).mockResolvedValueOnce(new Response("{}", { status: 200 }));
+    await tool().handler(
+      { conversionActionId: "7539523572", name: "signup", category: "SIGNUP" },
+      { serviceConnectionId: "conn-1" } as never
+    );
+    const [, path, opts] = vi.mocked(serviceFetch).mock.calls.at(-1)!;
+    expect(path).toBe("/customers/1234567890/conversionActions:mutate");
+    expect(JSON.parse(opts!.body as string)).toEqual({
+      operations: [
+        {
+          update: {
+            resourceName: "customers/1234567890/conversionActions/7539523572",
+            name: "signup",
+            category: "SIGNUP",
+          },
+          updateMask: "name,category",
+        },
+      ],
+    });
+  });
+
+  it("refuses a no-op update", async () => {
+    await expect(
+      tool().handler({ conversionActionId: "7539523572" }, { serviceConnectionId: "conn-1" } as never)
+    ).rejects.toThrow("No fields to update");
   });
 });

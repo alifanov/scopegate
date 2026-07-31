@@ -1260,4 +1260,44 @@ export const googleAdsTools: ToolDefinition[] = [
             ]);
         },
     },
+    // Google Ads tools — Write: Conversions
+    {
+        name: "googleAds_update_conversion_action",
+        description: "Update a conversion action's name, category, status or counting settings",
+        action: "googleAds:update_conversion_action",
+        inputSchema: z.object({
+            conversionActionId: gaqlNumericId,
+            name: z.string().optional(),
+            // ponytail: free-form enum — Google adds categories faster than we'd update a hardcoded list
+            category: gaqlEnum.optional().describe("e.g. SIGNUP, PURCHASE, LEAD, SUBSCRIBE_PAID"),
+            status: gaqlEnum.optional().describe("ENABLED, REMOVED or HIDDEN"),
+            countingType: gaqlEnum.optional().describe("ONE_PER_CLICK or MANY_PER_CLICK"),
+            primaryForGoal: z.boolean().optional(),
+        }),
+        handler: async (params, context) => {
+            const cid = await getGoogleAdsCustomerId(context.serviceConnectionId);
+            const action: Record<string, unknown> = {
+                resourceName: `customers/${cid}/conversionActions/${params.conversionActionId}`,
+            };
+            const updateMask: string[] = [];
+            const fields = {
+                name: "name",
+                category: "category",
+                status: "status",
+                countingType: "counting_type",
+                primaryForGoal: "primary_for_goal",
+            } as const;
+            for (const [key, mask] of Object.entries(fields)) {
+                const value = params[key as keyof typeof fields];
+                if (value !== undefined) {
+                    action[key] = value;
+                    updateMask.push(mask);
+                }
+            }
+            if (updateMask.length === 0) throw new Error("No fields to update");
+            return googleAdsMutate(context.serviceConnectionId, "conversionActions", [
+                { update: action, updateMask: updateMask.join(",") },
+            ]);
+        },
+    },
 ];

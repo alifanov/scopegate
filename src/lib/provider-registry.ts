@@ -243,6 +243,8 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "googleAds:remove_negative_keyword",
       // Write - Budgets
       "googleAds:update_budget",
+      // Write - Conversions
+      "googleAds:update_conversion_action",
       // Write - Recommendations
       "googleAds:apply_recommendation",
       "googleAds:dismiss_recommendation",

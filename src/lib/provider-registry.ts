@@ -401,11 +401,10 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       "linkedin:get_profile",
       "linkedin:create_post",
       "linkedin:delete_post",
-      "linkedin:get_post",
       "linkedin:like_post",
       "linkedin:unlike_post",
       "linkedin:comment_on_post",
-      "linkedin:get_post_comments",
+      // no read-post actions: r_member_social requires Community Management API approval
     ],
     connect: { method: "oauth", startRoute: "linkedin" },
   },

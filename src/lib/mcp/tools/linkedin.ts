@@ -189,18 +189,6 @@ export const linkedinTools: ToolDefinition[] = [
     },
   },
   {
-    name: "linkedin_get_post",
-    description: "Get a LinkedIn post by its URN",
-    action: "linkedin:get_post",
-    inputSchema: z.object({
-      post_urn: z.string().describe("The URN of the post (e.g. urn:li:share:123456)"),
-    }),
-    handler: async (params, context) => {
-      const encodedUrn = encodeURIComponent(params.post_urn as string);
-      return linkedinFetch(context.serviceConnectionId, `/posts/${encodedUrn}`);
-    },
-  },
-  {
     name: "linkedin_like_post",
     description: "Like (react to) a LinkedIn post",
     action: "linkedin:like_post",
@@ -263,27 +251,6 @@ export const linkedinTools: ToolDefinition[] = [
           method: "POST",
           body: JSON.stringify(body),
         }
-      );
-    },
-  },
-  {
-    name: "linkedin_get_post_comments",
-    description: "Get comments on a LinkedIn post",
-    action: "linkedin:get_post_comments",
-    inputSchema: z.object({
-      post_urn: z.string().describe("The URN of the post"),
-      count: z.number().min(1).max(100).optional().default(10).describe("Number of comments to return"),
-      start: z.number().optional().default(0).describe("Offset for pagination"),
-    }),
-    handler: async (params, context) => {
-      const encodedPostUrn = encodeURIComponent(params.post_urn as string);
-      const query = new URLSearchParams({
-        count: String(params.count ?? 10),
-        start: String(params.start ?? 0),
-      });
-      return linkedinFetch(
-        context.serviceConnectionId,
-        `/socialActions/${encodedPostUrn}/comments?${query.toString()}`
       );
     },
   },

@@ -885,7 +885,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
   {
     key: "instagram",
     displayName: "Instagram",
-    description: "Publish posts to Instagram (professional accounts)",
+    description: "Publish posts and read insights on Instagram (professional accounts)",
     // Instagram API with Instagram Login: same long-lived-token exchange family
     // as Threads, but with ig_* grant types on graph.instagram.com.
     token: { kind: "exchange", bufferMs: 24 * 60 * 60 * 1000, exchangeType: "instagram" },
@@ -905,13 +905,16 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
       authorizeUrl: "https://api.instagram.com/oauth/authorize",
       clientIdEnv: "INSTAGRAM_APP_ID",
       stateProvider: "instagram",
-      scope: "instagram_business_basic,instagram_business_content_publish",
+      scope:
+        "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights",
       extraParams: { response_type: "code" },
     },
     actions: [
       "instagram:create_post",
       "instagram:list_media",
       "instagram:get_account",
+      "instagram:get_media_insights",
+      "instagram:get_account_insights",
     ],
     connect: { method: "oauth", startRoute: "instagram" },
   },

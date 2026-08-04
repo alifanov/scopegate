@@ -254,4 +254,62 @@ export const instagramTools: ToolDefinition[] = [
       );
     },
   },
+  {
+    name: "instagram_get_media_insights",
+    description:
+      "Get insights (reach, views, saves, likes, comments, shares) for one published Instagram media. Available metrics depend on media type: images/carousels support reach,likes,comments,saved,shares,total_interactions,views; reels also support ig_reels_avg_watch_time,ig_reels_video_view_total_time. Note: 'impressions' was removed by Meta — use 'views'.",
+    action: "instagram:get_media_insights",
+    inputSchema: z.object({
+      media_id: z.string().describe("Media id (from instagram_list_media)"),
+      metrics: z
+        .string()
+        .optional()
+        .describe(
+          "Comma-separated metrics (default: reach,views,saved,likes,comments,shares,total_interactions)"
+        ),
+    }),
+    handler: async (params, context) => {
+      const metrics =
+        (params.metrics as string | undefined) ??
+        "reach,views,saved,likes,comments,shares,total_interactions";
+      return instagramFetch(
+        context.serviceConnectionId,
+        `/${params.media_id}/insights?metric=${encodeURIComponent(metrics)}`
+      );
+    },
+  },
+  {
+    name: "instagram_get_account_insights",
+    description:
+      "Get account-level Instagram insights. Time-series metrics (reach, follower_count, profile_views, online_followers) need a period (day); aggregate metrics (views, likes, comments, shares, saves, replies, accounts_engaged, total_interactions, follows_and_unfollows, profile_links_taps) need metric_type=total_value. Max window is 30 days and data is available for the last ~2 years.",
+    action: "instagram:get_account_insights",
+    inputSchema: z.object({
+      metrics: z
+        .string()
+        .optional()
+        .describe("Comma-separated metrics (default: reach,follower_count,profile_views)"),
+      period: z
+        .enum(["day", "week", "days_28"])
+        .optional()
+        .describe("Aggregation period for time-series metrics (default day)"),
+      metric_type: z
+        .literal("total_value")
+        .optional()
+        .describe("Set to total_value for aggregate metrics such as saves/views/likes"),
+      since: z.number().optional().describe("Unix timestamp, start of range (max 30 days back)"),
+      until: z.number().optional().describe("Unix timestamp, end of range"),
+    }),
+    handler: async (params, context) => {
+      const metrics =
+        (params.metrics as string | undefined) ?? "reach,follower_count,profile_views";
+      const query = new URLSearchParams({
+        metric: metrics,
+        period: (params.period as string | undefined) ?? "day",
+      });
+      if (params.metric_type) query.set("metric_type", params.metric_type as string);
+      if (params.since) query.set("since", String(params.since));
+      if (params.until) query.set("until", String(params.until));
+      return instagramFetch(context.serviceConnectionId, `/me/insights?${query}`);
+    },
+  },
 ];

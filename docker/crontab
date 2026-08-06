@@ -1,6 +1,8 @@
 # Schedule for ScopeGate cron jobs. supercronic runs each line via /bin/sh, so $CRON_SECRET expands from container env.
 # Format: min hour day month weekday  command
-# Reachable over the compose network as http://app:3000 — do NOT use the public domain.
+# Reachable over the compose network as http://scopegate-app:3000 — do NOT use the public domain,
+# and do NOT use the bare `app` alias: it is shared by 7 containers in Coolify's `coolify` network
+# and Docker DNS round-robins, so ~6 of these 48 daily calls used to hit unrelated projects.
 
 # Refresh OAuth tokens every 30 min (Google/Twitter access tokens live ~1h; refresh ahead of expiry).
-*/30 * * * * curl -fsS -X POST --max-time 30 -H "Authorization: Bearer $CRON_SECRET" http://app:3000/api/cron/refresh-tokens
+*/30 * * * * curl -fsS -X POST --max-time 30 -H "Authorization: Bearer $CRON_SECRET" http://scopegate-app:3000/api/cron/refresh-tokens

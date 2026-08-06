@@ -19,6 +19,13 @@ services:
   app:
     build:
       context: .
+    # `app` is a shared alias in Coolify's `coolify` network — 7 containers claim it and Docker
+    # DNS round-robins between them, so `http://app:3000` from cron lands in strangers' apps.
+    # Qualify it: the cron container dials `scopegate-app` (see docker/crontab).
+    networks:
+      default:
+        aliases:
+          - scopegate-app
     environment:
       # External DB in prod; falls back to the local `postgres` service for `--profile local`.
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/scopegate?schema=public}

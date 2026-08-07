@@ -10,6 +10,8 @@ services:
       POSTGRES_DB: scopegate
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - internal
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -22,8 +24,11 @@ services:
     # `app` is a shared alias in Coolify's `coolify` network — 7 containers claim it and Docker
     # DNS round-robins between them, so `http://app:3000` from cron lands in strangers' apps.
     # Qualify it: the cron container dials `scopegate-app` (see docker/crontab).
+    # The alias must sit on the explicit `internal` network, not on `default`: Coolify's
+    # "Connect To Predefined Network" attaches services to `coolify` and never brings the
+    # compose `default` network up, which silently drops the alias and kills cron DNS.
     networks:
-      default:
+      internal:
         aliases:
           - scopegate-app
     environment:
@@ -67,9 +72,16 @@ services:
       dockerfile: Dockerfile.cron
     environment:
       CRON_SECRET: ${CRON_SECRET:-}
+    networks:
+      - internal
     depends_on:
       - app
     restart: unless-stopped
+
+# Own private network so app/cron/postgres always share one DNS namespace, whatever
+# extra networks Coolify attaches on top.
+networks:
+  internal:
 
 volumes:
   postgres_data:

@@ -44,6 +44,19 @@ services:
     #   - "3000:3000"
     expose:
       - "3000"
+    # Coolify reads the healthcheck from compose, not from the Dockerfile's HEALTHCHECK.
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
     restart: unless-stopped
 
   # Triggers CRON_SECRET-guarded endpoints on schedule (see docker/crontab).

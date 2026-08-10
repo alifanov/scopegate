@@ -1039,6 +1039,25 @@ export const EXCHANGE_PROVIDER_KEYS: ReadonlySet<string> = new Set(
   PROVIDER_REGISTRY.filter((p) => p.token.kind === "exchange").map((p) => p.key)
 );
 
+// Refreshable providers grouped by their own bufferMs, so the cron's selection
+// window matches what refreshForCron actually considers due. A single flat
+// window meant Meta/Threads/Instagram (24h buffer) were only picked up minutes
+// before expiry — far too late to survive one failed exchange.
+export const REFRESH_BUFFER_GROUPS: ReadonlyArray<{
+  bufferMs: number;
+  providers: string[];
+}> = Object.values(
+  PROVIDER_REGISTRY.reduce<Record<number, { bufferMs: number; providers: string[] }>>(
+    (groups, p) => {
+      if (p.token.kind === "static") return groups;
+      const { bufferMs } = p.token;
+      (groups[bufferMs] ??= { bufferMs, providers: [] }).providers.push(p.key);
+      return groups;
+    },
+    {}
+  )
+);
+
 export type OAuthCallbackRouteKey =
   | "github"
   | "google"

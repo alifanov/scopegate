@@ -10,6 +10,7 @@ import {
   OAuthTokenError,
   type CronConnection,
 } from "@/lib/oauth-token-lifecycle";
+import { REFRESH_BUFFER_GROUPS } from "@/lib/provider-registry";
 
 const tracer = trace.getTracer("scopegate/cron/refresh-tokens");
 const tokenRefreshFailuresCounter = metrics
@@ -18,7 +19,12 @@ const tokenRefreshFailuresCounter = metrics
     description: "OAuth token refresh failures by reason and provider",
   });
 
-const REFRESH_TIMEOUT_MS = 10_000;
+const REFRESH_TIMEOUT_MS = 20_000;
+
+// Cap on simultaneous provider calls per cron run. Unbounded Promise.all let a
+// project's whole fleet of one provider hit its rate limit at once, so every
+// connection failed together instead of a few.
+const REFRESH_CONCURRENCY = 5;
 
 export type RefreshResult =
   | { status: "refreshed" }
@@ -65,6 +71,28 @@ function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
       )
     ),
   ]);
+}
+
+// Results stay index-aligned with `items` — the summary loop pairs them back up
+// with their connection rows.
+// ponytail: shared cursor over one array, no p-limit dependency for 20 lines.
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await fn(items[index]);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, worker)
+  );
+  return results;
 }
 
 async function applyRefreshError(
@@ -179,9 +207,14 @@ export async function refreshExpiringConnectionTokens({
 }: TokenRefreshOptions = {}): Promise<TokenRefreshSummary> {
   return tracer.startActiveSpan("cron.refresh_tokens", async (rootSpan) => {
     try {
-      const bufferMs = 10 * 60 * 1000;
-      const threshold = new Date(now.getTime() + bufferMs);
       const exchangeProviders = [...EXCHANGE_PROVIDERS];
+      // Each provider is due by its own bufferMs (5 min for refresh-token
+      // providers, 24h for Meta/Threads/Instagram). expiresAt: null counts as
+      // due — needsRefresh() treats it that way on the on-demand path too.
+      const dueWindows = REFRESH_BUFFER_GROUPS.map(({ bufferMs, providers }) => ({
+        provider: { in: providers as ServiceProvider[] },
+        OR: [{ expiresAt: null }, { expiresAt: { lt: new Date(now.getTime() + bufferMs) } }],
+      }));
 
       const connections = await tracer.startActiveSpan(
         "db.find_expiring_connections",
@@ -189,12 +222,18 @@ export async function refreshExpiringConnectionTokens({
           try {
             return await database.serviceConnection.findMany({
               where: {
-                expiresAt: { not: null, lt: threshold },
-                status: { notIn: ["error", "revoked"] },
-                OR: [
-                  { refreshToken: { not: null } },
-                  { provider: { in: exchangeProviders as ServiceProvider[] } },
-                ],
+                // "error" stays in scope on purpose: excluding it meant the
+                // first transient failure dropped a connection out of the cron
+                // forever, so consecutiveFailures never reached the revoke
+                // threshold and nobody was ever told to reconnect.
+                status: { not: "revoked" },
+                OR: dueWindows,
+                AND: {
+                  OR: [
+                    { refreshToken: { not: null } },
+                    { provider: { in: exchangeProviders as ServiceProvider[] } },
+                  ],
+                },
               },
               select: {
                 id: true,
@@ -215,7 +254,7 @@ export async function refreshExpiringConnectionTokens({
 
       rootSpan.setAttribute("connections.total", connections.length);
 
-      const results = await Promise.all(connections.map(refreshOne));
+      const results = await mapWithConcurrency(connections, REFRESH_CONCURRENCY, refreshOne);
 
       let refreshed = 0;
       let skipped = 0;

@@ -148,4 +148,34 @@ describe("token refresh service", () => {
       ],
     });
   });
+
+  it("keeps errored connections in scope and windows each provider by its own buffer", async () => {
+    database.serviceConnection.findMany.mockResolvedValue([]);
+    const now = new Date("2026-06-22T12:00:00.000Z");
+
+    await refreshExpiringConnectionTokens({ database, now });
+
+    const { where } = database.serviceConnection.findMany.mock.calls[0][0];
+
+    // Only "revoked" is excluded — an earlier transient failure ("error") must
+    // still be retried, otherwise the failure streak never reaches the threshold.
+    expect(where.status).toEqual({ not: "revoked" });
+
+    // Meta's 24h buffer and the 5-min refresh-token buffer produce distinct windows,
+    // and a null expiresAt always counts as due.
+    const windows = where.OR as {
+      provider: { in: string[] };
+      OR: { expiresAt: null | { lt: Date } }[];
+    }[];
+    const metaWindow = windows.find((w) => w.provider.in.includes("metaAds"))!;
+    const googleWindow = windows.find((w) => w.provider.in.includes("gmail"))!;
+
+    expect(metaWindow.OR).toContainEqual({ expiresAt: null });
+    expect(metaWindow.OR).toContainEqual({
+      expiresAt: { lt: new Date("2026-06-23T12:00:00.000Z") },
+    });
+    expect(googleWindow.OR).toContainEqual({
+      expiresAt: { lt: new Date("2026-06-22T12:05:00.000Z") },
+    });
+  });
 });

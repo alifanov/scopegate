@@ -291,6 +291,23 @@ type ProviderConfig =
       doExchange: (currentToken: string) => Promise<StandardTokenResponse>;
     };
 
+// The HTTP status alone is useless: the real cause (invalid_grant,
+// invalid_client, unauthorized_client, ...) only ever appears in the response
+// body, and that is exactly what classifyOAuthError matches on — so dropping
+// the body both hid the cause from lastError and made a dead refresh token look
+// transient, burning CONSECUTIVE_FAILURES_THRESHOLD cron cycles before revoke.
+// ponytail: raw truncated body, no per-provider JSON shapes — the OAuth2 error
+// vocabulary is a substring match either way (flat `{error}` or Meta-nested).
+async function tokenErrorDetail(res: Response): Promise<string> {
+  let body = "";
+  try {
+    body = (await res.text()).replace(/\s+/g, " ").trim().slice(0, 200);
+  } catch {
+    // Body unreadable or already consumed — the status is all we get.
+  }
+  return body ? `(${res.status}): ${body}` : `(${res.status})`;
+}
+
 function buildDoRefresh(
   displayName: string,
   t: RefreshTokenConfig
@@ -334,7 +351,11 @@ function buildDoRefresh(
     if (t.timeoutMs !== undefined) fetchOpts.signal = AbortSignal.timeout(t.timeoutMs);
 
     const res = await fetch(t.tokenUrl, fetchOpts);
-    if (!res.ok) throw new OAuthTokenError(`${displayName} token refresh failed (${res.status})`);
+    if (!res.ok) {
+      throw new OAuthTokenError(
+        `${displayName} token refresh failed ${await tokenErrorDetail(res)}`
+      );
+    }
 
     const data = (await res.json()) as StandardTokenResponse;
     if (t.defaultExpiresInMs !== undefined && !data.expires_in) {
@@ -383,7 +404,11 @@ function getProviderConfig(provider: string): ProviderConfig {
           access_token: currentToken,
         });
         const res = await fetch(`https://graph.instagram.com/refresh_access_token?${params}`);
-        if (!res.ok) throw new OAuthTokenError(`Instagram token refresh failed (${res.status})`);
+        if (!res.ok) {
+          throw new OAuthTokenError(
+            `Instagram token refresh failed ${await tokenErrorDetail(res)}`
+          );
+        }
         return res.json() as Promise<StandardTokenResponse>;
       },
     };
@@ -399,7 +424,9 @@ function getProviderConfig(provider: string): ProviderConfig {
         access_token: currentToken,
       });
       const res = await fetch(`https://graph.threads.net/refresh_access_token?${params}`);
-      if (!res.ok) throw new OAuthTokenError(`Threads token refresh failed (${res.status})`);
+      if (!res.ok) {
+        throw new OAuthTokenError(`Threads token refresh failed ${await tokenErrorDetail(res)}`);
+      }
       return res.json() as Promise<StandardTokenResponse>;
     },
   };

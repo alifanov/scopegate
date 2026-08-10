@@ -310,6 +310,42 @@ describe("metaAds token exchange", () => {
   });
 });
 
+describe("refresh-token error body", () => {
+  const youtubeConn = {
+    ...baseConn,
+    provider: "youtube",
+    refreshToken: "enc(dead-refresh-token)",
+  };
+
+  beforeEach(() => {
+    vi.mocked(db.serviceConnection.findUniqueOrThrow).mockResolvedValue(youtubeConn as never);
+    (db as unknown as { __lockQueue: Promise<unknown> }).__lockQueue = Promise.resolve();
+    Object.assign(process.env, {
+      GOOGLE_CLIENT_ID: "client-id",
+      GOOGLE_CLIENT_SECRET: "client-secret",
+    });
+  });
+
+  it("carries the provider's OAuth error body into the message so a dead token classifies as permanent", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: false,
+        status: 400,
+        text: async () =>
+          '{\n "error": "invalid_grant",\n "error_description": "Token has been expired or revoked."\n}',
+      }))
+    );
+
+    const err = await refreshForCron(youtubeConn).catch((e: unknown) => e);
+
+    // Without the body this was a bare "(400)": undiagnosable in lastError and
+    // classified transient, so a dead token survived 3 cron cycles.
+    expect((err as Error).message).toContain("invalid_grant");
+    expect(classifyOAuthError(err)).toBe("permanent");
+  });
+});
+
 describe("classifyOAuthError", () => {
   it("treats a provider registry code (Meta 190) as permanent", () => {
     const err = new OAuthTokenError("Meta token expired or revoked (code 190)", {

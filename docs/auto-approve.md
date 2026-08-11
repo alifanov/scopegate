@@ -23,7 +23,7 @@ Auto-approve only removes the *triage* step; the *execution* gate stays intact.
 | Category | Producing command | Match criteria | Notes |
 |---|---|---|---|
 | Security fix | `/darkflow:security-audit` | `source=security-review`, any priority | Static analysis + live app checks |
-| Dependency version update | `/darkflow:vulnerability-check` | `source=vulnerability-report`, Dependabot alerts only | Version upgrades only |
+| Dependency version update | `/darkflow:security-audit` | `source=vulnerability-report`, Dependabot alerts only | Version upgrades only |
 | Database index addition | `/darkflow:observability-check` | `source=signoz`, additive index only | The command applies `--status approved` only for a plain index add — query rewrites / N+1 fixes / caching stay proposed |
 
 ### Explicit exclusions
@@ -41,4 +41,4 @@ To add a new category:
 
 1. Add a row to the allowlist table above.
 2. In the producing command file (`templates/.claude/commands/darkflow/<command>.md`), change the status for matching tasks from `--status proposed` to `--status approved` and add a one-line reference: *"Auto-approved — see `docs/auto-approve.md`."*
-3. Update the corresponding `routines/<command>.md` "What gets created" note.
+3. Update the "What gets created" note in the command file itself (`~/.claude/commands/darkflow/<command>.md`).

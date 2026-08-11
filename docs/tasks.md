@@ -8,7 +8,7 @@ See also: [`decisions/`](./decisions/) for the ADR explaining why this approach 
 
 ## Task fields
 
-Every task carries: `number` (per-project, human-facing "#N"), `title`, `body`, `status`, `priority`, `source`, `action` (mailbox only), `needsHuman`, and `comments`.
+Every task carries: `number` (per-project, human-facing "#N"), `title`, `body`, `status`, `priority`, `source`, `action` (mailbox only), `needsHuman`, `scheduledFor`, and `comments`.
 
 ### `status` — lifecycle (state machine)
 
@@ -22,6 +22,8 @@ Exactly one status at a time. There is no separate open/closed field — `closed
 | `closed` | Terminal — either the agent shipped the fix, or a human declined it (Reject) or dismissed it (Close). Comments explain which. | Agent or Human |
 
 `needsHuman` (boolean) — the agent can't proceed on its own (missing access, config, failed checks, external service). See the task's comments for what's needed. Mutually exclusive with `approved`: every path that sets `needsHuman` moves status off `approved`, and approving always clears `needsHuman`.
+
+`scheduledFor` (nullable timestamp) — snooze: `fix-issues` does not pick the task up before this moment, even when it is `approved`. Set at creation with `df task create --after <ISO date>`, later with `df task snooze <n> <ISO date|clear>` or the Snooze button in the Web UI. Null = no delay.
 
 > **Auto-approve:** for select categories (security fixes, dependency updates) the agent sets `--status approved` directly at creation time, skipping human review. Full list — [`auto-approve.md`](./auto-approve.md).
 

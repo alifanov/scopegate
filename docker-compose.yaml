@@ -76,6 +76,13 @@ services:
       - internal
     depends_on:
       - app
+    # ponytail: liveness only — supercronic running means the schedule is being served.
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep supercronic > /dev/null"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
     restart: unless-stopped
 
 # Own private network so app/cron/postgres always share one DNS namespace, whatever

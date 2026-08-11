@@ -104,7 +104,8 @@
       "@babel/core": ">=7.29.6",
       "sharp": ">=0.35.0",
       "@opentelemetry/propagator-jaeger": ">=2.9.0",
-      "valibot": ">=1.4.2"
+      "valibot": ">=1.4.2",
+      "nanoid": ">=3.3.17"
     }
   },
   "devDependencies": {

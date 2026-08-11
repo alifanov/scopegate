@@ -269,64 +269,6 @@ export default function EndpointDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>MCP Endpoint URL</CardTitle>
-          <CardDescription>
-            Use this URL in your AI agent&apos;s MCP configuration
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="relative">
-            <code className="block rounded bg-muted p-3 pr-10 text-sm break-all">
-              {mcpUrl}
-            </code>
-            <CopyButton text={mcpUrl} id="mcp-url" />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>API Key</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <code className="block rounded bg-muted p-3 text-sm font-mono">
-            {showKey ? endpoint.apiKey : "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"}
-          </code>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowKey(!showKey)}
-            >
-              {showKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              {showKey ? "Hide" : "Reveal"}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setRegenerateOpen(true)}
-            >
-              <RefreshCw className="size-4" />
-              Regenerate
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <ConfirmDialog
-        open={regenerateOpen}
-        onOpenChange={setRegenerateOpen}
-        title="Regenerate API Key"
-        description="Regenerate API key? The old key will stop working immediately."
-        confirmText="Regenerate"
-        loadingText="Regenerating..."
-        variant="destructive"
-        onConfirm={handleRegenerateKey}
-        loading={regenerating}
-      />
-
-      <Card>
-        <CardHeader>
           <CardTitle>Quick Connect</CardTitle>
           <CardDescription>
             Copy the config for your tool to connect to this endpoint
@@ -395,6 +337,64 @@ export default function EndpointDetailPage() {
           </Tabs>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>MCP Endpoint URL</CardTitle>
+          <CardDescription>
+            Use this URL in your AI agent&apos;s MCP configuration
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="relative">
+            <code className="block rounded bg-muted p-3 pr-10 text-sm break-all">
+              {mcpUrl}
+            </code>
+            <CopyButton text={mcpUrl} id="mcp-url" />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>API Key</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <code className="block rounded bg-muted p-3 text-sm font-mono">
+            {showKey ? endpoint.apiKey : "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"}
+          </code>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowKey(!showKey)}
+            >
+              {showKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              {showKey ? "Hide" : "Reveal"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRegenerateOpen(true)}
+            >
+              <RefreshCw className="size-4" />
+              Regenerate
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <ConfirmDialog
+        open={regenerateOpen}
+        onOpenChange={setRegenerateOpen}
+        title="Regenerate API Key"
+        description="Regenerate API key? The old key will stop working immediately."
+        confirmText="Regenerate"
+        loadingText="Regenerating..."
+        variant="destructive"
+        onConfirm={handleRegenerateKey}
+        loading={regenerating}
+      />
 
       <Card>
         <CardHeader>

@@ -2,7 +2,11 @@ import { serviceFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch"
 import { metrics, type Histogram } from "@opentelemetry/api";
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour — URL inspection results change at most hourly
-const URL_INSPECTION_TIMEOUT_MS = 5_000;
+// Google's URL Inspection API routinely takes well over 5 s — at 5 s it timed out on every
+// call, which silently removed the only tool that actually measures indexation. Agents then
+// fell back to the sitemaps API's `contents[].indexed`, a field Google marks "Deprecated;
+// do not use" and never populates, and filed months of phantom "0 indexed" tasks.
+const URL_INSPECTION_TIMEOUT_MS = 30_000;
 
 // POST paths that are read-only and safe to cache
 const CACHEABLE_POST_PATHS = ["/searchAnalytics/query", "/urlInspection/index:inspect"];

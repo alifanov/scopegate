@@ -138,7 +138,12 @@ export const searchConsoleTools: ToolDefinition[] = [
   },
   {
     name: "searchConsole_list_sitemaps",
-    description: "List sitemaps submitted for a site",
+    description:
+      "List sitemaps submitted for a site. NOTE: `contents[].indexed` in the response is marked " +
+      '"Deprecated; do not use." by Google and is always 0, including for fully indexed sites — ' +
+      "never report it as an indexation measurement. Real fields: `lastDownloaded`, `submitted`, " +
+      "`errors`, `warnings`. To measure indexation use searchConsole_inspect_url per URL, or the " +
+      "Page indexing report (web UI only).",
     action: "searchConsole:list_sitemaps",
     inputSchema: z.object({
       siteUrl: z.string(),
@@ -157,7 +162,9 @@ export const searchConsoleTools: ToolDefinition[] = [
   },
   {
     name: "searchConsole_get_sitemap",
-    description: "Get details about a specific sitemap",
+    description:
+      "Get details about a specific sitemap. Same caveat as searchConsole_list_sitemaps: " +
+      "`contents[].indexed` is deprecated by Google and always 0 — it does not measure indexation.",
     action: "searchConsole:get_sitemap",
     inputSchema: z.object({
       siteUrl: z.string(),

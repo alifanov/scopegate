@@ -1095,14 +1095,65 @@ export function getOAuthStartConfig(routeKey: OAuthCallbackRouteKey): OAuthStart
 
 export type ConnectTarget =
   | { kind: "redirect"; url: string }
-  | { kind: "dialog"; dialog: "apiKey" | "email" };
+  | { kind: "dialog"; dialog: "apiKey" | "email" | "oauthApp" };
 
-export function getConnectTarget(providerKey: string, projectId: string): ConnectTarget {
+// ─── OAuth app credential groups (BYO credentials) ─────────────────────────────
+//
+// One registered OAuth application usually backs several provider keys — a
+// single Google Cloud client covers Gmail, Calendar, Drive, Ads, Search
+// Console, YouTube and Tag Manager, while Meta Ads, Instagram and Threads each
+// need their own app. `connect.startRoute` already encodes exactly that
+// grouping, so the credential group is derived from it rather than being a
+// second list that can drift.
+
+/**
+ * Groups whose public launch requires a verification process the operator
+ * cannot complete on a user's behalf — Google's CASA audit for restricted
+ * scopes, Meta's App Review and business verification, LinkedIn's partner
+ * programme, X's paid API tiers. On the cloud deployment these demand the
+ * user's own OAuth app; self-hosted keeps using the operator's env vars.
+ */
+const OWN_APP_REQUIRED_GROUPS: ReadonlySet<string> = new Set([
+  "google",
+  "meta",
+  "instagram",
+  "threads",
+  "linkedin",
+  "twitter",
+]);
+
+/** The credential group a provider's OAuth app belongs to, or null for
+ *  API-key/email providers that have no OAuth app at all. */
+export function getCredentialGroup(providerKey: string): string | null {
+  const def = getProviderDef(providerKey);
+  if (!def || def.connect.method !== "oauth") return null;
+  return def.connect.startRoute;
+}
+
+export function groupRequiresOwnApp(group: string | null): boolean {
+  return group !== null && OWN_APP_REQUIRED_GROUPS.has(group);
+}
+
+export function providerRequiresOwnApp(providerKey: string): boolean {
+  return groupRequiresOwnApp(getCredentialGroup(providerKey));
+}
+
+export function getConnectTarget(
+  providerKey: string,
+  projectId: string,
+  // Optional so existing two-argument callers keep working unchanged.
+  opts: { cloud?: boolean; hasOwnApp?: boolean } = {},
+): ConnectTarget {
   const def = getProviderDef(providerKey);
   if (!def) throw new Error(`Unknown provider "${providerKey}"`);
   const { connect } = def;
   if (connect.method === "email") return { kind: "dialog", dialog: "email" };
   if (connect.method === "apiKey") return { kind: "dialog", dialog: "apiKey" };
+  // Ask for the user's own OAuth app before burning a redirect that would
+  // fail at the provider's consent screen.
+  if (opts.cloud && !opts.hasOwnApp && providerRequiresOwnApp(providerKey)) {
+    return { kind: "dialog", dialog: "oauthApp" };
+  }
   const params = new URLSearchParams({ projectId, ...connect.extraQuery });
   return { kind: "redirect", url: `/api/oauth/${connect.startRoute}?${params.toString()}` };
 }

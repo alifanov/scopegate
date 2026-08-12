@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { buildSignedState } from "@/lib/oauth-state";
+import { oauthFetch } from "@/lib/oauth-fetch";
 
 const TWITTER_CLIENT_ID = process.env.TWITTER_CLIENT_ID!;
 const TWITTER_CLIENT_SECRET = process.env.TWITTER_CLIENT_SECRET!;
@@ -59,19 +60,23 @@ export function buildTwitterAuthUrl(
 export async function exchangeTwitterCodeForTokens(code: string, codeVerifier: string) {
   const basicAuth = Buffer.from(`${TWITTER_CLIENT_ID}:${TWITTER_CLIENT_SECRET}`).toString("base64");
 
-  const res = await fetch("https://api.x.com/2/oauth2/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${basicAuth}`,
+  const res = await oauthFetch(
+    "https://api.x.com/2/oauth2/token",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: `Basic ${basicAuth}`,
+      },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: getRedirectUri(),
+        code_verifier: codeVerifier,
+      }),
     },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      code,
-      redirect_uri: getRedirectUri(),
-      code_verifier: codeVerifier,
-    }),
-  });
+    { label: "twitter" }
+  );
 
   if (!res.ok) {
     console.error("[ScopeGate] Twitter token exchange failed", { status: res.status });
@@ -90,9 +95,11 @@ export async function exchangeTwitterCodeForTokens(code: string, codeVerifier: s
 export async function getTwitterUserInfo(
   accessToken: string
 ): Promise<{ id: string; username: string; name: string }> {
-  const res = await fetch("https://api.x.com/2/users/me", {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  const res = await oauthFetch(
+    "https://api.x.com/2/users/me",
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+    { label: "twitter" }
+  );
 
   if (!res.ok) {
     throw new Error("Failed to fetch Twitter user info");

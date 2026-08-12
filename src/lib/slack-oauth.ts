@@ -1,3 +1,5 @@
+import { oauthFetch } from "@/lib/oauth-fetch";
+
 const SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID!;
 const SLACK_CLIENT_SECRET = process.env.SLACK_CLIENT_SECRET!;
 
@@ -6,16 +8,20 @@ function getRedirectUri() {
 }
 
 export async function exchangeSlackCodeForTokens(code: string) {
-  const res = await fetch("https://slack.com/api/oauth.v2.access", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      code,
-      client_id: SLACK_CLIENT_ID,
-      client_secret: SLACK_CLIENT_SECRET,
-      redirect_uri: getRedirectUri(),
-    }),
-  });
+  const res = await oauthFetch(
+    "https://slack.com/api/oauth.v2.access",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code,
+        client_id: SLACK_CLIENT_ID,
+        client_secret: SLACK_CLIENT_SECRET,
+        redirect_uri: getRedirectUri(),
+      }),
+    },
+    { label: "slack" }
+  );
 
   if (!res.ok) {
     console.error("[ScopeGate] Slack token exchange failed", { status: res.status });
@@ -40,9 +46,11 @@ export async function exchangeSlackCodeForTokens(code: string) {
 export async function getSlackTeamInfo(
   accessToken: string
 ): Promise<{ team: string; user: string }> {
-  const res = await fetch("https://slack.com/api/auth.test", {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  const res = await oauthFetch(
+    "https://slack.com/api/auth.test",
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+    { label: "slack" }
+  );
   const data = (await res.json()) as {
     ok: boolean;
     team?: string;

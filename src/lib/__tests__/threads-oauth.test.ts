@@ -7,13 +7,16 @@ const mockSpan = {
   end: vi.fn(),
 };
 
+const startActiveSpanMock = vi.fn(
+  (_name: string, _options: unknown, callback: (span: typeof mockSpan) => unknown) =>
+    callback(mockSpan)
+);
+
 vi.mock("@opentelemetry/api", () => ({
   trace: {
-    getTracer: () => ({
-      startActiveSpan: (_name: string, callback: (span: typeof mockSpan) => unknown) =>
-        callback(mockSpan),
-    }),
+    getTracer: () => ({ startActiveSpan: startActiveSpanMock }),
   },
+  SpanKind: { CLIENT: 2 },
   SpanStatusCode: { ERROR: 2 },
 }));
 
@@ -33,9 +36,10 @@ describe("exchangeThreadsCodeForTokens", () => {
     mockSpan.setStatus.mockClear();
     mockSpan.recordException.mockClear();
     mockSpan.end.mockClear();
+    startActiveSpanMock.mockClear();
   });
 
-  it("uses explicit timeouts for both Threads token requests", async () => {
+  it("uses explicit timeouts for both Threads token requests, routed through oauthFetch", async () => {
     const signal = new AbortController().signal;
     const timeoutSpy = vi.spyOn(AbortSignal, "timeout").mockReturnValue(signal);
     const fetchMock = vi
@@ -71,11 +75,25 @@ describe("exchangeThreadsCodeForTokens", () => {
       expect.objectContaining({ signal, method: "POST" })
     );
     expect(fetchMock.mock.calls[1][1]).toEqual(expect.objectContaining({ signal }));
-    expect(mockSpan.setAttribute).toHaveBeenCalledWith(
-      "url.path",
-      "/oauth/access_token"
+
+    // Both hops go through oauth-fetch.ts's shared CLIENT span, tagged with the
+    // "threads" provider and their own url.path — set at span-creation time.
+    expect(startActiveSpanMock.mock.calls[0][1]).toEqual(
+      expect.objectContaining({
+        attributes: expect.objectContaining({
+          "mcp.provider": "threads",
+          "url.path": "/oauth/access_token",
+        }),
+      })
     );
-    expect(mockSpan.setAttribute).toHaveBeenCalledWith("url.path", "/access_token");
+    expect(startActiveSpanMock.mock.calls[1][1]).toEqual(
+      expect.objectContaining({
+        attributes: expect.objectContaining({
+          "mcp.provider": "threads",
+          "url.path": "/access_token",
+        }),
+      })
+    );
   });
 
   it("logs a slow long-lived exchange and falls back to the short-lived token", async () => {
@@ -103,8 +121,8 @@ describe("exchangeThreadsCodeForTokens", () => {
     });
 
     expect(warnSpy).toHaveBeenCalledWith(
-      "[ScopeGate] Threads token request timed out",
-      { path: "/access_token", timeoutMs: 650 }
+      "[ScopeGate] graph.threads.net long-lived token exchange timed out",
+      { timeoutMs: 650 }
     );
     expect(mockSpan.recordException).toHaveBeenCalledWith(timeoutError);
     expect(mockSpan.setStatus).toHaveBeenCalledWith({

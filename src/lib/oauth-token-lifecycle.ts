@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { encrypt, decrypt } from "@/lib/crypto";
-import { trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import type { Prisma } from "@/generated/prisma/client";
+import { oauthFetch } from "@/lib/oauth-fetch";
 import {
   PROVIDER_REGISTRY,
   EXCHANGE_PROVIDER_KEYS,
@@ -191,8 +191,6 @@ export async function recordTransientTokenFailure(
   return "error";
 }
 
-const tracer = trace.getTracer("scopegate/oauth-token-lifecycle");
-
 type StandardTokenResponse = {
   access_token: string;
   expires_in: number;
@@ -204,73 +202,40 @@ async function exchangeMetaToken(
   appId: string,
   appSecret: string
 ): Promise<StandardTokenResponse> {
-  return tracer.startActiveSpan(
-    "GET graph.facebook.com",
-    {
-      kind: SpanKind.CLIENT,
-      attributes: {
-        "http.method": "GET",
-        "mcp.provider": "metaAds",
-        "peer.service": "graph.facebook.com",
-        "url.path": "/v21.0/oauth/access_token",
-      },
-    },
-    async (span) => {
-      try {
-        const params = new URLSearchParams({
-          grant_type: "fb_exchange_token",
-          client_id: appId,
-          client_secret: appSecret,
-          fb_exchange_token: currentToken,
-        });
-        const res = await fetch(
-          `https://graph.facebook.com/v21.0/oauth/access_token?${params}`
-        );
-        span.setAttribute("http.status_code", res.status);
-
-        if (!res.ok) {
-          let code: number | undefined;
-          let detail = "";
-          try {
-            const body = (await res.json()) as {
-              error?: { code?: number; message?: string };
-            };
-            code = body.error?.code;
-            detail = body.error?.message ?? "";
-          } catch {
-            // non-JSON error body — fall through with status only
-          }
-
-          if (code != null) {
-            span.setAttribute("error.code", code);
-            span.setAttribute("error.type", String(code));
-          } else {
-            span.setAttribute("error.type", String(res.status));
-          }
-          if (detail) span.setAttribute("error.message", detail.slice(0, 512));
-          span.setStatus({ code: SpanStatusCode.ERROR, message: `HTTP ${res.status}` });
-
-          throw new OAuthTokenError(
-            `Meta token exchange failed (${res.status})` +
-              (code != null ? ` code=${code}` : "") +
-              (detail ? `: ${detail}` : ""),
-            { provider: "metaAds", code }
-          );
-        }
-
-        return res.json() as Promise<StandardTokenResponse>;
-      } catch (err) {
-        if (!(err instanceof OAuthTokenError)) {
-          const message = err instanceof Error ? err.message : "Unknown Meta token exchange error";
-          span.setStatus({ code: SpanStatusCode.ERROR, message });
-          span.recordException(err instanceof Error ? err : new Error(message));
-        }
-        throw err;
-      } finally {
-        span.end();
-      }
-    }
+  const params = new URLSearchParams({
+    grant_type: "fb_exchange_token",
+    client_id: appId,
+    client_secret: appSecret,
+    fb_exchange_token: currentToken,
+  });
+  const res = await oauthFetch(
+    `https://graph.facebook.com/v21.0/oauth/access_token?${params}`,
+    {},
+    { label: "metaAds" }
   );
+
+  if (!res.ok) {
+    let code: number | undefined;
+    let detail = "";
+    try {
+      const body = (await res.json()) as {
+        error?: { code?: number; message?: string };
+      };
+      code = body.error?.code;
+      detail = body.error?.message ?? "";
+    } catch {
+      // non-JSON error body — fall through with status only
+    }
+
+    throw new OAuthTokenError(
+      `Meta token exchange failed (${res.status})` +
+        (code != null ? ` code=${code}` : "") +
+        (detail ? `: ${detail}` : ""),
+      { provider: "metaAds", code }
+    );
+  }
+
+  return res.json() as Promise<StandardTokenResponse>;
 }
 
 type ProviderConfig =
@@ -309,6 +274,7 @@ async function tokenErrorDetail(res: Response): Promise<string> {
 }
 
 function buildDoRefresh(
+  providerKey: string,
   displayName: string,
   t: RefreshTokenConfig
 ): (refreshToken: string) => Promise<StandardTokenResponse> {
@@ -347,10 +313,11 @@ function buildDoRefresh(
       }).toString();
     }
 
-    const fetchOpts: RequestInit = { method: "POST", headers, body };
-    if (t.timeoutMs !== undefined) fetchOpts.signal = AbortSignal.timeout(t.timeoutMs);
-
-    const res = await fetch(t.tokenUrl, fetchOpts);
+    const res = await oauthFetch(
+      t.tokenUrl,
+      { method: "POST", headers, body },
+      { timeoutMs: t.timeoutMs, label: providerKey }
+    );
     if (!res.ok) {
       throw new OAuthTokenError(
         `${displayName} token refresh failed ${await tokenErrorDetail(res)}`
@@ -377,7 +344,7 @@ function getProviderConfig(provider: string): ProviderConfig {
     return {
       kind: "refresh",
       bufferMs: t.bufferMs,
-      doRefresh: buildDoRefresh(def.displayName, t),
+      doRefresh: buildDoRefresh(def.key, def.displayName, t),
     };
   }
 
@@ -403,7 +370,11 @@ function getProviderConfig(provider: string): ProviderConfig {
           grant_type: "ig_refresh_token",
           access_token: currentToken,
         });
-        const res = await fetch(`https://graph.instagram.com/refresh_access_token?${params}`);
+        const res = await oauthFetch(
+          `https://graph.instagram.com/refresh_access_token?${params}`,
+          {},
+          { label: "instagram" }
+        );
         if (!res.ok) {
           throw new OAuthTokenError(
             `Instagram token refresh failed ${await tokenErrorDetail(res)}`
@@ -423,7 +394,11 @@ function getProviderConfig(provider: string): ProviderConfig {
         grant_type: "th_refresh_token",
         access_token: currentToken,
       });
-      const res = await fetch(`https://graph.threads.net/refresh_access_token?${params}`);
+      const res = await oauthFetch(
+        `https://graph.threads.net/refresh_access_token?${params}`,
+        {},
+        { label: "threads" }
+      );
       if (!res.ok) {
         throw new OAuthTokenError(`Threads token refresh failed ${await tokenErrorDetail(res)}`);
       }

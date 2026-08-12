@@ -1,3 +1,5 @@
+import { oauthFetch } from "@/lib/oauth-fetch";
+
 const LINKEDIN_CLIENT_ID = process.env.LINKEDIN_CLIENT_ID!;
 const LINKEDIN_CLIENT_SECRET = process.env.LINKEDIN_CLIENT_SECRET!;
 
@@ -6,17 +8,21 @@ function getRedirectUri() {
 }
 
 export async function exchangeLinkedInCodeForTokens(code: string) {
-  const res = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      code,
-      client_id: LINKEDIN_CLIENT_ID,
-      client_secret: LINKEDIN_CLIENT_SECRET,
-      redirect_uri: getRedirectUri(),
-    }),
-  });
+  const res = await oauthFetch(
+    "https://www.linkedin.com/oauth/v2/accessToken",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        client_id: LINKEDIN_CLIENT_ID,
+        client_secret: LINKEDIN_CLIENT_SECRET,
+        redirect_uri: getRedirectUri(),
+      }),
+    },
+    { label: "linkedin" }
+  );
 
   if (!res.ok) {
     console.error("[ScopeGate] LinkedIn token exchange failed", { status: res.status });
@@ -40,9 +46,11 @@ export async function revokeLinkedInToken(_token: string): Promise<void> {
 export async function getLinkedInUserInfo(
   accessToken: string
 ): Promise<{ email: string; sub: string; name?: string }> {
-  const res = await fetch("https://api.linkedin.com/v2/userinfo", {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  const res = await oauthFetch(
+    "https://api.linkedin.com/v2/userinfo",
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+    { label: "linkedin" }
+  );
 
   if (!res.ok) {
     throw new Error("Failed to fetch LinkedIn user info");

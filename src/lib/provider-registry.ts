@@ -89,6 +89,9 @@ export type ProviderDef = {
   transport?: TransportDef;
   actions: string[];
   oauthErrors?: OAuthErrorClassification;
+  // Per-provider override for oauthFetch's default timeout (oauth-fetch.ts) —
+  // used when a caller doesn't pass an explicit timeoutMs.
+  oauthTimeoutMs?: number;
   oauthStart?: OAuthStartConfig;
   connect: ConnectConfig;
 };

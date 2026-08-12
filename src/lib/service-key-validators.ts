@@ -1,3 +1,5 @@
+import { oauthFetch } from "@/lib/oauth-fetch";
+
 export const API_KEY_PROVIDERS = [
   "openRouter",
   "telegram",
@@ -17,16 +19,22 @@ export type ApiKeyValidation = { valid: boolean; label?: string };
 export type ApiKeyValidator = (apiKey: string) => Promise<ApiKeyValidation>;
 
 async function validateOpenRouterKey(apiKey: string): Promise<ApiKeyValidation> {
-  const res = await fetch("https://openrouter.ai/api/v1/key", {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
+  const res = await oauthFetch(
+    "https://openrouter.ai/api/v1/key",
+    { headers: { Authorization: `Bearer ${apiKey}` } },
+    { label: "openRouter" }
+  );
   if (!res.ok) return { valid: false };
   const data = (await res.json()) as { data?: { label?: string } };
   return { valid: true, label: data.data?.label };
 }
 
 async function validateTelegramKey(apiKey: string): Promise<ApiKeyValidation> {
-  const res = await fetch(`https://api.telegram.org/bot${apiKey}/getMe`);
+  const res = await oauthFetch(
+    `https://api.telegram.org/bot${apiKey}/getMe`,
+    {},
+    { label: "telegram" }
+  );
   if (!res.ok) return { valid: false };
   const data = (await res.json()) as {
     ok: boolean;
@@ -40,8 +48,10 @@ async function validateTelegramKey(apiKey: string): Promise<ApiKeyValidation> {
 }
 
 async function validateSemrushKey(apiKey: string): Promise<ApiKeyValidation> {
-  const res = await fetch(
-    `https://api.semrush.com/?type=domain_ranks&key=${encodeURIComponent(apiKey)}&export_columns=Dn&domain=example.com&database=us`
+  const res = await oauthFetch(
+    `https://api.semrush.com/?type=domain_ranks&key=${encodeURIComponent(apiKey)}&export_columns=Dn&domain=example.com&database=us`,
+    {},
+    { label: "semrush" }
   );
   const text = await res.text();
   if (text.startsWith("ERROR")) return { valid: false };
@@ -49,34 +59,42 @@ async function validateSemrushKey(apiKey: string): Promise<ApiKeyValidation> {
 }
 
 async function validateAhrefsKey(apiKey: string): Promise<ApiKeyValidation> {
-  const res = await fetch("https://api.ahrefs.com/v3/subscription-info", {
-    headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
-  });
+  const res = await oauthFetch(
+    "https://api.ahrefs.com/v3/subscription-info",
+    { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } },
+    { label: "ahrefs" }
+  );
   if (!res.ok) return { valid: false };
   return { valid: true, label: "Ahrefs API" };
 }
 
 async function validateStripeKey(apiKey: string): Promise<ApiKeyValidation> {
-  const res = await fetch("https://api.stripe.com/v1/balance", {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
+  const res = await oauthFetch(
+    "https://api.stripe.com/v1/balance",
+    { headers: { Authorization: `Bearer ${apiKey}` } },
+    { label: "stripe" }
+  );
   if (!res.ok) return { valid: false };
   return { valid: true, label: apiKey.startsWith("sk_live_") ? "Live" : "Test" };
 }
 
 async function validateAirtableKey(apiKey: string): Promise<ApiKeyValidation> {
-  const res = await fetch("https://api.airtable.com/v0/meta/whoami", {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
+  const res = await oauthFetch(
+    "https://api.airtable.com/v0/meta/whoami",
+    { headers: { Authorization: `Bearer ${apiKey}` } },
+    { label: "airtable" }
+  );
   if (!res.ok) return { valid: false };
   const data = (await res.json()) as { email?: string };
   return { valid: true, label: data.email };
 }
 
 async function validateCalendlyKey(apiKey: string): Promise<ApiKeyValidation> {
-  const res = await fetch("https://api.calendly.com/users/me", {
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-  });
+  const res = await oauthFetch(
+    "https://api.calendly.com/users/me",
+    { headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" } },
+    { label: "calendly" }
+  );
   if (!res.ok) return { valid: false };
   const data = (await res.json()) as { resource?: { name?: string; email?: string } };
   return { valid: true, label: data.resource?.email || data.resource?.name };

@@ -116,9 +116,10 @@ describe("metaAds token exchange", () => {
     await expect(refreshForCron(baseConn)).rejects.toThrow(/code=190/);
     // must NOT silently persist anything on failure
     expect(db.serviceConnection.update).not.toHaveBeenCalled();
+    // Span-level error.code/error.type detail moved with the raw fetch() into
+    // oauth-fetch.ts's generic CLIENT span (http.status_code only) — the Meta
+    // error code itself still reaches classifyOAuthError via OAuthTokenError.code.
     expect(mockSpan.setAttribute).toHaveBeenCalledWith("http.status_code", 400);
-    expect(mockSpan.setAttribute).toHaveBeenCalledWith("error.code", 190);
-    expect(mockSpan.setAttribute).toHaveBeenCalledWith("error.type", "190");
   });
 
   it("getValidAccessTokenForConnection falls back to the current token on exchange failure (on-demand resilience), but records the transient failure", async () => {

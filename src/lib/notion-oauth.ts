@@ -1,3 +1,5 @@
+import { oauthFetch } from "@/lib/oauth-fetch";
+
 const NOTION_CLIENT_ID = process.env.NOTION_CLIENT_ID!;
 const NOTION_CLIENT_SECRET = process.env.NOTION_CLIENT_SECRET!;
 
@@ -7,18 +9,22 @@ function getRedirectUri() {
 
 export async function exchangeNotionCodeForTokens(code: string) {
   const credentials = btoa(`${NOTION_CLIENT_ID}:${NOTION_CLIENT_SECRET}`);
-  const res = await fetch("https://api.notion.com/v1/oauth/token", {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${credentials}`,
-      "Content-Type": "application/json",
+  const res = await oauthFetch(
+    "https://api.notion.com/v1/oauth/token",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${credentials}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: getRedirectUri(),
+      }),
     },
-    body: JSON.stringify({
-      grant_type: "authorization_code",
-      code,
-      redirect_uri: getRedirectUri(),
-    }),
-  });
+    { label: "notion" }
+  );
 
   if (!res.ok) {
     console.error("[ScopeGate] Notion token exchange failed", { status: res.status });

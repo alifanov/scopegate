@@ -1,3 +1,5 @@
+import { oauthFetch } from "@/lib/oauth-fetch";
+
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID!;
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET!;
 
@@ -6,19 +8,23 @@ function getRedirectUri() {
 }
 
 export async function exchangeGitHubCodeForTokens(code: string) {
-  const res = await fetch("https://github.com/login/oauth/access_token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
+  const res = await oauthFetch(
+    "https://github.com/login/oauth/access_token",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        client_id: GITHUB_CLIENT_ID,
+        client_secret: GITHUB_CLIENT_SECRET,
+        code,
+        redirect_uri: getRedirectUri(),
+      }),
     },
-    body: JSON.stringify({
-      client_id: GITHUB_CLIENT_ID,
-      client_secret: GITHUB_CLIENT_SECRET,
-      code,
-      redirect_uri: getRedirectUri(),
-    }),
-  });
+    { label: "github" }
+  );
 
   if (!res.ok) {
     console.error("[ScopeGate] GitHub token exchange failed", { status: res.status });
@@ -45,12 +51,16 @@ export async function exchangeGitHubCodeForTokens(code: string) {
 export async function getGitHubUserInfo(
   accessToken: string
 ): Promise<{ login: string; email: string | null; name: string | null }> {
-  const res = await fetch("https://api.github.com/user", {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: "application/vnd.github.v3+json",
+  const res = await oauthFetch(
+    "https://api.github.com/user",
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/vnd.github.v3+json",
+      },
     },
-  });
+    { label: "github" }
+  );
   if (!res.ok) throw new Error("Failed to fetch GitHub user info");
   return res.json() as Promise<{
     login: string;

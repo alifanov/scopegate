@@ -1,9 +1,11 @@
 import { buildSignedState } from "@/lib/oauth-state";
+import { oauthFetch } from "@/lib/oauth-fetch";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
 const GOOGLE_TOKEN_TIMEOUT_MS = 10_000;
 const GOOGLE_USERINFO_TIMEOUT_MS = 5_000;
+const GOOGLE_REVOKE_TIMEOUT_MS = 5_000;
 
 export const GOOGLE_SCOPES: Record<string, string> = {
   gmail: "https://www.googleapis.com/auth/gmail.modify",
@@ -43,18 +45,21 @@ export function buildGoogleAuthUrl(
 }
 
 export async function exchangeCodeForTokens(code: string) {
-  const res = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    signal: AbortSignal.timeout(GOOGLE_TOKEN_TIMEOUT_MS),
-    body: new URLSearchParams({
-      code,
-      client_id: GOOGLE_CLIENT_ID,
-      client_secret: GOOGLE_CLIENT_SECRET,
-      redirect_uri: getRedirectUri(),
-      grant_type: "authorization_code",
-    }),
-  });
+  const res = await oauthFetch(
+    "https://oauth2.googleapis.com/token",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code,
+        client_id: GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        redirect_uri: getRedirectUri(),
+        grant_type: "authorization_code",
+      }),
+    },
+    { timeoutMs: GOOGLE_TOKEN_TIMEOUT_MS, label: "google" }
+  );
 
   if (!res.ok) {
     console.error("[ScopeGate] Token exchange failed", { status: res.status });
@@ -85,12 +90,13 @@ export function parseEmailFromIdToken(idToken: string): string | null {
 
 export async function revokeGoogleToken(token: string): Promise<void> {
   try {
-    const res = await fetch(
+    const res = await oauthFetch(
       `https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token)}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      }
+      },
+      { timeoutMs: GOOGLE_REVOKE_TIMEOUT_MS, label: "google" }
     );
     if (!res.ok) {
       console.warn("[ScopeGate] Google token revocation failed", { status: res.status });
@@ -105,10 +111,11 @@ export async function revokeGoogleToken(token: string): Promise<void> {
 export async function getGoogleUserEmail(
   accessToken: string
 ): Promise<string> {
-  const res = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-    headers: { Authorization: `Bearer ${accessToken}` },
-    signal: AbortSignal.timeout(GOOGLE_USERINFO_TIMEOUT_MS),
-  });
+  const res = await oauthFetch(
+    "https://www.googleapis.com/oauth2/v2/userinfo",
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+    { timeoutMs: GOOGLE_USERINFO_TIMEOUT_MS, label: "google" }
+  );
 
   if (!res.ok) {
     throw new Error("Failed to fetch Google user info");

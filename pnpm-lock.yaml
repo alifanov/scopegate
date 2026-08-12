@@ -96,9 +96,6 @@ importers:
       clsx:
         specifier: ~2.1.1
         version: 2.1.1
-      dotenv:
-        specifier: ~17.3.1
-        version: 17.3.1
       imapflow:
         specifier: ~1.2.13
         version: 1.2.16
@@ -160,6 +157,9 @@ importers:
       '@types/react-dom':
         specifier: ^19
         version: 19.2.3(@types/react@19.2.14)
+      dotenv:
+        specifier: ~17.3.1
+        version: 17.3.1
       eslint:
         specifier: ^9
         version: 9.39.4(jiti@2.6.1)

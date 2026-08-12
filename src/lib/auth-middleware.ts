@@ -62,7 +62,7 @@ export async function requireCurrentUser(): Promise<CurrentUser> {
   return user;
 }
 
-export async function requireAdmin(): Promise<CurrentUser> {
+async function requireAdmin(): Promise<CurrentUser> {
   const user = await requireCurrentUser();
   if (!isAdmin(user.email)) {
     throw new ForbiddenError();

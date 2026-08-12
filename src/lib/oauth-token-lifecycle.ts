@@ -82,16 +82,6 @@ export function classifyOAuthError(err: unknown): OAuthErrorSeverity {
 // revoke — shared circuit-breaker threshold for both call sites.
 export const CONSECUTIVE_FAILURES_THRESHOLD = 3;
 
-export async function markConnectionTokenError(
-  connectionId: string,
-  message: string
-): Promise<void> {
-  await db.serviceConnection.update({
-    where: { id: connectionId },
-    data: { status: "error", lastError: message },
-  });
-}
-
 export type RevokedConnectionNotice = {
   provider: string;
   accountEmail: string;

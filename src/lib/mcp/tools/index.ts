@@ -1,6 +1,6 @@
 import type { ToolDefinition } from './types';
 import { getActionGroup } from '../permissions';
-export type { ToolContext, ToolDefinition } from './types';
+export type { ToolDefinition } from './types';
 
 import { gmailTools } from './gmail';
 import { calendarTools } from './calendar';

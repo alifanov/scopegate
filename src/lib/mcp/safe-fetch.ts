@@ -50,7 +50,7 @@ function extractMappedIpv4(ip: string): string | null {
   return `${hi >> 8}.${hi & 0xff}.${lo >> 8}.${lo & 0xff}`;
 }
 
-export function isPrivateIp(ip: string): boolean {
+function isPrivateIp(ip: string): boolean {
   const mappedIpv4 = extractMappedIpv4(ip);
   if (mappedIpv4) return PRIVATE_IPV4.some((r) => r.test(mappedIpv4));
   return PRIVATE_IPV4.some((r) => r.test(ip)) || PRIVATE_IPV6.some((r) => r.test(ip));

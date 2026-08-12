@@ -52,6 +52,3 @@ export function createFetchTool(fetcher: Fetcher, metadata: FetchToolMetadata): 
         },
     };
 }
-export function createFetchTools(fetcher: Fetcher, metadata: FetchToolMetadata[]): ToolDefinition[] {
-    return metadata.map((tool) => createFetchTool(fetcher, tool));
-}

@@ -1,5 +1,3 @@
-import { db } from "@/lib/db";
-import { getValidAccessTokenForConnection } from "@/lib/oauth-token-lifecycle";
 import { oauthFetch } from "@/lib/oauth-fetch";
 import { safeFetch } from "@/lib/mcp/safe-fetch";
 
@@ -57,16 +55,4 @@ export async function getSalesforceUserInfo(
     email: string;
     display_name: string;
   }>;
-}
-
-export async function getValidSalesforceAccessToken(
-  serviceConnectionId: string
-): Promise<{ accessToken: string; instanceUrl: string }> {
-  const connection = await db.serviceConnection.findUniqueOrThrow({
-    where: { id: serviceConnectionId },
-  });
-  const metadata = connection.metadata as Record<string, string> | null;
-  const instanceUrl = metadata?.salesforceInstanceUrl ?? "";
-  const accessToken = await getValidAccessTokenForConnection(connection);
-  return { accessToken, instanceUrl };
 }

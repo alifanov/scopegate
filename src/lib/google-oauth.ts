@@ -7,7 +7,7 @@ const GOOGLE_TOKEN_TIMEOUT_MS = 10_000;
 const GOOGLE_USERINFO_TIMEOUT_MS = 5_000;
 const GOOGLE_REVOKE_TIMEOUT_MS = 5_000;
 
-export const GOOGLE_SCOPES: Record<string, string> = {
+const GOOGLE_SCOPES: Record<string, string> = {
   gmail: "https://www.googleapis.com/auth/gmail.modify",
   calendar: "https://www.googleapis.com/auth/calendar",
   drive: "https://www.googleapis.com/auth/drive",

@@ -12,14 +12,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { PERMISSION_GROUPS } from "@/lib/mcp/permissions";
+import { PermissionPicker } from "@/components/project/permission-picker";
 import { getProviderDisplayName } from "@/lib/provider-names";
 import { Plus } from "lucide-react";
 import { ServiceIcon } from "@/components/service-icons";
@@ -97,25 +96,6 @@ export function CreateEndpointDialog({
     if (!open) return;
     loadServices();
   }, [open, loadServices]);
-
-  function togglePermission(action: string) {
-    setSelectedPermissions((prev) => {
-      const next = new Set(prev);
-      if (next.has(action)) next.delete(action);
-      else next.add(action);
-      return next;
-    });
-  }
-
-  function toggleGroup(actions: string[]) {
-    setSelectedPermissions((prev) => {
-      const next = new Set(prev);
-      const allSelected = actions.every((a) => next.has(a));
-      if (allSelected) actions.forEach((a) => next.delete(a));
-      else actions.forEach((a) => next.add(a));
-      return next;
-    });
-  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -242,49 +222,14 @@ export function CreateEndpointDialog({
                   const service = services.find(
                     (s) => s.id === selectedService
                   );
-                  const group = service
-                    ? PERMISSION_GROUPS[service.provider]
-                    : null;
-                  if (!group) return null;
-                  const allSelected = group.actions.every((a) =>
-                    selectedPermissions.has(a)
-                  );
+                  if (!service) return null;
                   return (
-                    <div className="space-y-3">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="dialog-select-all"
-                          checked={allSelected}
-                          onCheckedChange={() => toggleGroup(group.actions)}
-                        />
-                        <Label
-                          htmlFor="dialog-select-all"
-                          className="font-semibold"
-                        >
-                          Select All
-                        </Label>
-                      </div>
-                      <div className="space-y-2">
-                        {group.actions.map((action) => (
-                          <div
-                            key={action}
-                            className="flex items-center space-x-2"
-                          >
-                            <Checkbox
-                              id={`dialog-${action}`}
-                              checked={selectedPermissions.has(action)}
-                              onCheckedChange={() => togglePermission(action)}
-                            />
-                            <Label
-                              htmlFor={`dialog-${action}`}
-                              className="text-sm font-normal"
-                            >
-                              {action}
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    <PermissionPicker
+                      provider={service.provider}
+                      value={selectedPermissions}
+                      onChange={setSelectedPermissions}
+                      idPrefix="dialog"
+                    />
                   );
                 })()}
               </CardContent>

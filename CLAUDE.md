@@ -104,6 +104,12 @@ OTEL_EXPORTER_OTLP_ENDPOINT  # SigNoz OTLP endpoint
 OTEL_SERVICE_NAME            # service name for traces
 OBSERVABILITY_URL            # SigNoz base URL
 OBSERVABILITY_API_KEY        # SigNoz ingestion key
+
+# Cloud deployment only — unset everywhere in self-hosted
+SCOPEGATE_CLOUD              # "1" enables landing page, /pricing, /signup, plan limits
+GOOGLE_SIGNIN_CLIENT_ID/SECRET  # separate OAuth client for login (NOT the service one)
+RESEND_API_KEY               # magic-link delivery
+EMAIL_FROM                   # From: header for transactional mail
 ```
 
 ## Gotchas
@@ -142,7 +148,10 @@ OBSERVABILITY_API_KEY        # SigNoz ingestion key
 - Twitter error handling (`src/lib/mcp/twitter.ts`): 401 → `OAuthTokenError` (triggers reconnect); 403 stays as generic error intentionally — avoid false revokes on duplicate tweet, missing scope, or account suspension. Error details extracted from `{ detail, title, errors[].message }` body fields. `twitterUploadMedia` builds the `multipart/form-data` body by hand (`buildMultipartBody()`) so the media upload goes through `safeFetch` (SSRF-safe) instead of a bare `fetch()` — `safeFetch` only accepts string/Buffer bodies, not `FormData`.
 - HTTP security headers (HSTS, X-Frame-Options, CSP `frame-ancestors 'none'`, nosniff) set globally in `next.config.ts`
 - `@opentelemetry/sdk-trace-base` MUST be a direct dep (pinned `~2.8.0` to match the sibling `@opentelemetry/*` packages) — `instrumentation.node.ts` imports `BatchSpanProcessor`/`SpanProcessor`/`Span` from it, and pnpm's strict `node_modules` can't resolve transitive deps, so removing it breaks `next build` with "Module not found". Always change it via `pnpm add -S` so `package.json` and `pnpm-lock.yaml` stay in sync — editing `package.json` by hand causes `ERR_PNPM_OUTDATED_LOCKFILE` on deploy
-- Public self-registration is disabled (`disableSignUp: true` in `auth.ts`) — `POST /api/auth/sign-up/email` returns an error; new users can only join via invite link
+- One codebase serves two deployments, switched by `SCOPEGATE_CLOUD` alone — `isCloud()` in `src/lib/cloud.ts` is the only reader. It is a **function**, not a module const, and deliberately not a `NEXT_PUBLIC_*` var: those are inlined at `next build`, and the same image is deployed to both targets. Server-only — pass the value into client components as a prop (same idiom as `isAdmin` → `<Sidebar>`). Middleware can't read it reliably either (the edge bundle inlines `process.env`), so route gating lives in the page components via `notFound()`; `src/middleware.ts` just allowlists the union of public paths
+- Public self-registration is disabled (`disableSignUp: true` in `auth.ts`) in **both** modes — `POST /api/auth/sign-up/email` always returns an error. Self-hosted users join via invite link; cloud users sign up through Google (`socialProviders`) or the `magicLink` plugin, both of which create users on their own path and bypass `signUpEmail` entirely. Password sign-up therefore stays permanently closed as a spam vector
+- Sign-in with Google uses `GOOGLE_SIGNIN_CLIENT_ID/SECRET` — a **different** OAuth client from `GOOGLE_CLIENT_ID`, which backs service connections and requests Google's restricted scopes (`gmail.modify`, `drive`). Sharing one client would put the login button behind the same CASA verification review as the integrations
+- Magic-link emails point at `/magic-link?token=…`, not at better-auth's `/api/auth/magic-link/verify` — email security scanners pre-fetch links via GET and would consume the one-time token before the user clicks. `src/app/magic-link/magic-link-client.tsx` only redirects to the real verify endpoint from a browser `useEffect`
 - Invite flow (`/api/auth/accept-invite`) uses direct Prisma calls (`db.user.create` + `db.account.create`) — NOT `auth.api.signUpEmail` (blocked by `disableSignUp`); password hashed via `ctx.password.hash()` (better-auth), not bcrypt directly; new users get `emailVerified: true`
 - To add or remove an OAuth/API-key provider, edit only `src/lib/provider-registry.ts` — `TRANSPORT_CONFIGS`, `PERMISSION_GROUPS`, and `getProviderConfig` are all derived from `PROVIDER_REGISTRY` automatically
 - CSP Report-Only is active (`Content-Security-Policy-Report-Only` in `next.config.ts`); browser violations POSTed to `/api/csp-report` → normalised (supports both `report-uri` and `report-to` wire formats) → SigNoz OTel span; not enforcement — moving to enforce requires promoting to `Content-Security-Policy`

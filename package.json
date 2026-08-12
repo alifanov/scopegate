@@ -58,6 +58,7 @@
     "radix-ui": "~1.4.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "resend": "~6.19.0",
     "shadcn": "~3.8.4",
     "sonner": "~2.0.7",
     "tailwind-merge": "~3.4.1",

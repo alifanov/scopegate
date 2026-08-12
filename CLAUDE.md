@@ -18,7 +18,7 @@ bash ~/.darkflow/darkflow-run.sh        # Dark Flow routine dispatcher (global w
 
 ## Architecture
 
-Next.js 16 App Router · Prisma 7 + PostgreSQL · Auth: better-auth · MCP server: Hono at `/api/mcp/[apiKey]` · OTel → SigNoz.
+Next.js 16 App Router · Prisma 7 + PostgreSQL · Auth: better-auth · MCP server: MCP SDK Streamable HTTP at `/api/mcp/[apiKey]` · OTel → SigNoz.
 
 ```
 src/

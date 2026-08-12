@@ -1,12 +1,12 @@
 # Архитектура ScopeGate
 
-Стек: Next.js 16 (App Router) · Prisma 7 + PostgreSQL · better-auth · MCP-сервер на Hono · OTel → SigNoz · деплой Coolify (Docker, `node:22-slim`, standalone).
+Стек: Next.js 16 (App Router) · Prisma 7 + PostgreSQL · better-auth · MCP-сервер на MCP SDK Streamable HTTP · OTel → SigNoz · деплой Coolify (Docker, `node:22-slim`, standalone).
 
 ## Карта системы
 
 ```mermaid
 flowchart TB
-  Agent[AI-агент<br/>MCP-клиент] -->|SSE, sg_ API-key| MCP["/api/mcp/[apiKey]<br/>Hono"]
+  Agent[AI-агент<br/>MCP-клиент] -->|SSE, sg_ API-key| MCP["/api/mcp/[apiKey]<br/>MCP SDK"]
   User[Владелец проекта] -->|better-auth| Dash[Dashboard<br/>projects · endpoints · settings]
 
   MCP --> RL[rate-limit.ts<br/>RateLimitBucket, fail-open]

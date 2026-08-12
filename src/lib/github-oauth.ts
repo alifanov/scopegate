@@ -1,13 +1,11 @@
+import type { OAuthAppCreds } from "@/lib/oauth-credentials";
 import { oauthFetch } from "@/lib/oauth-fetch";
-
-const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID!;
-const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET!;
 
 function getRedirectUri() {
   return `${process.env.BETTER_AUTH_URL}/api/oauth/github/callback`;
 }
 
-export async function exchangeGitHubCodeForTokens(code: string) {
+export async function exchangeGitHubCodeForTokens(code: string, app: OAuthAppCreds) {
   const res = await oauthFetch(
     "https://github.com/login/oauth/access_token",
     {
@@ -17,8 +15,8 @@ export async function exchangeGitHubCodeForTokens(code: string) {
         Accept: "application/json",
       },
       body: JSON.stringify({
-        client_id: GITHUB_CLIENT_ID,
-        client_secret: GITHUB_CLIENT_SECRET,
+        client_id: app.clientId,
+        client_secret: app.clientSecret,
         code,
         redirect_uri: getRedirectUri(),
       }),

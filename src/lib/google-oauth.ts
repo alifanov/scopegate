@@ -1,8 +1,7 @@
+import type { OAuthAppCreds } from "@/lib/oauth-credentials";
 import { buildSignedState } from "@/lib/oauth-state";
 import { oauthFetch } from "@/lib/oauth-fetch";
 
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
 const GOOGLE_TOKEN_TIMEOUT_MS = 10_000;
 const GOOGLE_USERINFO_TIMEOUT_MS = 5_000;
 const GOOGLE_REVOKE_TIMEOUT_MS = 5_000;
@@ -26,13 +25,14 @@ function getRedirectUri() {
 export function buildGoogleAuthUrl(
   projectId: string,
   provider: string,
-  csrfToken: string
+  csrfToken: string,
+  app: OAuthAppCreds
 ): string {
   const state = buildSignedState({ projectId, provider, csrfToken });
   const scope = GOOGLE_SCOPES[provider];
 
   const params = new URLSearchParams({
-    client_id: GOOGLE_CLIENT_ID,
+    client_id: app.clientId,
     redirect_uri: getRedirectUri(),
     response_type: "code",
     scope: `openid email ${scope}`,
@@ -44,7 +44,7 @@ export function buildGoogleAuthUrl(
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 }
 
-export async function exchangeCodeForTokens(code: string) {
+export async function exchangeCodeForTokens(code: string, app: OAuthAppCreds) {
   const res = await oauthFetch(
     "https://oauth2.googleapis.com/token",
     {
@@ -52,8 +52,8 @@ export async function exchangeCodeForTokens(code: string) {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         code,
-        client_id: GOOGLE_CLIENT_ID,
-        client_secret: GOOGLE_CLIENT_SECRET,
+        client_id: app.clientId,
+        client_secret: app.clientSecret,
         redirect_uri: getRedirectUri(),
         grant_type: "authorization_code",
       }),

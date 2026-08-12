@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { handleOAuthStart } from "@/lib/oauth-flow";
 import { buildGoogleAuthUrl, VALID_PROVIDERS } from "@/lib/google-oauth";
+import { resolveOAuthApp } from "@/lib/oauth-credentials";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -11,7 +12,12 @@ export async function GET(request: Request) {
   }
 
   return handleOAuthStart(request, {
-    buildUrl: (projectId, csrfToken) =>
-      buildGoogleAuthUrl(projectId, provider, csrfToken),
+    buildUrl: async (projectId, csrfToken) =>
+      buildGoogleAuthUrl(
+        projectId,
+        provider,
+        csrfToken,
+        await resolveOAuthApp(provider, projectId),
+      ),
   });
 }

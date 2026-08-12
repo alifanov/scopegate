@@ -1,9 +1,8 @@
+import type { OAuthAppCreds } from "@/lib/oauth-credentials";
 import crypto from "crypto";
 import { buildSignedState } from "@/lib/oauth-state";
 import { oauthFetch } from "@/lib/oauth-fetch";
 
-const TWITTER_CLIENT_ID = process.env.TWITTER_CLIENT_ID!;
-const TWITTER_CLIENT_SECRET = process.env.TWITTER_CLIENT_SECRET!;
 
 const TWITTER_SCOPES = [
   "tweet.read",
@@ -40,13 +39,14 @@ export function buildTwitterAuthUrl(
   projectId: string,
   provider: string,
   csrfToken: string,
-  codeChallenge: string
+  codeChallenge: string,
+  app: OAuthAppCreds
 ): string {
   const state = buildSignedState({ projectId, provider, csrfToken });
 
   const params = new URLSearchParams({
     response_type: "code",
-    client_id: TWITTER_CLIENT_ID,
+    client_id: app.clientId,
     redirect_uri: getRedirectUri(),
     scope: TWITTER_SCOPES,
     state,
@@ -57,8 +57,12 @@ export function buildTwitterAuthUrl(
   return `https://x.com/i/oauth2/authorize?${params.toString()}`;
 }
 
-export async function exchangeTwitterCodeForTokens(code: string, codeVerifier: string) {
-  const basicAuth = Buffer.from(`${TWITTER_CLIENT_ID}:${TWITTER_CLIENT_SECRET}`).toString("base64");
+export async function exchangeTwitterCodeForTokens(
+  code: string,
+  codeVerifier: string,
+  app: OAuthAppCreds,
+) {
+  const basicAuth = Buffer.from(`${app.clientId}:${app.clientSecret}`).toString("base64");
 
   const res = await oauthFetch(
     "https://api.x.com/2/oauth2/token",

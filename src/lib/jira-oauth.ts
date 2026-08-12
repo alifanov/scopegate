@@ -1,15 +1,14 @@
+import type { OAuthAppCreds } from "@/lib/oauth-credentials";
 import { oauthFetch } from "@/lib/oauth-fetch";
 import { safeFetch } from "@/lib/mcp/safe-fetch";
 
-const JIRA_CLIENT_ID = process.env.JIRA_CLIENT_ID!;
-const JIRA_CLIENT_SECRET = process.env.JIRA_CLIENT_SECRET!;
 const JIRA_ACCESSIBLE_RESOURCES_TIMEOUT_MS = 10_000;
 
 function getRedirectUri() {
   return `${process.env.BETTER_AUTH_URL}/api/oauth/jira/callback`;
 }
 
-export async function exchangeJiraCodeForTokens(code: string) {
+export async function exchangeJiraCodeForTokens(code: string, app: OAuthAppCreds) {
   const res = await oauthFetch(
     "https://auth.atlassian.com/oauth/token",
     {
@@ -17,8 +16,8 @@ export async function exchangeJiraCodeForTokens(code: string) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         grant_type: "authorization_code",
-        client_id: JIRA_CLIENT_ID,
-        client_secret: JIRA_CLIENT_SECRET,
+        client_id: app.clientId,
+        client_secret: app.clientSecret,
         code,
         redirect_uri: getRedirectUri(),
       }),

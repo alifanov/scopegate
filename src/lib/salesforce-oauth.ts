@@ -1,15 +1,14 @@
+import type { OAuthAppCreds } from "@/lib/oauth-credentials";
 import { oauthFetch } from "@/lib/oauth-fetch";
 import { safeFetch } from "@/lib/mcp/safe-fetch";
 
-const SALESFORCE_CLIENT_ID = process.env.SALESFORCE_CLIENT_ID!;
-const SALESFORCE_CLIENT_SECRET = process.env.SALESFORCE_CLIENT_SECRET!;
 const SALESFORCE_USERINFO_TIMEOUT_MS = 10_000;
 
 function getRedirectUri() {
   return `${process.env.BETTER_AUTH_URL}/api/oauth/salesforce/callback`;
 }
 
-export async function exchangeSalesforceCodeForTokens(code: string) {
+export async function exchangeSalesforceCodeForTokens(code: string, app: OAuthAppCreds) {
   const res = await oauthFetch(
     "https://login.salesforce.com/services/oauth2/token",
     {
@@ -18,8 +17,8 @@ export async function exchangeSalesforceCodeForTokens(code: string) {
       body: new URLSearchParams({
         grant_type: "authorization_code",
         code,
-        client_id: SALESFORCE_CLIENT_ID,
-        client_secret: SALESFORCE_CLIENT_SECRET,
+        client_id: app.clientId,
+        client_secret: app.clientSecret,
         redirect_uri: getRedirectUri(),
       }),
     },

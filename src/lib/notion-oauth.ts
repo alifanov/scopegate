@@ -1,14 +1,12 @@
+import type { OAuthAppCreds } from "@/lib/oauth-credentials";
 import { oauthFetch } from "@/lib/oauth-fetch";
-
-const NOTION_CLIENT_ID = process.env.NOTION_CLIENT_ID!;
-const NOTION_CLIENT_SECRET = process.env.NOTION_CLIENT_SECRET!;
 
 function getRedirectUri() {
   return `${process.env.BETTER_AUTH_URL}/api/oauth/notion/callback`;
 }
 
-export async function exchangeNotionCodeForTokens(code: string) {
-  const credentials = btoa(`${NOTION_CLIENT_ID}:${NOTION_CLIENT_SECRET}`);
+export async function exchangeNotionCodeForTokens(code: string, app: OAuthAppCreds) {
+  const credentials = btoa(`${app.clientId}:${app.clientSecret}`);
   const res = await oauthFetch(
     "https://api.notion.com/v1/oauth/token",
     {

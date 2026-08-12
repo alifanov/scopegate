@@ -1,13 +1,11 @@
+import type { OAuthAppCreds } from "@/lib/oauth-credentials";
 import { oauthFetch } from "@/lib/oauth-fetch";
-
-const SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID!;
-const SLACK_CLIENT_SECRET = process.env.SLACK_CLIENT_SECRET!;
 
 function getRedirectUri() {
   return `${process.env.BETTER_AUTH_URL}/api/oauth/slack/callback`;
 }
 
-export async function exchangeSlackCodeForTokens(code: string) {
+export async function exchangeSlackCodeForTokens(code: string, app: OAuthAppCreds) {
   const res = await oauthFetch(
     "https://slack.com/api/oauth.v2.access",
     {
@@ -15,8 +13,8 @@ export async function exchangeSlackCodeForTokens(code: string) {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         code,
-        client_id: SLACK_CLIENT_ID,
-        client_secret: SLACK_CLIENT_SECRET,
+        client_id: app.clientId,
+        client_secret: app.clientSecret,
         redirect_uri: getRedirectUri(),
       }),
     },

@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { encrypt, decrypt } from "@/lib/crypto";
 import type { Prisma } from "@/generated/prisma/client";
 import { oauthFetch } from "@/lib/oauth-fetch";
+import { resolveOAuthApp, type OAuthAppCreds } from "@/lib/oauth-credentials";
 import {
   PROVIDER_REGISTRY,
   EXCHANGE_PROVIDER_KEYS,
@@ -266,11 +267,11 @@ async function tokenErrorDetail(res: Response): Promise<string> {
 function buildDoRefresh(
   providerKey: string,
   displayName: string,
-  t: RefreshTokenConfig
+  t: RefreshTokenConfig,
+  getApp: () => Promise<OAuthAppCreds>
 ): (refreshToken: string) => Promise<StandardTokenResponse> {
   return async (refreshToken: string) => {
-    const clientId = process.env[t.clientIdEnv]!;
-    const clientSecret = process.env[t.clientSecretEnv]!;
+    const { clientId, clientSecret } = await getApp();
 
     let headers: Record<string, string>;
     let body: string;
@@ -322,9 +323,16 @@ function buildDoRefresh(
   };
 }
 
-function getProviderConfig(provider: string): ProviderConfig {
+function getProviderConfig(conn: { provider: string; projectId: string }): ProviderConfig {
+  const { provider } = conn;
   const def = PROVIDER_REGISTRY.find((p) => p.key === provider);
   if (!def) throw new Error(`Unknown OAuth provider: ${provider}`);
+
+  // Deliberately a thunk, not an awaited value: getProviderConfig runs on every
+  // token resolution including the `static` short-circuit, and an eager DB read
+  // there would add a query to the MCP hot path. The lookup only fires when a
+  // refresh or exchange actually happens.
+  const getApp = () => resolveOAuthApp(provider, conn.projectId);
 
   const t = def.token;
 
@@ -334,7 +342,7 @@ function getProviderConfig(provider: string): ProviderConfig {
     return {
       kind: "refresh",
       bufferMs: t.bufferMs,
-      doRefresh: buildDoRefresh(def.key, def.displayName, t),
+      doRefresh: buildDoRefresh(def.key, def.displayName, t, getApp),
     };
   }
 
@@ -342,12 +350,13 @@ function getProviderConfig(provider: string): ProviderConfig {
   const et = t as ExchangeTokenConfig;
 
   if (et.exchangeType === "meta") {
-    const appId = process.env.META_APP_ID!;
-    const appSecret = process.env.META_APP_SECRET!;
     return {
       kind: "exchange",
       bufferMs: et.bufferMs,
-      doExchange: (currentToken) => exchangeMetaToken(currentToken, appId, appSecret),
+      doExchange: async (currentToken) => {
+        const { clientId, clientSecret } = await getApp();
+        return exchangeMetaToken(currentToken, clientId, clientSecret);
+      },
     };
   }
 
@@ -421,7 +430,7 @@ export async function getValidAccessTokenForConnection(conn: DbConnection): Prom
     );
   }
 
-  const config = getProviderConfig(conn.provider);
+  const config = getProviderConfig(conn);
 
   if (config.kind === "static") {
     return decrypt(conn.accessToken);
@@ -508,6 +517,7 @@ export type RefreshForCronOutcome = "refreshed" | "skipped";
 export type CronConnection = {
   id: string;
   provider: string;
+  projectId: string;
   accessToken: string;
   refreshToken: string | null;
   expiresAt: Date | null;
@@ -519,7 +529,7 @@ export type CronConnection = {
 export async function refreshForCron(
   connection: CronConnection
 ): Promise<RefreshForCronOutcome> {
-  const config = getProviderConfig(connection.provider);
+  const config = getProviderConfig(connection);
 
   if (config.kind === "static") return "skipped";
 

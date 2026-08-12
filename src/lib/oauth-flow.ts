@@ -22,7 +22,9 @@ const COOKIE_OPTS = {
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 export interface OAuthStartOpts {
-  buildUrl: (projectId: string, csrfToken: string) => string;
+  // Async because BYO credentials may require a DB read to resolve the
+  // project's own OAuth app. Sync implementations still satisfy this.
+  buildUrl: (projectId: string, csrfToken: string) => string | Promise<string>;
   extraCookies?: Array<{ name: string; value: string }>;
 }
 
@@ -44,7 +46,14 @@ export async function handleOAuthStart(
   }
 
   const csrfToken = crypto.randomUUID();
-  const url = opts.buildUrl(projectId, csrfToken);
+  let url: string;
+  try {
+    url = await opts.buildUrl(projectId, csrfToken);
+  } catch (error) {
+    // Surfaces OAuthAppNotConfiguredError (428) with an actionable message
+    // instead of redirecting into a consent screen that is going to fail.
+    return authErrorResponse(error);
+  }
 
   const response = NextResponse.redirect(url);
   response.cookies.set("oauth_csrf", csrfToken, { ...COOKIE_OPTS, maxAge: 600 });

@@ -1,13 +1,11 @@
+import type { OAuthAppCreds } from "@/lib/oauth-credentials";
 import { oauthFetch } from "@/lib/oauth-fetch";
-
-const HUBSPOT_CLIENT_ID = process.env.HUBSPOT_CLIENT_ID!;
-const HUBSPOT_CLIENT_SECRET = process.env.HUBSPOT_CLIENT_SECRET!;
 
 function getRedirectUri() {
   return `${process.env.BETTER_AUTH_URL}/api/oauth/hubspot/callback`;
 }
 
-export async function exchangeHubSpotCodeForTokens(code: string) {
+export async function exchangeHubSpotCodeForTokens(code: string, app: OAuthAppCreds) {
   const res = await oauthFetch(
     "https://api.hubapi.com/oauth/v1/token",
     {
@@ -16,8 +14,8 @@ export async function exchangeHubSpotCodeForTokens(code: string) {
       body: new URLSearchParams({
         grant_type: "authorization_code",
         code,
-        client_id: HUBSPOT_CLIENT_ID,
-        client_secret: HUBSPOT_CLIENT_SECRET,
+        client_id: app.clientId,
+        client_secret: app.clientSecret,
         redirect_uri: getRedirectUri(),
       }),
     },

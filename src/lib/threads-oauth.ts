@@ -1,8 +1,7 @@
+import type { OAuthAppCreds } from "@/lib/oauth-credentials";
 import { oauthFetch } from "@/lib/oauth-fetch";
 import { exchangeMetaLongLivedToken } from "@/lib/meta-token-exchange";
 
-const THREADS_APP_ID = process.env.THREADS_APP_ID!;
-const THREADS_APP_SECRET = process.env.THREADS_APP_SECRET!;
 const THREADS_SHORT_TOKEN_TIMEOUT_MS = 5_000;
 const THREADS_LONG_TOKEN_TIMEOUT_MS = 650;
 
@@ -10,7 +9,7 @@ function getRedirectUri() {
   return `${process.env.BETTER_AUTH_URL}/api/oauth/threads/callback`;
 }
 
-export async function exchangeThreadsCodeForTokens(code: string) {
+export async function exchangeThreadsCodeForTokens(code: string, app: OAuthAppCreds) {
   // Step 1: Exchange code for short-lived token
   const res = await oauthFetch(
     "https://graph.threads.net/oauth/access_token",
@@ -18,8 +17,8 @@ export async function exchangeThreadsCodeForTokens(code: string) {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id: THREADS_APP_ID,
-        client_secret: THREADS_APP_SECRET,
+        client_id: app.clientId,
+        client_secret: app.clientSecret,
         code,
         grant_type: "authorization_code",
         redirect_uri: getRedirectUri(),
@@ -43,7 +42,7 @@ export async function exchangeThreadsCodeForTokens(code: string) {
   return exchangeMetaLongLivedToken({
     host: "graph.threads.net",
     grantType: "th_exchange_token",
-    appSecret: THREADS_APP_SECRET,
+    appSecret: app.clientSecret,
     shortLived,
     timeoutMs: THREADS_LONG_TOKEN_TIMEOUT_MS,
     label: "threads",

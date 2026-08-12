@@ -28,6 +28,12 @@ async function loadThreadsOAuth() {
   return import("../threads-oauth");
 }
 
+// The app credentials the resolver would have produced from these env vars.
+const THREADS_APP = {
+  clientId: "threads-app-id",
+  clientSecret: "threads-app-secret",
+};
+
 describe("exchangeThreadsCodeForTokens", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -62,7 +68,7 @@ describe("exchangeThreadsCodeForTokens", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { exchangeThreadsCodeForTokens } = await loadThreadsOAuth();
-    await expect(exchangeThreadsCodeForTokens("oauth-code")).resolves.toEqual({
+    await expect(exchangeThreadsCodeForTokens("oauth-code", THREADS_APP)).resolves.toEqual({
       access_token: "long-token",
       user_id: 123,
       expires_in: 5_184_000,
@@ -114,7 +120,7 @@ describe("exchangeThreadsCodeForTokens", () => {
     );
 
     const { exchangeThreadsCodeForTokens } = await loadThreadsOAuth();
-    await expect(exchangeThreadsCodeForTokens("oauth-code")).resolves.toEqual({
+    await expect(exchangeThreadsCodeForTokens("oauth-code", THREADS_APP)).resolves.toEqual({
       access_token: "short-token",
       user_id: 123,
       expires_in: 3600,

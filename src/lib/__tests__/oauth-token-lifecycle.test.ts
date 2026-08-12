@@ -14,6 +14,9 @@ vi.mock("@/lib/db", () => {
     },
     teamMember: { findMany: vi.fn() },
     notification: { createMany: vi.fn() },
+    // No project-specific OAuth app registered — resolveOAuthApp falls back to
+    // the env vars these tests already stub, i.e. the self-hosted path.
+    providerCredential: { findUnique: vi.fn().mockResolvedValue(null) },
     $executeRaw: vi.fn(),
     __lockQueue: Promise.resolve() as Promise<unknown>,
     $transaction: undefined as unknown as (fn: (tx: unknown) => Promise<unknown>) => Promise<unknown>,
@@ -72,6 +75,7 @@ const META_ENV = {
 
 const baseConn = {
   id: "conn-1",
+  projectId: "proj-1",
   provider: "metaAds",
   accountEmail: "u@example.com",
   accessToken: "enc(short-lived-token)",

@@ -1,13 +1,11 @@
+import type { OAuthAppCreds } from "@/lib/oauth-credentials";
 import { oauthFetch } from "@/lib/oauth-fetch";
-
-const LINKEDIN_CLIENT_ID = process.env.LINKEDIN_CLIENT_ID!;
-const LINKEDIN_CLIENT_SECRET = process.env.LINKEDIN_CLIENT_SECRET!;
 
 function getRedirectUri() {
   return `${process.env.BETTER_AUTH_URL}/api/oauth/linkedin/callback`;
 }
 
-export async function exchangeLinkedInCodeForTokens(code: string) {
+export async function exchangeLinkedInCodeForTokens(code: string, app: OAuthAppCreds) {
   const res = await oauthFetch(
     "https://www.linkedin.com/oauth/v2/accessToken",
     {
@@ -16,8 +14,8 @@ export async function exchangeLinkedInCodeForTokens(code: string) {
       body: new URLSearchParams({
         grant_type: "authorization_code",
         code,
-        client_id: LINKEDIN_CLIENT_ID,
-        client_secret: LINKEDIN_CLIENT_SECRET,
+        client_id: app.clientId,
+        client_secret: app.clientSecret,
         redirect_uri: getRedirectUri(),
       }),
     },

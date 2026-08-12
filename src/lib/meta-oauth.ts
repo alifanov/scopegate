@@ -1,13 +1,11 @@
+import type { OAuthAppCreds } from "@/lib/oauth-credentials";
 import { oauthFetch } from "@/lib/oauth-fetch";
-
-const META_APP_ID = process.env.META_APP_ID!;
-const META_APP_SECRET = process.env.META_APP_SECRET!;
 
 function getRedirectUri() {
   return `${process.env.BETTER_AUTH_URL}/api/oauth/meta/callback`;
 }
 
-export async function exchangeMetaCodeForTokens(code: string) {
+export async function exchangeMetaCodeForTokens(code: string, app: OAuthAppCreds) {
   // Step 1: Exchange code for short-lived token (POST body keeps secrets out of URL)
   const res = await oauthFetch(
     "https://graph.facebook.com/v21.0/oauth/access_token",
@@ -15,8 +13,8 @@ export async function exchangeMetaCodeForTokens(code: string) {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id: META_APP_ID,
-        client_secret: META_APP_SECRET,
+        client_id: app.clientId,
+        client_secret: app.clientSecret,
         redirect_uri: getRedirectUri(),
         code,
       }),
@@ -41,8 +39,8 @@ export async function exchangeMetaCodeForTokens(code: string) {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         grant_type: "fb_exchange_token",
-        client_id: META_APP_ID,
-        client_secret: META_APP_SECRET,
+        client_id: app.clientId,
+        client_secret: app.clientSecret,
         fb_exchange_token: shortLived.access_token,
       }),
     },

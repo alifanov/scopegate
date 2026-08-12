@@ -1,11 +1,10 @@
+import type { OAuthAppCreds } from "@/lib/oauth-credentials";
 import { oauthFetch } from "@/lib/oauth-fetch";
 import { exchangeMetaLongLivedToken } from "@/lib/meta-token-exchange";
 
 // Instagram API with Instagram Login (Instagram Direct Login, July 2024):
 // same short-lived -> long-lived token exchange shape as Threads, but on
 // api.instagram.com / graph.instagram.com with ig_* grant types.
-const INSTAGRAM_APP_ID = process.env.INSTAGRAM_APP_ID!;
-const INSTAGRAM_APP_SECRET = process.env.INSTAGRAM_APP_SECRET!;
 const INSTAGRAM_SHORT_TOKEN_TIMEOUT_MS = 5_000;
 const INSTAGRAM_LONG_TOKEN_TIMEOUT_MS = 5_000;
 
@@ -13,7 +12,7 @@ function getRedirectUri() {
   return `${process.env.BETTER_AUTH_URL}/api/oauth/instagram/callback`;
 }
 
-export async function exchangeInstagramCodeForTokens(code: string) {
+export async function exchangeInstagramCodeForTokens(code: string, app: OAuthAppCreds) {
   // Step 1: exchange code for a short-lived token (1 hour).
   const res = await oauthFetch(
     "https://api.instagram.com/oauth/access_token",
@@ -21,8 +20,8 @@ export async function exchangeInstagramCodeForTokens(code: string) {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id: INSTAGRAM_APP_ID,
-        client_secret: INSTAGRAM_APP_SECRET,
+        client_id: app.clientId,
+        client_secret: app.clientSecret,
         code,
         grant_type: "authorization_code",
         redirect_uri: getRedirectUri(),
@@ -48,7 +47,7 @@ export async function exchangeInstagramCodeForTokens(code: string) {
   return exchangeMetaLongLivedToken({
     host: "graph.instagram.com",
     grantType: "ig_exchange_token",
-    appSecret: INSTAGRAM_APP_SECRET,
+    appSecret: app.clientSecret,
     shortLived,
     timeoutMs: INSTAGRAM_LONG_TOKEN_TIMEOUT_MS,
     label: "instagram",

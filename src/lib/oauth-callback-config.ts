@@ -1,4 +1,5 @@
 import type { OAuthCallbackOpts } from "@/lib/oauth-flow";
+import { resolveOAuthApp } from "@/lib/oauth-credentials";
 import type { OAuthCallbackRouteKey } from "@/lib/provider-registry";
 
 type OAuthCallbackFactory = () => Promise<OAuthCallbackOpts>;
@@ -10,7 +11,8 @@ const OAUTH_CALLBACK_REGISTRY: Record<OAuthCallbackRouteKey, OAuthCallbackFactor
     );
     return {
       expectedProvider: "github",
-      exchange: (code) => exchangeGitHubCodeForTokens(code),
+      exchange: async (code, ctx) =>
+        exchangeGitHubCodeForTokens(code, await resolveOAuthApp(ctx.provider, ctx.projectId)),
       getConnectionData: async (tokens) => {
         const userInfo = await getGitHubUserInfo(tokens.access_token);
         return {
@@ -34,7 +36,8 @@ const OAUTH_CALLBACK_REGISTRY: Record<OAuthCallbackRouteKey, OAuthCallbackFactor
 
     return {
       expectedProvider: VALID_PROVIDERS,
-      exchange: (code) => exchangeCodeForTokens(code),
+      exchange: async (code, ctx) =>
+        exchangeCodeForTokens(code, await resolveOAuthApp(ctx.provider, ctx.projectId)),
       getConnectionData: async (tokens) => {
         // Prefer id_token (already in hand from token exchange) to avoid a second network call.
         const accountEmail =
@@ -155,7 +158,8 @@ const OAUTH_CALLBACK_REGISTRY: Record<OAuthCallbackRouteKey, OAuthCallbackFactor
     );
     return {
       expectedProvider: "hubspot",
-      exchange: (code) => exchangeHubSpotCodeForTokens(code),
+      exchange: async (code, ctx) =>
+        exchangeHubSpotCodeForTokens(code, await resolveOAuthApp(ctx.provider, ctx.projectId)),
       getConnectionData: async (tokens) => {
         const userInfo = await getHubSpotUserInfo(tokens.access_token);
         return {
@@ -172,7 +176,8 @@ const OAUTH_CALLBACK_REGISTRY: Record<OAuthCallbackRouteKey, OAuthCallbackFactor
     );
     return {
       expectedProvider: "instagram",
-      exchange: (code) => exchangeInstagramCodeForTokens(code),
+      exchange: async (code, ctx) =>
+        exchangeInstagramCodeForTokens(code, await resolveOAuthApp(ctx.provider, ctx.projectId)),
       getConnectionData: async (tokens) => {
         const tokenData = tokens as typeof tokens & { user_id: number | string };
         const userInfo = await getInstagramUserInfo(tokens.access_token);
@@ -191,7 +196,8 @@ const OAUTH_CALLBACK_REGISTRY: Record<OAuthCallbackRouteKey, OAuthCallbackFactor
     );
     return {
       expectedProvider: "jira",
-      exchange: (code) => exchangeJiraCodeForTokens(code),
+      exchange: async (code, ctx) =>
+        exchangeJiraCodeForTokens(code, await resolveOAuthApp(ctx.provider, ctx.projectId)),
       getConnectionData: async (tokens) => {
         const cloudInfo = await getJiraCloudInfo(tokens.access_token);
         return {
@@ -213,7 +219,8 @@ const OAUTH_CALLBACK_REGISTRY: Record<OAuthCallbackRouteKey, OAuthCallbackFactor
     );
     return {
       expectedProvider: "linkedin",
-      exchange: (code) => exchangeLinkedInCodeForTokens(code),
+      exchange: async (code, ctx) =>
+        exchangeLinkedInCodeForTokens(code, await resolveOAuthApp(ctx.provider, ctx.projectId)),
       getConnectionData: async (tokens) => {
         const userInfo = await getLinkedInUserInfo(tokens.access_token);
         return {
@@ -231,7 +238,8 @@ const OAUTH_CALLBACK_REGISTRY: Record<OAuthCallbackRouteKey, OAuthCallbackFactor
     );
     return {
       expectedProvider: "metaAds",
-      exchange: (code) => exchangeMetaCodeForTokens(code),
+      exchange: async (code, ctx) =>
+        exchangeMetaCodeForTokens(code, await resolveOAuthApp(ctx.provider, ctx.projectId)),
       getConnectionData: async (tokens) => {
         const userInfo = await getMetaUserInfo(tokens.access_token);
         return {
@@ -246,7 +254,8 @@ const OAUTH_CALLBACK_REGISTRY: Record<OAuthCallbackRouteKey, OAuthCallbackFactor
     const { exchangeNotionCodeForTokens } = await import("@/lib/notion-oauth");
     return {
       expectedProvider: "notion",
-      exchange: (code) => exchangeNotionCodeForTokens(code),
+      exchange: async (code, ctx) =>
+        exchangeNotionCodeForTokens(code, await resolveOAuthApp(ctx.provider, ctx.projectId)),
       getConnectionData: async (tokens) => ({
         accountEmail:
           (tokens as { owner?: { user?: { person?: { email?: string } } } }).owner?.user?.person
@@ -264,7 +273,8 @@ const OAUTH_CALLBACK_REGISTRY: Record<OAuthCallbackRouteKey, OAuthCallbackFactor
     );
     return {
       expectedProvider: "salesforce",
-      exchange: (code) => exchangeSalesforceCodeForTokens(code),
+      exchange: async (code, ctx) =>
+        exchangeSalesforceCodeForTokens(code, await resolveOAuthApp(ctx.provider, ctx.projectId)),
       getConnectionData: async (tokens) => {
         const tokenData = tokens as typeof tokens & { id: string; instance_url: string };
         const userInfo = await getSalesforceUserInfo(tokens.access_token, tokenData.id);
@@ -283,7 +293,8 @@ const OAUTH_CALLBACK_REGISTRY: Record<OAuthCallbackRouteKey, OAuthCallbackFactor
     );
     return {
       expectedProvider: "slack",
-      exchange: (code) => exchangeSlackCodeForTokens(code),
+      exchange: async (code, ctx) =>
+        exchangeSlackCodeForTokens(code, await resolveOAuthApp(ctx.provider, ctx.projectId)),
       getConnectionData: async (tokens) => {
         const teamInfo = await getSlackTeamInfo(tokens.access_token);
         return {
@@ -300,7 +311,8 @@ const OAUTH_CALLBACK_REGISTRY: Record<OAuthCallbackRouteKey, OAuthCallbackFactor
     );
     return {
       expectedProvider: "threads",
-      exchange: (code) => exchangeThreadsCodeForTokens(code),
+      exchange: async (code, ctx) =>
+        exchangeThreadsCodeForTokens(code, await resolveOAuthApp(ctx.provider, ctx.projectId)),
       getConnectionData: async (tokens) => {
         const tokenData = tokens as typeof tokens & { user_id: number };
         const userInfo = await getThreadsUserInfo(tokens.access_token);
@@ -322,8 +334,12 @@ const OAUTH_CALLBACK_REGISTRY: Record<OAuthCallbackRouteKey, OAuthCallbackFactor
       expectedProvider: ["twitter", "twitterAds"],
       extraCookiesToRead: ["twitter_code_verifier"],
       extraCookiesToClear: ["twitter_code_verifier"],
-      exchange: (code, ctx) =>
-        exchangeTwitterCodeForTokens(code, ctx.extras.twitter_code_verifier),
+      exchange: async (code, ctx) =>
+        exchangeTwitterCodeForTokens(
+          code,
+          ctx.extras.twitter_code_verifier,
+          await resolveOAuthApp(ctx.provider, ctx.projectId),
+        ),
       getConnectionData: async (tokens) => {
         const userInfo = await getTwitterUserInfo(tokens.access_token);
         return {

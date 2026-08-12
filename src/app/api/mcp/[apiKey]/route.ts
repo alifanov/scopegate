@@ -10,6 +10,10 @@ import {
 } from "@/lib/mcp/api-keys";
 import { recordMcpInvalidRequest } from "@/lib/mcp/metrics";
 import { checkRateLimit } from "@/lib/mcp/rate-limit";
+import { checkMonthlyUsage } from "@/lib/mcp/monthly-usage";
+import { isCloud } from "@/lib/cloud";
+import { getUserLimits } from "@/lib/plan-limits";
+import { PROJECT_ROLE } from "@/lib/project-roles";
 
 // SSE connections are long-lived by design (MCP Streamable HTTP spec).
 // p99 ≈ 299 s is the reverse-proxy idle timeout, not an app bug.
@@ -121,6 +125,19 @@ async function handleMcpRequest(
       include: {
         permissions: { select: { action: true } },
         serviceConnection: true,
+        // Project owner — whose plan quota this request counts against. Folded
+        // into the lookup that already runs: an indexed `take: 1` subquery is
+        // cheaper than a second round-trip, and simpler than a conditional
+        // include, which Prisma cannot type through.
+        project: {
+          select: {
+            teamMembers: {
+              where: { role: PROJECT_ROLE.owner },
+              select: { userId: true },
+              take: 1,
+            },
+          },
+        },
       },
     });
 
@@ -175,6 +192,40 @@ async function handleMcpRequest(
         status: 429,
         headers: { "Content-Type": "application/json" },
       });
+    }
+
+    // ponytail: fail-open like the rate limiter above — a billing-DB hiccup
+    // must not take the gateway down. Over-serving a quota is cheaper than an
+    // outage; the monthly counter self-corrects on the next successful write.
+    const ownerId = isCloud() ? endpoint.project?.teamMembers[0]?.userId : undefined;
+    if (ownerId) {
+      try {
+        const limits = await getUserLimits(ownerId);
+        const usage = await checkMonthlyUsage({
+          userId: ownerId,
+          limit: limits.requestsPerMonth,
+        });
+        if (!usage.allowed) {
+          recordMcpInvalidRequest("rate_limited");
+          return new Response(
+            JSON.stringify({
+              error:
+                "Monthly request quota exceeded for this account. Upgrade your plan to continue.",
+            }),
+            { status: 402, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      } catch (quotaErr) {
+        console.error(
+          JSON.stringify({
+            event: "mcp.quota_check_error",
+            route: "/api/mcp/[apiKey]",
+            error: quotaErr instanceof Error ? quotaErr.message : String(quotaErr),
+            error_type:
+              quotaErr instanceof Error ? quotaErr.constructor.name : "UnknownError",
+          })
+        );
+      }
     }
 
     const allowedActions = endpoint.permissions.map((p) => p.action);

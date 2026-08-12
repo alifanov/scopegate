@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withUserAuth } from "@/lib/auth-middleware";
 import { PROJECT_ROLE } from "@/lib/project-roles";
+import { assertWithinLimit } from "@/lib/plan-limits";
 
 // GET /api/projects — list projects for current user
 export const GET = withUserAuth(async (_request, user) => {
@@ -19,6 +20,10 @@ export const GET = withUserAuth(async (_request, user) => {
 
 // POST /api/projects — create a new project
 export const POST = withUserAuth(async (request, user) => {
+  // Outside the try below on purpose: that catch turns everything into a 500,
+  // which would swallow the 402 and its upgrade message.
+  await assertWithinLimit(user.userId, "projects");
+
   try {
     const { name } = await request.json();
     if (!name) {

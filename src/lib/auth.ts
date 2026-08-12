@@ -2,9 +2,13 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { magicLink } from "better-auth/plugins";
+import { polar, checkout, portal, webhooks } from "@polar-sh/better-auth";
+import { Polar } from "@polar-sh/sdk";
 import { db } from "./db";
 import { isCloud } from "./cloud";
 import { isEmailConfigured, sendEmail } from "./email";
+import { applyCustomerState } from "./billing";
+import { getPolarProductId, publicPlans } from "./plans";
 
 // Single source of truth for the minimum password length — reused by
 // accept-invite.ts, which creates credentials directly and bypasses
@@ -28,6 +32,49 @@ const googleSignIn =
         },
       }
     : undefined;
+
+// Checkout products come from PLAN_REGISTRY via the env indirection, so the
+// advertised plans and the purchasable ones cannot drift apart.
+function polarPlugin() {
+  if (!cloud || !process.env.POLAR_ACCESS_TOKEN || !process.env.POLAR_WEBHOOK_SECRET) {
+    return [];
+  }
+
+  const products = publicPlans().flatMap((plan) => {
+    const productId = getPolarProductId(plan);
+    return productId ? [{ productId, slug: plan.slug }] : [];
+  });
+
+  const client = new Polar({
+    accessToken: process.env.POLAR_ACCESS_TOKEN,
+    server: process.env.POLAR_SERVER === "production" ? "production" : "sandbox",
+  });
+
+  return [
+    polar({
+      client,
+      // Creates the Polar customer with externalId = user id, which is what
+      // applyCustomerState uses to attribute webhooks back to an account.
+      createCustomerOnSignUp: true,
+      use: [
+        checkout({
+          products,
+          successUrl: "/billing?checkout_id={CHECKOUT_ID}",
+          authenticatedUsersOnly: true,
+        }),
+        portal(),
+        webhooks({
+          secret: process.env.POLAR_WEBHOOK_SECRET,
+          onCustomerStateChanged: async (payload) => {
+            await applyCustomerState(
+              payload.data as unknown as Parameters<typeof applyCustomerState>[0],
+            );
+          },
+        }),
+      ],
+    }),
+  ];
+}
 
 function magicLinkUrl(token: string, callbackURL: string): string {
   // Point at our own page rather than better-auth's verify endpoint: email
@@ -75,6 +122,7 @@ export const auth = betterAuth({
           }),
         ]
       : []),
+    ...polarPlugin(),
     // nextCookies() must stay last — it wraps the response of every preceding
     // plugin to forward Set-Cookie through Next's server actions.
     nextCookies(),

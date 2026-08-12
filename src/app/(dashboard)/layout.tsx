@@ -5,6 +5,7 @@ import { ProjectProvider } from "@/components/project/project-context";
 import { SidebarProvider } from "@/components/layout/sidebar-context";
 import { getCurrentUser } from "@/lib/auth-middleware";
 import { isAdmin } from "@/lib/admin";
+import { isCloud } from "@/lib/cloud";
 
 export default async function DashboardLayout({
   children,
@@ -19,7 +20,7 @@ export default async function DashboardLayout({
       <SidebarProvider>
         <div className="flex h-screen">
           <Suspense>
-            <Sidebar isAdmin={adminAccess} />
+            <Sidebar isAdmin={adminAccess} isCloud={isCloud()} />
           </Suspense>
           <div className="flex flex-1 flex-col overflow-hidden">
             <Header />

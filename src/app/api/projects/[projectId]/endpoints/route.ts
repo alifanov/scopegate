@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withProjectAuth } from "@/lib/project-access";
 import { createProjectEndpoint } from "@/lib/endpoint-permissions";
+import { assertWithinLimit, resolveProjectOwnerId } from "@/lib/plan-limits";
 
 // GET /api/projects/[projectId]/endpoints
 export const GET = withProjectAuth<{ projectId: string }>(
@@ -33,6 +34,13 @@ export const POST = withProjectAuth<{ projectId: string }>(
         { error: "Name and serviceConnectionId are required" },
         { status: 400 }
       );
+    }
+
+    // Quota belongs to the project owner, not to whoever is calling — a Free
+    // teammate inside a Pro user's project must not be blocked by their own plan.
+    const ownerId = await resolveProjectOwnerId(projectId);
+    if (ownerId) {
+      await assertWithinLimit(ownerId, "endpoints");
     }
 
     const endpoint = await createProjectEndpoint({

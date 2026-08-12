@@ -17,9 +17,16 @@ import {
   PanelLeftOpen,
   ShieldCheck,
   Users,
+  CreditCard,
 } from "lucide-react";
 
-export function Sidebar({ isAdmin }: { isAdmin?: boolean }) {
+export function Sidebar({
+  isAdmin,
+  isCloud,
+}: {
+  isAdmin?: boolean;
+  isCloud?: boolean;
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { project } = useProject();
@@ -165,6 +172,24 @@ export function Sidebar({ isAdmin }: { isAdmin?: boolean }) {
             <Settings className="size-4 shrink-0" />
             {!collapsed && "Settings"}
           </Link>
+
+          {isCloud && (
+            <Link
+              href="/billing"
+              onClick={closeMobile}
+              title="Billing"
+              className={cn(
+                "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                collapsed && "justify-center px-0",
+                pathname === "/billing"
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              )}
+            >
+              <CreditCard className="size-4 shrink-0" />
+              {!collapsed && "Billing"}
+            </Link>
+          )}
 
           {isAdmin && (
             <>

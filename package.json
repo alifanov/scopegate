@@ -42,6 +42,8 @@
     "@opentelemetry/sdk-node": "~0.219.0",
     "@opentelemetry/sdk-trace-base": "~2.8.0",
     "@opentelemetry/semantic-conventions": "~1.41.1",
+    "@polar-sh/better-auth": "~1.8.4",
+    "@polar-sh/sdk": "~0.47.1",
     "@prisma/adapter-pg": "~7.4.0",
     "@prisma/client": "~7.4.0",
     "@prisma/instrumentation": "~7.8.0",

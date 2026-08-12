@@ -20,6 +20,15 @@ model User {
   teamMembers   TeamMember[]
   notifications Notification[]
 
+  // Billing (cloud only). Polar is the system of record; these columns are a
+  // local cache written by the customer.state_changed webhook, so the MCP hot
+  // path can resolve a plan without a network call. Ignored entirely when
+  // SCOPEGATE_CLOUD is unset.
+  polarCustomerId String?   @unique
+  planSlug        String    @default("free")
+  planStatus      String?
+  planValidUntil  DateTime?
+
   @@map("user")
 }
 
@@ -208,6 +217,19 @@ model RateLimitBucket {
 
   @@id([endpointId, windowStart])
   @@map("rate_limit_bucket")
+}
+
+// Monthly MCP request counter for plan quotas (cloud only). Same atomic
+// INSERT … ON CONFLICT DO UPDATE shape as RateLimitBucket — one round-trip
+// returning the running total, instead of aggregating over AuditLog, whose
+// rows are best-effort (written inside a try/catch) and indexed by project.
+model MonthlyUsage {
+  userId String
+  month  String // "2026-08"
+  count  Int    @default(1)
+
+  @@id([userId, month])
+  @@map("monthly_usage")
 }
 
 enum NotificationType {

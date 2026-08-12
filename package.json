@@ -105,7 +105,8 @@
       "sharp": ">=0.35.0",
       "@opentelemetry/propagator-jaeger": ">=2.9.0",
       "valibot": ">=1.4.2",
-      "nanoid": ">=3.3.17"
+      "nanoid": ">=3.3.17",
+      "body-parser": ">=2.3.0"
     }
   },
   "devDependencies": {

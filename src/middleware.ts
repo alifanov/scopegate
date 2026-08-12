@@ -24,17 +24,34 @@ export function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // Public paths — skip auth check
-  if (
+  // Marketing pages are public in both modes; whether they render at all is
+  // decided per page by isCloud() (a runtime env read, which the edge runtime
+  // here cannot do reliably — process.env is inlined into this bundle).
+  const isPublicPath =
     pathname.startsWith("/api/mcp") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/oauth") ||
     pathname.startsWith("/api/cron") ||
     pathname === "/api/health" ||
     pathname.startsWith("/login") ||
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/magic-link") ||
     pathname.startsWith("/invite") ||
-    pathname === "/"
-  ) {
+    pathname.startsWith("/blog") ||
+    pathname.startsWith("/compare") ||
+    pathname.startsWith("/glossary") ||
+    pathname.startsWith("/integrations") ||
+    pathname === "/" ||
+    pathname === "/features" ||
+    pathname === "/pricing" ||
+    pathname === "/docs" ||
+    pathname === "/privacy" ||
+    pathname === "/terms" ||
+    pathname === "/cookies" ||
+    pathname === "/sitemap.xml" ||
+    pathname === "/robots.txt";
+
+  if (isPublicPath) {
     return NextResponse.next();
   }
 
@@ -51,6 +68,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|mp4|webm|ogg)$).*)",
   ],
 };

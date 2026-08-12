@@ -1,6 +1,7 @@
 import { Navbar } from "@/components/landing/navbar";
 import { Footer } from "@/components/landing/footer";
 import { Features } from "@/components/landing/features";
+import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -21,11 +22,11 @@ const ALL_FEATURES = [
         <path d="M14 16h4M16 14v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     ),
-    title: "Per-agent granular scope control",
+    title: "Per-agent, per-action granular scope control",
     description:
-      "Every AI agent gets its own permission profile. Define exactly which services it can access, which scopes it has, and what it's rate-limited to. Not team-level. Not org-level. Per agent.",
+      "Every AI agent gets its own permission profile. Each individual action is a separate toggle and everything is off until you switch it on. Not team-level. Not org-level. Per agent.",
     bullets: [
-      "Folder-level restrictions within Google Drive",
+      "List and read Drive files — never delete",
       "Send-only Gmail — agents can't read your inbox",
       "Calendar read-only per agent",
       "Instant toggle without revoking OAuth",
@@ -76,7 +77,7 @@ const ALL_FEATURES = [
       "No Kubernetes. No Entra ID. No platform team. One OAuth click, one config line, one MCP URL — and you're live. ScopeGate is designed for developers, not enterprise IT.",
     bullets: [
       "Visual toggle matrix",
-      "YAML config option",
+      "Per-action permission toggles",
       "Auto-generated MCP endpoint",
     ],
   },
@@ -89,7 +90,7 @@ const ALL_FEATURES = [
     ),
     title: "Rate limiting per agent",
     description:
-      "Set request-per-minute and daily caps on each agent independently. Prevent runaway agents from burning through API quotas or triggering abuse detection on third-party services.",
+      "Set a requests-per-minute cap on each endpoint independently. Prevent runaway agents from burning through API quotas or triggering abuse detection on third-party services.",
     bullets: [
       "Configurable per service per agent",
       "Hard caps with graceful errors",
@@ -108,13 +109,13 @@ const ALL_FEATURES = [
     bullets: [
       "Claude Desktop, Cursor, Continue.dev",
       "Standard MCP transport (SSE + JSON-RPC)",
-      "Custom agents via open-source SDK",
+      "Custom agents via any MCP client library",
     ],
   },
 ];
 
 const INTEGRATIONS = [
-  "Google Drive", "Gmail", "Google Calendar", "Google Sheets",
+  "Google Drive", "Gmail", "Google Calendar", "Stripe",
   "Slack", "Notion", "GitHub", "Twitter/X",
   "LinkedIn", "Google Ads", "OpenRouter",
 ];
@@ -141,14 +142,12 @@ export default function FeaturesPage() {
             revoke access in one click.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
-            <a
-              href="https://github.com/alifanov/scopegate"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center px-6 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-medium text-sm transition-all duration-150 shadow-lg shadow-violet-900/30"
+            <Link
+              href="/signup"
+              className="inline-flex cursor-pointer items-center justify-center px-6 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-medium text-sm transition-all duration-150 shadow-lg shadow-violet-900/30"
             >
-              View on GitHub
-            </a>
+              Start free — no card needed
+            </Link>
           </div>
         </div>
       </section>
@@ -240,14 +239,18 @@ export default function FeaturesPage() {
             Start free — one project, five endpoints, no credit card required.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
-            <a
-              href="https://github.com/alifanov/scopegate"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center px-6 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-medium text-sm transition-all duration-150 shadow-lg shadow-violet-900/30"
+            <Link
+              href="/signup"
+              className="inline-flex cursor-pointer items-center justify-center px-6 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-medium text-sm transition-all duration-150 shadow-lg shadow-violet-900/30"
             >
-              View on GitHub
-            </a>
+              Start free
+            </Link>
+            <Link
+              href="/pricing"
+              className="inline-flex cursor-pointer items-center justify-center px-6 py-3 border border-slate-700 hover:border-slate-600 text-slate-300 hover:text-slate-100 rounded-xl font-medium text-sm transition-all duration-150"
+            >
+              See pricing →
+            </Link>
           </div>
         </div>
       </section>

@@ -30,7 +30,7 @@ function Logo() {
           <path d="M5.5 8l2 2 3-3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </div>
-      <span className="text-slate-200 font-semibold tracking-tight">Scopegate</span>
+      <span className="text-slate-200 font-semibold tracking-tight">ScopeGate</span>
     </div>
   );
 }
@@ -113,10 +113,10 @@ export function Footer() {
         {/* bottom row */}
         <div className="border-t border-slate-800/60 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-slate-600">
-            &copy; {new Date().getFullYear()} Scopegate. All rights reserved.
+            &copy; {new Date().getFullYear()} ScopeGate. All rights reserved.
           </p>
           <p className="text-xs text-slate-700">
-            Built with Next.js · Deployed on Vercel · MIT licensed core
+            Built with Next.js · Self-hostable via Docker · MIT licensed core
           </p>
         </div>
       </div>

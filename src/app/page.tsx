@@ -16,6 +16,7 @@ import { Faq } from "@/components/landing/faq";
 import { BlogPreview } from "@/components/landing/blog-preview";
 import { CtaSection } from "@/components/landing/cta-section";
 import { Footer } from "@/components/landing/footer";
+import { LANDING_FAQ } from "@/data/faq";
 
 export const metadata: Metadata = {
   title: "ScopeGate — Granular AI Agent Permissions for MCP | Free",
@@ -63,51 +64,16 @@ const softwareSchema = {
   },
 };
 
+// Built from the same array the <Faq> accordion renders, so the schema can never
+// again claim something the visible page doesn't say.
 const faqSchema = {
   "@context": "https://schema.org",
   "@type": "FAQPage",
-  mainEntity: [
-    {
-      "@type": "Question",
-      name: "What is MCP and why does it need a permission layer?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "MCP (Model Context Protocol) is Anthropic's open standard that lets AI agents call external tools — read files, send emails, query databases. By design, MCP servers request broad OAuth scopes with no built-in mechanism to restrict access per agent. ScopeGate sits in front of your MCP servers and enforces fine-grained, per-agent permissions so each agent can only do exactly what it's supposed to.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "How is ScopeGate different from just using OAuth scopes directly?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "OAuth scopes are binary: an app either has access or it doesn't. ScopeGate adds a second layer on top: folder-level read restrictions within Google Drive, send-only Gmail (no read), calendar read-only per agent, rate limits per agent per service, and instant cross-service revocation without touching OAuth at all.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Does my data pass through ScopeGate's servers?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "On ScopeGate Cloud, yes — ScopeGate acts as a transparent proxy. Tool call requests from your agent route through our infrastructure, are checked against your permission policy, and forwarded to the target service. We log metadata (action, params, status, duration) but do not store the actual payload contents. Self-host it and nothing leaves your own infrastructure.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Can I self-host ScopeGate?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Yes. ScopeGate is open-source and available at github.com/alifanov/scopegate. You can run it yourself with no usage limits. ScopeGate Cloud adds hosted reliability, managed upgrades and paid plans on top of the same codebase.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "What integrations are supported today?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "26 services, including Gmail, Google Calendar, Google Drive, Google Ads, Google Search Console, Google Tag Manager, YouTube, Slack, Notion, GitHub, Jira, Salesforce, HubSpot, Airtable, Calendly, Stripe, Telegram, X/Twitter, LinkedIn, Meta Ads, Instagram, Threads, Ahrefs, Semrush and OpenRouter. We add new integrations every few weeks.",
-      },
-    },
-  ],
+  mainEntity: LANDING_FAQ.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
 };
 
 export default async function HomePage() {

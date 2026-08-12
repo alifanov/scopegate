@@ -4,6 +4,7 @@ import { Footer } from "@/components/landing/footer";
 import { Pricing } from "@/components/landing/pricing";
 import { PricingFaq } from "@/components/landing/pricing-faq";
 import { isCloud } from "@/lib/cloud";
+import { publicPlans, UNLIMITED } from "@/lib/plans";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -14,6 +15,11 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://scopegate.dev/pricing" },
 };
 
+function limit(value: number, noun: string): string {
+  if (value === UNLIMITED) return `unlimited ${noun}s`;
+  return `${value.toLocaleString("en-US")} ${noun}${value === 1 ? "" : "s"}`;
+}
+
 const pricingSchema = {
   "@context": "https://schema.org",
   "@type": "Product",
@@ -22,38 +28,24 @@ const pricingSchema = {
     "AI Access Proxy Layer — granular permission gateway for AI agents using MCP.",
   url: "https://scopegate.dev",
   brand: { "@type": "Brand", name: "ScopeGate" },
-  offers: [
-    {
+  // Same source as the visible table — PLAN_REGISTRY — so the schema can't
+  // advertise a price or a limit the product no longer enforces.
+  offers: publicPlans()
+    .filter((plan) => plan.priceMonthly !== null)
+    .map((plan) => ({
       "@type": "Offer",
-      name: "Free",
-      price: "0",
+      name: plan.name,
+      price: String(plan.priceMonthly),
       priceCurrency: "USD",
       priceValidUntil: "2027-01-01",
-      description: "1 project, 5 endpoints, 1K requests/month",
+      description: [
+        limit(plan.limits.projects, "project"),
+        limit(plan.limits.endpoints, "endpoint"),
+        limit(plan.limits.requestsPerMonth, "request") + "/month",
+      ].join(", "),
       url: "https://scopegate.dev/pricing",
       availability: "https://schema.org/InStock",
-    },
-    {
-      "@type": "Offer",
-      name: "Pro",
-      price: "29",
-      priceCurrency: "USD",
-      priceValidUntil: "2027-01-01",
-      description: "5 projects, 25 endpoints, 50K requests/month",
-      url: "https://scopegate.dev/pricing",
-      availability: "https://schema.org/InStock",
-    },
-    {
-      "@type": "Offer",
-      name: "Team",
-      price: "149",
-      priceCurrency: "USD",
-      priceValidUntil: "2027-01-01",
-      description: "Unlimited projects, 100 endpoints, 500K requests/month",
-      url: "https://scopegate.dev/pricing",
-      availability: "https://schema.org/InStock",
-    },
-  ],
+    })),
 };
 
 export default function PricingPage() {
@@ -132,14 +124,12 @@ export default function PricingPage() {
             No credit card. One project, five endpoints — live in 5 minutes.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
-            <a
-              href="https://github.com/alifanov/scopegate"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center px-6 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-medium text-sm transition-all duration-150 shadow-lg shadow-violet-900/30"
+            <Link
+              href="/signup"
+              className="inline-flex cursor-pointer items-center justify-center px-6 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-medium text-sm transition-all duration-150 shadow-lg shadow-violet-900/30"
             >
-              View on GitHub
-            </a>
+              Start free
+            </Link>
             <Link
               href="/features"
               className="inline-flex items-center justify-center px-6 py-3 border border-slate-700 hover:border-slate-600 text-slate-300 hover:text-slate-100 rounded-xl font-medium text-sm transition-all duration-150"

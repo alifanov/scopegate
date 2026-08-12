@@ -111,14 +111,12 @@ export default function IntegrationsPage() {
               build your own permission proxy with our self-hosting guide.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <a
-                href="https://github.com/alifanov/scopegate"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center px-6 py-3 text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 rounded-lg transition-all duration-150 shadow-lg shadow-violet-900/30"
+              <Link
+                href="/signup"
+                className="inline-flex cursor-pointer items-center justify-center px-6 py-3 text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 rounded-lg transition-all duration-150 shadow-lg shadow-violet-900/30"
               >
-                View on GitHub
-              </a>
+                Start free
+              </Link>
               <a
                 href="https://github.com/alifanov/scopegate/issues"
                 target="_blank"

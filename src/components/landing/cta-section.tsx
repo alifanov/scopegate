@@ -15,13 +15,13 @@ export function CtaSection() {
         {/* headline */}
         <div className="space-y-4">
           <h2 className="text-4xl md:text-5xl font-bold text-slate-50 leading-tight">
-            Open-source permission layer
+            Give every agent exactly
             <br />
-            <span className="text-violet-400">for your AI agents</span>
+            <span className="text-violet-400">the access it needs</span>
           </h2>
           <p className="text-slate-400 text-lg leading-relaxed">
-            Self-host it in minutes. No vendor lock-in. Full control over your
-            agent permissions and audit trail.
+            Connect a service, toggle the actions you allow, and hand your agent
+            a scoped MCP endpoint. Every call logged, revocable in one click.
           </p>
         </div>
 

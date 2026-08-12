@@ -1,5 +1,7 @@
 import { Navbar } from "@/components/landing/navbar";
 import { Footer } from "@/components/landing/footer";
+import Link from "next/link";
+import { INTEGRATIONS_SENTENCE } from "@/data/faq";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -49,13 +51,13 @@ const sections = [
     id: "integrations",
     title: "Supported Integrations",
     content:
-      "ScopeGate supports Google Drive, Gmail, Google Calendar, Google Sheets, Slack, Notion, GitHub, Twitter/X, LinkedIn, Google Ads, and OpenRouter. New integrations are added regularly.",
+      `ScopeGate supports ${INTEGRATIONS_SENTENCE} New integrations are added regularly.`,
   },
   {
     id: "self-hosting",
     title: "Self-Hosting",
     content:
-      "The core ScopeGate engine is open-source (MIT license) and available on GitHub. You can run it yourself with no usage limits. ScopeGate Cloud adds multi-tenancy, team management, SSO, compliance exports, and hosted reliability on top.",
+      "The core ScopeGate engine is open-source (MIT license) and available on GitHub. You can run it yourself with no usage limits. ScopeGate Cloud adds hosted reliability, managed upgrades and paid plans on top of the same codebase.",
   },
 ];
 
@@ -111,14 +113,12 @@ export default function DocsPage() {
           <p className="text-slate-400 mb-4">
             Create a free account and set up your first MCP proxy in minutes.
           </p>
-          <a
-            href="https://github.com/alifanov/scopegate"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block px-6 py-3 bg-cyan-500 text-slate-950 font-semibold rounded-lg hover:bg-cyan-400 transition-colors"
+          <Link
+            href="/signup"
+            className="inline-block cursor-pointer px-6 py-3 bg-violet-600 text-white font-semibold rounded-lg hover:bg-violet-500 transition-colors shadow-lg shadow-violet-900/30"
           >
-            View on GitHub
-          </a>
+            Create a free account
+          </Link>
         </div>
       </main>
       <Footer />

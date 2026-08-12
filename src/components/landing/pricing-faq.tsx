@@ -17,7 +17,7 @@ const PRICING_FAQS = [
   },
   {
     q: "What happens if I exceed my monthly request limit?",
-    a: "We'll send an email warning at 80% usage. Once you hit the limit, new requests will be rejected with a 429 error until the next billing cycle or until you upgrade. We never silently throttle or bill you for overages.",
+    a: "Once you hit the limit, new requests are rejected with a 402 response until the next billing cycle or until you upgrade. We never silently throttle or bill you for overages.",
   },
   {
     q: "Do you offer discounts for startups or open-source projects?",
@@ -25,7 +25,7 @@ const PRICING_FAQS = [
   },
   {
     q: "What is included in the Enterprise plan?",
-    a: "Everything in Team, plus: unlimited endpoints and requests, custom retention policies, SOC 2 Type II report access, EU AI Act compliance package, SLA guarantee, dedicated Slack channel, custom integrations, and on-prem/VPC deployment. Contact sales@scopegate.cloud for a quote.",
+    a: "Everything in Team, plus: unlimited endpoints and requests, custom retention policies, SOC 2 Type II report access, EU AI Act compliance package, SLA guarantee, dedicated Slack channel, custom integrations, and on-prem/VPC deployment. Contact hello@scopegate.dev for a quote.",
   },
   {
     q: "Is annual billing available for all plans?",

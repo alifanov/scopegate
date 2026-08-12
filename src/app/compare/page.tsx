@@ -102,14 +102,12 @@ export default function ComparePage() {
               Start with the free tier. Set up per-agent permissions in under 5
               minutes — no credit card required.
             </p>
-            <a
-              href="https://github.com/alifanov/scopegate"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white px-6 py-3 rounded-lg transition-all duration-150 font-medium shadow-lg shadow-violet-900/30"
+            <Link
+              href="/signup"
+              className="inline-flex cursor-pointer items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white px-6 py-3 rounded-lg transition-all duration-150 font-medium shadow-lg shadow-violet-900/30"
             >
-              View on GitHub
-            </a>
+              Start free
+            </Link>
           </div>
         </section>
       </main>

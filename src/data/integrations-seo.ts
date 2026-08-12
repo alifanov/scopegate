@@ -67,7 +67,7 @@ export const integrations: IntegrationData[] = [
       "Compliance checker that scans contracts in a legal folder without accessing other departments",
       "Meeting notes organizer that reads transcripts from one folder and creates summaries",
     ],
-    relatedIntegrations: ["google-sheets", "gmail", "notion"],
+    relatedIntegrations: ["google-calendar", "gmail", "notion"],
   },
   {
     slug: "gmail",
@@ -168,56 +168,6 @@ export const integrations: IntegrationData[] = [
       "Time audit tool that analyzes how you spend your week based on calendar categories",
     ],
     relatedIntegrations: ["gmail", "slack", "notion"],
-  },
-  {
-    slug: "google-sheets",
-    service: "Google Sheets",
-    icon: "\uD83D\uDCCA",
-    metaTitle: "Secure Google Sheets for AI Agents \u2014 ScopeGate MCP Proxy",
-    metaDescription:
-      "Control AI agent access to Google Sheets. Enforce read-only mode, restrict to specific spreadsheets, and prevent formula or structure changes.",
-    headline: "Secure Google Sheets Access for AI Agents",
-    intro:
-      "Google Sheets often serves as a lightweight database \u2014 holding customer lists, financial projections, inventory data, and API keys. When AI agents need to query this data, full spreadsheet access creates serious risk. ScopeGate lets you lock down which sheets an agent can see and what it can do with them.",
-    problem:
-      "An agent with full Sheets access can read every spreadsheet in your account, including salary data, customer PII, and API credentials stored in config sheets. It can overwrite formulas, delete rows of critical data, restructure sheets, or export entire spreadsheets \u2014 potentially corrupting months of collaborative work in seconds.",
-    permissions: [
-      {
-        name: "Read-only access",
-        description:
-          "Allow the agent to read cell values and formulas without writing, editing, or deleting any data.",
-        example:
-          "Agent pulls weekly sales figures from a reporting sheet but cannot modify any cell.",
-      },
-      {
-        name: "Specific spreadsheet access",
-        description:
-          "Restrict the agent to named spreadsheets by ID, hiding all other sheets in the account.",
-        example:
-          "Agent can only access 'Q1 Marketing Budget' \u2014 it cannot discover or open 'Employee Salaries'.",
-      },
-      {
-        name: "No structure changes",
-        description:
-          "Block the agent from adding, removing, or renaming sheets, columns, or rows within a spreadsheet.",
-        example:
-          "Agent reads data from the existing columns but cannot add new tabs or rearrange the layout.",
-      },
-      {
-        name: "Cell range restriction",
-        description:
-          "Limit the agent to specific cell ranges within a sheet, hiding data outside those bounds.",
-        example:
-          "Agent reads cells A1:D50 (product names and prices) but cannot see column E (profit margins).",
-      },
-    ],
-    useCases: [
-      "Reporting agent that reads sales data from a shared sheet and generates weekly summaries",
-      "Inventory tracker that monitors stock levels in a specific spreadsheet and sends low-stock alerts",
-      "Data analysis assistant that queries a customer feedback sheet to identify trends",
-      "Budget monitoring bot that reads expense data from a finance sheet without editing formulas",
-    ],
-    relatedIntegrations: ["google-drive", "google-ads", "notion"],
   },
   {
     slug: "slack",
@@ -517,7 +467,7 @@ export const integrations: IntegrationData[] = [
       "Competitor monitoring agent that tracks quality scores and auction insights across campaigns",
       "Budget forecasting assistant that reads historical spend data to predict monthly costs",
     ],
-    relatedIntegrations: ["google-sheets", "google-drive", "slack"],
+    relatedIntegrations: ["linkedin", "google-drive", "slack"],
   },
   {
     slug: "openrouter",
@@ -567,6 +517,6 @@ export const integrations: IntegrationData[] = [
       "Customer support agent that routes queries to approved models without exposing API credentials",
       "Testing harness that evaluates prompt performance across models with strict per-run cost limits",
     ],
-    relatedIntegrations: ["github", "slack", "google-sheets"],
+    relatedIntegrations: ["github", "slack", "notion"],
   },
 ];

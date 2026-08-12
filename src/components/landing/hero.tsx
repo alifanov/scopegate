@@ -10,11 +10,11 @@ const CODE_LINES = [
   { type: "bad",     text: "  //  read, write, delete — everything" },
   { type: "dim",     text: "});" },
   { type: "blank",   text: "" },
-  { type: "comment", text: "// ✅  After — scoped with Scopegate" },
+  { type: "comment", text: "// ✅  After — scoped with ScopeGate" },
   { type: "dim",     text: "const agent = new MCPClient({" },
-  { type: "good",    text: '  endpoint: "mcp.scopegate.cloud/sg_live_k9x2",' },
-  { type: "good",    text: "  //  drive: read-only, /Marketing only" },
-  { type: "good",    text: "  //  rate limit: 100 req/min" },
+  { type: "good",    text: '  endpoint: "scopegate.dev/api/mcp/sg_k9x2…",' },
+  { type: "good",    text: "  //  drive: list + read, never delete" },
+  { type: "good",    text: "  //  rate limit: 60 req/min" },
   { type: "good",    text: "  //  audit trail: every action logged" },
   { type: "dim",     text: "});" },
 ];
@@ -131,10 +131,10 @@ export function Hero() {
 
             {/* description */}
             <p className="animate-fade-up animate-delay-300 hidden sm:block text-lg text-slate-400 max-w-[480px] leading-relaxed">
-              Scopegate is an open-source permission gateway between your AI
-              agents and external services. Define granular scopes per agent,
-              get a secure MCP endpoint, and log every action — self-host it
-              in minutes.
+              ScopeGate is a permission gateway between your AI agents and the
+              external services they reach. Connect a service once, toggle the
+              exact actions each agent may call, and get a scoped MCP endpoint
+              with every request logged — in minutes.
             </p>
 
             {/* trust signals */}

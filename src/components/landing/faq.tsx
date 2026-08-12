@@ -2,33 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-
-const FAQS = [
-  {
-    q: "What is MCP and why does it need a permission layer?",
-    a: "MCP (Model Context Protocol) is Anthropic's open standard that lets AI agents call external tools — read files, send emails, query databases. By design, MCP servers request broad OAuth scopes with no built-in mechanism to restrict access per agent. Scopegate sits in front of your MCP servers and enforces fine-grained, per-agent permissions so each agent can only do exactly what it's supposed to.",
-  },
-  {
-    q: "How is Scopegate different from just using OAuth scopes directly?",
-    a: "OAuth scopes are binary: an app either has access or it doesn't. Scopegate adds a second layer on top: folder-level read restrictions within Google Drive, send-only Gmail (no read), calendar read-only per agent, rate limits per agent per service, and instant cross-service revocation without touching OAuth at all. You get granular control that OAuth alone can't provide.",
-  },
-  {
-    q: "Does my data pass through Scopegate's servers?",
-    a: "Yes — Scopegate acts as a transparent proxy. Tool call requests from your agent route through our infrastructure, are checked against your permission policy, and forwarded to the target service. The response is returned to your agent. We log metadata (action, params, status, duration) but do not store the actual payload contents. Enterprise customers can opt for VPC deployment to keep all traffic within their own infrastructure.",
-  },
-  {
-    q: "Can I self-host Scopegate?",
-    a: "Yes. The core Scopegate engine is open-source (MIT license) and available at github.com/alifanov/scopegate. You can run it yourself with no usage limits. Scopegate Cloud adds multi-tenancy, team management, SSO, compliance exports, and hosted reliability on top. Self-hosting documentation is at /docs/self-hosting.",
-  },
-  {
-    q: "What integrations are supported today?",
-    a: "Currently: Google Drive, Gmail, Google Calendar, Google Sheets, Slack, Notion, GitHub, Twitter/X, LinkedIn, Google Ads, and OpenRouter. We're adding new integrations every few weeks. Each integration is an MCP endpoint — if you need one that isn't listed, you can request it on GitHub or implement a custom connector using our SDK.",
-  },
-  {
-    q: "Is Scopegate SOC 2 compliant?",
-    a: "We are actively pursuing SOC 2 Type II certification (expected Q3 2026). Enterprise customers receive a copy of our security questionnaire responses, penetration test results, and data processing agreement. The audit log format is designed to support SOC 2 and EU AI Act Article 13 transparency requirements out of the box.",
-  },
-];
+import { LANDING_FAQ as FAQS } from "@/data/faq";
 
 function ChevronIcon({ open }: { open: boolean }) {
   return (
@@ -99,7 +73,7 @@ export function Faq() {
           </Link>
           <p className="text-xs text-slate-600">
             Still have questions?{" "}
-            <a href="mailto:hello@scopegate.cloud" className="text-violet-600 hover:text-violet-400 transition-colors">
+            <a href="mailto:hello@scopegate.dev" className="cursor-pointer text-violet-600 hover:text-violet-400 transition-colors">
               Email us →
             </a>
           </p>

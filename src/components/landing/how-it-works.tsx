@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 function LinkIcon() {
   return (
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -33,18 +35,18 @@ const STEPS = [
     icon: LinkIcon,
     title: "Connect a service",
     description:
-      "One-click OAuth to connect Google Drive, Gmail, Calendar, Sheets, Slack, Notion, and more. No manual token management.",
+      "One-click OAuth to connect Google Drive, Gmail, Calendar, Slack, Notion, Stripe and 20+ more. No manual token management.",
     detail: "OAuth 2.0 · Auto token refresh · Encrypted at rest",
-    code: 'scopegate connect google-drive\n→ OAuth flow complete ✓',
+    code: "google-drive · connected ✓\n→ token encrypted, auto-refresh on",
   },
   {
     number: "02",
     icon: SlidersIcon,
     title: "Define agent scopes",
     description:
-      "Set exactly what each agent can do: read-only, specific folder paths, rate limits per service. Visual toggle matrix — no YAML required.",
-    detail: "Per-agent · Per-service · Folder-level · Rate limits",
-    code: 'Agent: "sales-assistant"\n drive: read /Marketing/*\n rate: 100 req/min ✓',
+      "Toggle exactly which actions an agent may call: list and read files but never delete, send mail but never read the inbox. Everything is off until you switch it on.",
+    detail: "Per-endpoint · Per-action · Default deny · Rate limits",
+    code: 'Endpoint: "sales-assistant"\n drive: list + read ✓\n drive: delete ✗',
   },
   {
     number: "03",
@@ -53,7 +55,7 @@ const STEPS = [
     description:
       "A unique, scoped MCP endpoint URL is generated. Paste it into your agent config. The proxy handles enforcement, logging, and revocation.",
     detail: "Instant activation · Works with any MCP client · Audit trail live",
-    code: 'mcp.scopegate.cloud/sg_k9x2\n→ Agent ready in 4m 32s ✓',
+    code: "scopegate.dev/api/mcp/sg_k9x2…\n→ Agent ready in 4m 32s ✓",
   },
 ];
 
@@ -70,7 +72,7 @@ export function HowItWorks() {
             Secure in under 5 minutes
           </h2>
           <p className="text-slate-400 text-lg max-w-xl mx-auto">
-            No Kubernetes. No enterprise procurement. No &ldquo;contact sales&rdquo; form.
+            No Kubernetes. No procurement cycle. No mandatory sales call.
             Just connect, configure, and ship.
           </p>
         </div>
@@ -115,17 +117,15 @@ export function HowItWorks() {
 
         {/* bottom cta */}
         <div className="mt-14 text-center">
-          <a
-            href="https://github.com/alifanov/scopegate"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white px-8 py-3.5 rounded-xl font-semibold text-sm transition-all hover:-translate-y-0.5 shadow-xl shadow-violet-900/30"
+          <Link
+            href="/signup"
+            className="inline-flex cursor-pointer items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white px-8 py-3.5 rounded-xl font-semibold text-sm transition-all hover:-translate-y-0.5 shadow-xl shadow-violet-900/30"
           >
-            View on GitHub
+            Start free — no card needed
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M3 7h8M7 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-          </a>
+          </Link>
         </div>
       </div>
     </section>

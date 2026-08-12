@@ -9,9 +9,9 @@ function CheckIcon({ className }: { className?: string }) {
 }
 
 const PERMISSION_MATRIX = [
-  { agent: "sales-assistant", drive: "read /Sales", gmail: "send-only", calendar: "read" },
-  { agent: "hr-bot",         drive: "read /HR",    gmail: "—",         calendar: "read+write" },
-  { agent: "dev-agent",      drive: "—",           gmail: "—",         calendar: "—" },
+  { agent: "sales-assistant", drive: "list + read", gmail: "send only",   calendar: "list only" },
+  { agent: "hr-bot",          drive: "list only",   gmail: "—",           calendar: "list + create" },
+  { agent: "dev-agent",       drive: "—",           gmail: "—",           calendar: "—" },
 ];
 
 const SMALL_FEATURES = [
@@ -25,7 +25,7 @@ const SMALL_FEATURES = [
     title: "5-min developer onboarding",
     description:
       "No Kubernetes. No Entra ID. No platform team. One OAuth click, one config line, one MCP URL. You\u2019re live.",
-    bullets: ["Visual toggle matrix", "YAML config option", "Auto-generated endpoint"],
+    bullets: ["Visual toggle matrix", "Per-action toggles", "Auto-generated endpoint"],
   },
   {
     icon: (
@@ -85,11 +85,11 @@ export function Features() {
                 </svg>
               </div>
               <h3 className="text-xl font-bold text-slate-100">
-                Per-agent, per-service granular scope control
+                Per-agent, per-action granular scope control
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed max-w-sm">
-                Every agent gets its own permission profile. Define exactly which services it
-                can access, which scopes it has, and what it&apos;s rate-limited to.
+                Every agent gets its own permission profile. Each individual action is a
+                separate toggle, and everything is off until you switch it on.
                 Not team-level. Not org-level. <em className="text-slate-300">Per agent.</em>
               </p>
             </div>
@@ -142,7 +142,7 @@ export function Features() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              {["Folder-level scopes", "Rate limits per agent", "Default deny", "Instant toggle"].map((tag) => (
+              {["Per-action scopes", "Rate limit per endpoint", "Default deny", "Instant toggle"].map((tag) => (
                 <span
                   key={tag}
                   className="inline-flex items-center gap-1 text-xs text-violet-300 bg-violet-950/50 border border-violet-800/30 rounded-full px-3 py-1"

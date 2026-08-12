@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { publicPlans, UNLIMITED } from "@/lib/plans";
 
 function CheckIcon() {
   return (
@@ -11,74 +12,45 @@ function CheckIcon() {
   );
 }
 
-const TIERS = [
-  {
-    name: "Free",
-    price: { monthly: 0, yearly: 0 },
-    description: "Get started with one agent, no card needed.",
+// Prices, limits and descriptions come from PLAN_REGISTRY so the advertised
+// numbers are literally the enforced ones. Only the copy that has no home in the
+// registry — CTA label, badge, feature bullets — lives here, keyed by slug.
+const TIER_COPY: Record<
+  string,
+  { cta: string; ctaHref: string; highlight: boolean; badge: string | null; extras: string[] }
+> = {
+  free: {
     cta: "Start free",
     ctaHref: "/signup",
     highlight: false,
     badge: null,
-    features: [
-      "1 project",
-      "5 MCP endpoints",
-      "1,000 requests / month",
-      "Google Drive, Gmail, Calendar",
-      "Basic audit log (7-day retention)",
-      "Community support",
-    ],
+    extras: ["Every integration included", "Audit log of every tool call", "Community support"],
   },
-  {
-    name: "Pro",
-    price: { monthly: 29, yearly: 23 },
-    description: "For solo developers shipping production agents.",
+  pro: {
     cta: "Start Pro trial",
     ctaHref: "/signup?plan=pro",
     highlight: false,
     badge: null,
-    features: [
-      "5 projects",
-      "25 MCP endpoints",
-      "50,000 requests / month",
-      "All integrations",
-      "Audit log (90-day retention)",
-      "Rate limits per agent",
-      "Email support",
-    ],
+    extras: ["Every integration included", "Rate limit per endpoint", "Email support"],
   },
-  {
-    name: "Team",
-    price: { monthly: 149, yearly: 119 },
-    description: "For teams with multiple agents and shared governance.",
+  team: {
     cta: "Start Team trial",
     ctaHref: "/signup?plan=team",
     highlight: true,
     badge: "Most popular",
-    features: [
-      "Unlimited projects",
-      "100 MCP endpoints",
-      "500,000 requests / month",
-      "All integrations",
-      "Audit log (365-day retention)",
-      "Org-level permission policies",
-      "Up to 10 team members",
-      "SAML SSO (coming soon)",
+    extras: [
+      "Every integration included",
+      "Shared projects for your team",
+      "Rate limit per endpoint",
       "Priority support",
     ],
   },
-  {
-    name: "Enterprise",
-    price: { monthly: null, yearly: null },
-    description: "Custom limits, compliance, and dedicated support.",
+  enterprise: {
     cta: "Contact sales",
     ctaHref: "mailto:hello@scopegate.dev",
     highlight: false,
     badge: null,
-    features: [
-      "Everything in Team",
-      "Unlimited endpoints & requests",
-      "Custom retention policies",
+    extras: [
       "SOC 2 Type II report",
       "EU AI Act compliance package",
       "SLA guarantee",
@@ -87,7 +59,33 @@ const TIERS = [
       "On-prem / VPC deployment",
     ],
   },
-];
+};
+
+function limitLine(value: number, unlimited: string, one: string, many: string): string {
+  if (value === UNLIMITED) return unlimited;
+  return value === 1 ? `${value} ${one}` : `${value.toLocaleString("en-US")} ${many}`;
+}
+
+const TIERS = publicPlans().map((plan) => {
+  const copy = TIER_COPY[plan.slug];
+  return {
+    name: plan.name,
+    price: { monthly: plan.priceMonthly, yearly: plan.priceYearly },
+    description: plan.description,
+    ...copy,
+    features: [
+      limitLine(plan.limits.projects, "Unlimited projects", "project", "projects"),
+      limitLine(plan.limits.endpoints, "Unlimited MCP endpoints", "MCP endpoint", "MCP endpoints"),
+      limitLine(
+        plan.limits.requestsPerMonth,
+        "Unlimited requests / month",
+        "request / month",
+        "requests / month",
+      ),
+      ...copy.extras,
+    ],
+  };
+});
 
 export function Pricing() {
   const [annual, setAnnual] = useState(false);
@@ -202,7 +200,8 @@ export function Pricing() {
             </svg>
           </Link>
           <p className="text-xs text-slate-600">
-            All plans include SSL encryption, 99.9% uptime SLA, and GDPR-compliant data handling.
+            All plans include TLS encryption, encrypted credential storage, and GDPR-compliant data
+            handling. A contractual uptime SLA is part of the Enterprise plan.
             <br />
             <a
               href="https://github.com/alifanov/scopegate#self-hosting"

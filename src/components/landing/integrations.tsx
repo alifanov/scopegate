@@ -33,12 +33,12 @@ const INTEGRATIONS = [
     ),
   },
   {
-    name: "Google Sheets",
-    color: "#0F9D58",
+    name: "Stripe",
+    color: "#635BFF",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7">
-        <rect x="3" y="2" width="18" height="20" rx="2" stroke="#0F9D58" strokeWidth="1.3" />
-        <path d="M3 8h18M3 13h18M9 8v12" stroke="#0F9D58" strokeWidth="1.3" strokeLinecap="round" />
+        <rect x="3" y="4" width="18" height="16" rx="2.5" stroke="#635BFF" strokeWidth="1.3" />
+        <path d="M14.5 9.5c-.6-.6-1.6-.9-2.5-.9-1.2 0-2 .5-2 1.3 0 .9 1 1.2 2.2 1.5 1.5.4 2.6.9 2.6 2.2 0 1.3-1.2 2-2.8 2-1 0-2.1-.3-2.8-1" stroke="#635BFF" strokeWidth="1.3" strokeLinecap="round" />
       </svg>
     ),
   },

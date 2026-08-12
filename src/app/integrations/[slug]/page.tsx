@@ -299,14 +299,12 @@ export default async function IntegrationPage({ params }: PageProps) {
                 tier includes 1 project, 5 endpoints, and 1,000 requests per
                 month.
               </p>
-              <a
-                href="https://github.com/alifanov/scopegate"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center px-6 py-3 text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 rounded-lg transition-all duration-150 shadow-lg shadow-violet-900/30"
+              <Link
+                href="/signup"
+                className="inline-flex cursor-pointer items-center justify-center px-6 py-3 text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 rounded-lg transition-all duration-150 shadow-lg shadow-violet-900/30"
               >
-                View on GitHub
-              </a>
+                Start free
+              </Link>
             </div>
           </section>
         </div>

@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && pnpm config set store-dir /pnpm/store
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY prisma ./prisma/
+RUN node -e "console.log(require('./package.json').dependencies.prisma)" > /prisma-version
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile
 
@@ -36,12 +36,13 @@ COPY --from=builder /app/public ./public
 # Prisma schema + migrations for runtime deploy
 COPY --from=builder /app/prisma ./prisma
 
-# Prisma CLI for database migrations (separate from app runtime deps)
-COPY package.json /tmp/package.json
-RUN PRISMA_VERSION=$(node -e "console.log(require('/tmp/package.json').dependencies.prisma)") && \
-    PRISMA_SKIP_POSTINSTALL_GENERATE=1 npm install --prefix /prisma-runtime "prisma@${PRISMA_VERSION}" && \
-    npm cache clean --force && \
-    rm /tmp/package.json
+# Prisma CLI for database migrations (separate from app runtime deps).
+# Reads only /prisma-version (not the whole package.json) and reuses the npm
+# cache mount, instead of a second full package.json COPY straight into this stage.
+COPY --from=deps /prisma-version /prisma-version
+RUN --mount=type=cache,id=npm,target=/root/.npm \
+    PRISMA_SKIP_POSTINSTALL_GENERATE=1 \
+    npm install --prefix /prisma-runtime "prisma@$(cat /prisma-version)"
 
 # Prisma config for runtime `migrate deploy`. The schema datasource has no url —
 # it is supplied here from DATABASE_URL. Loaded from cwd /prisma-runtime by the

@@ -3,6 +3,7 @@ import { recordAudit } from "@/lib/audit";
 import { generateMcpApiKey } from "@/lib/mcp/api-keys";
 import { ALL_ACTIONS, getActionGroup } from "@/lib/mcp/permissions";
 import { requireProjectServiceConnection } from "@/lib/project-access";
+import { AuthError } from "@/lib/auth-middleware";
 
 type EndpointDatabase = {
   serviceConnection: Pick<typeof db.serviceConnection, "findFirst">;
@@ -26,15 +27,7 @@ async function defaultTransaction<T>(
   return db.$transaction((tx) => fn(tx));
 }
 
-export class EndpointPermissionError extends Error {
-  readonly status: number;
-
-  constructor(message: string, status: number) {
-    super(message);
-    this.name = "EndpointPermissionError";
-    this.status = status;
-  }
-}
+export class EndpointPermissionError extends AuthError {}
 
 export type CreateEndpointInput = {
   projectId: string;

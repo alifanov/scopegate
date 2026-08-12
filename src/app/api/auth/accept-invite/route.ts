@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { acceptInvite, AcceptInviteError } from "@/lib/accept-invite";
+import { acceptInvite } from "@/lib/accept-invite";
+import { AuthError } from "@/lib/auth-middleware";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
     await acceptInvite({ token, email, name, password });
     return NextResponse.json({ success: true });
   } catch (error) {
-    if (error instanceof AcceptInviteError) {
+    if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
     const message =

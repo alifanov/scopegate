@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withProjectAuth } from "@/lib/project-access";
-import { connectEmailAccount, ServiceConnectError } from "@/lib/service-connect";
+import { connectEmailAccount } from "@/lib/service-connect";
 
 // POST /api/projects/[projectId]/services/connect-email
 export const POST = withProjectAuth<{ projectId: string }>(
@@ -40,24 +40,17 @@ export const POST = withProjectAuth<{ projectId: string }>(
       );
     }
 
-    try {
-      await connectEmailAccount({
-        projectId,
-        email,
-        password,
-        imapHost,
-        imapPort,
-        smtpHost,
-        smtpPort,
-        imapSecure,
-        smtpSecure,
-      });
-    } catch (err) {
-      if (err instanceof ServiceConnectError) {
-        return NextResponse.json({ error: err.message }, { status: err.status });
-      }
-      throw err;
-    }
+    await connectEmailAccount({
+      projectId,
+      email,
+      password,
+      imapHost,
+      imapPort,
+      smtpHost,
+      smtpPort,
+      imapSecure,
+      smtpSecure,
+    });
 
     return NextResponse.json({ success: true });
   }

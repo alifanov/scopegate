@@ -1,20 +1,13 @@
 import { db } from "@/lib/db";
 import { recordAudit } from "@/lib/audit";
 import { isProjectOwner, PROJECT_ROLE } from "@/lib/project-roles";
+import { AuthError } from "@/lib/auth-middleware";
 
 type TeamMembershipDatabase = {
   teamMember: Pick<typeof db.teamMember, "findUnique" | "count" | "delete">;
 };
 
-export class TeamMembershipError extends Error {
-  readonly status: number;
-
-  constructor(message: string, status: number) {
-    super(message);
-    this.name = "TeamMembershipError";
-    this.status = status;
-  }
-}
+export class TeamMembershipError extends AuthError {}
 
 type RemoveMemberOptions = {
   database?: TeamMembershipDatabase;

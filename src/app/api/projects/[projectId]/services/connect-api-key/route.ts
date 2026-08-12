@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withProjectAuth } from "@/lib/project-access";
-import { connectApiKey, ServiceConnectError } from "@/lib/service-connect";
+import { connectApiKey } from "@/lib/service-connect";
 
 // POST /api/projects/[projectId]/services/connect-api-key
 export const POST = withProjectAuth<{ projectId: string }>(
@@ -22,14 +22,7 @@ export const POST = withProjectAuth<{ projectId: string }>(
       return NextResponse.json({ error: "Missing apiKey" }, { status: 400 });
     }
 
-    try {
-      await connectApiKey({ projectId, provider, apiKey, label });
-    } catch (err) {
-      if (err instanceof ServiceConnectError) {
-        return NextResponse.json({ error: err.message }, { status: err.status });
-      }
-      throw err;
-    }
+    await connectApiKey({ projectId, provider, apiKey, label });
 
     return NextResponse.json({ success: true });
   }

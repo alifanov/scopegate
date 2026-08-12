@@ -2,16 +2,9 @@ import { encrypt } from "@/lib/crypto";
 import { isApiKeyProvider, SERVICE_KEY_VALIDATORS, type ApiKeyValidator } from "@/lib/service-key-validators";
 import { validateEmailConnection } from "@/lib/mcp/email";
 import { upsertServiceConnection } from "@/lib/service-connection";
+import { AuthError } from "@/lib/auth-middleware";
 
-export class ServiceConnectError extends Error {
-  readonly status: number;
-
-  constructor(message: string, status: number) {
-    super(message);
-    this.name = "ServiceConnectError";
-    this.status = status;
-  }
-}
+export class ServiceConnectError extends AuthError {}
 
 export type ConnectApiKeyInput = {
   projectId: string;

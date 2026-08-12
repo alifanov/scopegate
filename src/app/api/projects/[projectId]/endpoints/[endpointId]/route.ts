@@ -4,7 +4,6 @@ import { withProjectAuth } from "@/lib/project-access";
 import {
   applyEndpointPermissions,
   deleteEndpoint,
-  EndpointPermissionError,
 } from "@/lib/endpoint-permissions";
 
 type Params = { projectId: string; endpointId: string };
@@ -34,33 +33,19 @@ export const GET = withProjectAuth<Params>(
 export const PATCH = withProjectAuth<Params>(
   "owner",
   async (request, { params: { projectId, endpointId } }) => {
-    try {
-      const { name, isActive, rateLimitPerMinute, permissions } =
-        await request.json();
+    const { name, isActive, rateLimitPerMinute, permissions } =
+      await request.json();
 
-      const updated = await applyEndpointPermissions({
-        projectId,
-        endpointId,
-        name,
-        isActive,
-        rateLimitPerMinute,
-        permissions,
-      });
+    const updated = await applyEndpointPermissions({
+      projectId,
+      endpointId,
+      name,
+      isActive,
+      rateLimitPerMinute,
+      permissions,
+    });
 
-      return NextResponse.json({ endpoint: updated });
-    } catch (error) {
-      if (error instanceof EndpointPermissionError) {
-        return NextResponse.json(
-          { error: error.message },
-          { status: error.status }
-        );
-      }
-
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 }
-      );
-    }
+    return NextResponse.json({ endpoint: updated });
   }
 );
 
@@ -68,21 +53,7 @@ export const PATCH = withProjectAuth<Params>(
 export const DELETE = withProjectAuth<Params>(
   "owner",
   async (_request, { params: { projectId, endpointId } }) => {
-    try {
-      await deleteEndpoint({ projectId, endpointId });
-      return NextResponse.json({ success: true });
-    } catch (error) {
-      if (error instanceof EndpointPermissionError) {
-        return NextResponse.json(
-          { error: error.message },
-          { status: error.status }
-        );
-      }
-
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 }
-      );
-    }
+    await deleteEndpoint({ projectId, endpointId });
+    return NextResponse.json({ success: true });
   }
 );

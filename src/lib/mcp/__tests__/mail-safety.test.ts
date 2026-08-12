@@ -78,6 +78,12 @@ describe("resolveMailTarget", () => {
       ).rejects.toBeInstanceOf(MailConnectionError);
     });
 
+    it("carries a 4xx status so the shared auth-error mapping handles it", async () => {
+      await expect(
+        resolveMailTarget("mail.example.com", 5432, "imap")
+      ).rejects.toMatchObject({ status: 400 });
+    });
+
     it.each([143, 993])("allows IMAP port %d", async (port) => {
       mockDns({ address: "93.184.216.34", family: 4 });
       await expect(

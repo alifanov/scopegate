@@ -1,9 +1,14 @@
 import { resolveSafeIp } from "./safe-fetch";
+import { AuthError } from "@/lib/auth-middleware";
 
 const IMAP_PORTS = new Set([143, 993]);
 const SMTP_PORTS = new Set([25, 465, 587]);
 
-export class MailConnectionError extends Error {}
+export class MailConnectionError extends AuthError {
+  constructor(message: string) {
+    super(message, 400);
+  }
+}
 
 // Resolves and validates a mail server host/port before ImapFlow/nodemailer opens
 // a socket to it — this transport bypasses safeFetch entirely (different stack,

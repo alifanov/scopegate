@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { db } from "@/lib/db";
 import { auth, MIN_PASSWORD_LENGTH } from "@/lib/auth";
 import { Prisma } from "@/generated/prisma/client";
+import { AuthError } from "@/lib/auth-middleware";
 
 type AcceptInviteDatabase = {
   inviteToken: Pick<typeof db.inviteToken, "findUnique" | "updateMany">;
@@ -24,15 +25,7 @@ async function defaultHashPassword(password: string): Promise<string> {
   return ctx.password.hash(password);
 }
 
-export class AcceptInviteError extends Error {
-  readonly status: number;
-
-  constructor(message: string, status: number) {
-    super(message);
-    this.name = "AcceptInviteError";
-    this.status = status;
-  }
-}
+export class AcceptInviteError extends AuthError {}
 
 export type AcceptInviteInput = {
   token: string;

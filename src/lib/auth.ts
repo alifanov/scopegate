@@ -3,6 +3,11 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "./db";
 
+// Single source of truth for the minimum password length — reused by
+// accept-invite.ts, which creates credentials directly and bypasses
+// better-auth's own `signUpEmail` (and its built-in minPasswordLength check).
+export const MIN_PASSWORD_LENGTH = 12;
+
 export const auth = betterAuth({
   database: prismaAdapter(db, {
     provider: "postgresql",
@@ -10,6 +15,7 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     disableSignUp: true,
+    minPasswordLength: MIN_PASSWORD_LENGTH,
     // Password hashing/verification uses better-auth's built-in scrypt.
     // A custom hasher would have to go under `emailAndPassword.password.hash`
     // / `.verify` — placing it elsewhere is silently ignored. Any code that

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@/generated/prisma/client";
+import { MIN_PASSWORD_LENGTH } from "@/lib/auth";
 import { acceptInvite } from "../accept-invite";
 
 const database = {
@@ -33,7 +34,7 @@ describe("acceptInvite", () => {
 
     await expect(
       acceptInvite(
-        { token: "bad", email: "a@b.com", password: "pw" },
+        { token: "bad", email: "a@b.com", password: "longenoughpw" },
         { database, transaction, hashPassword, generateId }
       )
     ).rejects.toMatchObject({ message: "Invalid invite link", status: 404 });
@@ -47,7 +48,7 @@ describe("acceptInvite", () => {
 
     await expect(
       acceptInvite(
-        { token: "tok", email: "a@b.com", password: "pw" },
+        { token: "tok", email: "a@b.com", password: "longenoughpw" },
         { database, transaction, hashPassword, generateId }
       )
     ).rejects.toMatchObject({ status: 400 });
@@ -61,7 +62,7 @@ describe("acceptInvite", () => {
 
     await expect(
       acceptInvite(
-        { token: "tok", email: "a@b.com", password: "pw" },
+        { token: "tok", email: "a@b.com", password: "longenoughpw" },
         { database, transaction, hashPassword, generateId }
       )
     ).rejects.toMatchObject({ status: 400 });
@@ -75,10 +76,43 @@ describe("acceptInvite", () => {
 
     await expect(
       acceptInvite(
-        { token: "tok", email: "other@b.com", password: "pw" },
+        { token: "tok", email: "other@b.com", password: "longenoughpw" },
         { database, transaction, hashPassword, generateId }
       )
     ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("rejects a password shorter than the minimum length", async () => {
+    database.inviteToken.findUnique.mockResolvedValue(validInvite);
+    const shortPassword = "a".repeat(MIN_PASSWORD_LENGTH - 1);
+
+    await expect(
+      acceptInvite(
+        { token: "tok", email: "a@b.com", password: shortPassword },
+        { database, transaction, hashPassword, generateId }
+      )
+    ).rejects.toMatchObject({
+      message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+      status: 400,
+    });
+
+    expect(hashPassword).not.toHaveBeenCalled();
+    expect(database.user.create).not.toHaveBeenCalled();
+  });
+
+  it("accepts a password exactly at the minimum length", async () => {
+    database.inviteToken.findUnique.mockResolvedValue(validInvite);
+    database.user.create.mockResolvedValue({ id: "user-1", email: "a@b.com" });
+    const boundaryPassword = "a".repeat(MIN_PASSWORD_LENGTH);
+
+    await expect(
+      acceptInvite(
+        { token: "tok", email: "a@b.com", password: boundaryPassword },
+        { database, transaction, hashPassword, generateId }
+      )
+    ).resolves.toMatchObject({ id: "user-1" });
+
+    expect(hashPassword).toHaveBeenCalledWith(boundaryPassword);
   });
 
   it("creates the user, account, and marks the invite used on the happy path", async () => {
@@ -86,7 +120,7 @@ describe("acceptInvite", () => {
     database.user.create.mockResolvedValue({ id: "user-1", email: "a@b.com" });
 
     const user = await acceptInvite(
-      { token: "tok", email: "A@B.com", name: "A", password: "pw" },
+      { token: "tok", email: "A@B.com", name: "A", password: "longenoughpw" },
       { database, transaction, hashPassword, generateId }
     );
 
@@ -120,7 +154,7 @@ describe("acceptInvite", () => {
 
     await expect(
       acceptInvite(
-        { token: "tok", email: "a@b.com", password: "pw" },
+        { token: "tok", email: "a@b.com", password: "longenoughpw" },
         { database, transaction, hashPassword, generateId }
       )
     ).rejects.toMatchObject({
@@ -137,7 +171,7 @@ describe("acceptInvite", () => {
 
     await expect(
       acceptInvite(
-        { token: "tok", email: "a@b.com", password: "pw" },
+        { token: "tok", email: "a@b.com", password: "longenoughpw" },
         { database, transaction, hashPassword, generateId }
       )
     ).rejects.toMatchObject({

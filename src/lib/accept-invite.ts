@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { auth, MIN_PASSWORD_LENGTH } from "@/lib/auth";
 import { Prisma } from "@/generated/prisma/client";
 
 type AcceptInviteDatabase = {
@@ -75,6 +75,13 @@ export async function acceptInvite(
   if (invite.email && invite.email.toLowerCase() !== email) {
     throw new AcceptInviteError(
       "This invite is for a different email address",
+      400
+    );
+  }
+
+  if (input.password.length < MIN_PASSWORD_LENGTH) {
+    throw new AcceptInviteError(
+      `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
       400
     );
   }

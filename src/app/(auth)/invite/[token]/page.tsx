@@ -115,7 +115,7 @@ export default function InvitePage({
                   name="password"
                   type="password"
                   required
-                  minLength={8}
+                  minLength={12}
                 />
               </div>
               <div className="space-y-2">
@@ -125,7 +125,7 @@ export default function InvitePage({
                   name="confirmPassword"
                   type="password"
                   required
-                  minLength={8}
+                  minLength={12}
                 />
               </div>
             </CardContent>

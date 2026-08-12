@@ -33,7 +33,7 @@ import { CreateEndpointDialog } from "@/components/project/create-endpoint-dialo
 import { TabContentSkeleton } from "@/components/skeletons";
 import { getProviderDisplayName } from "@/lib/provider-names";
 import { PERMISSION_GROUPS } from "@/lib/mcp/permissions";
-import { getConnectTarget } from "@/lib/provider-registry";
+import { getConnectTarget, getCredentialGroup } from "@/lib/provider-registry";
 import { Plug, Unplug, ArrowLeft, RefreshCw, AlertTriangle, XCircle, Plus } from "lucide-react";
 import { ServiceIcon } from "@/components/service-icons";
 import { toast } from "sonner";
@@ -63,6 +63,8 @@ interface Service {
   _count: { mcpEndpoints: number };
 }
 
+type OAuthApp = { appGroup: string; clientId: string; redirectUri: string };
+
 export function ServicesTab({ projectId }: { projectId: string }) {
   const searchParams = useSearchParams();
   const [services, setServices] = useState<Service[]>([]);
@@ -82,6 +84,16 @@ export function ServicesTab({ projectId }: { projectId: string }) {
   const [apiKeyValue, setApiKeyValue] = useState("");
   const [apiKeyLabel, setApiKeyLabel] = useState("");
   const [apiKeySubmitting, setApiKeySubmitting] = useState(false);
+
+  // BYO OAuth app state — which credential groups this project has registered,
+  // and whether this deployment is the cloud (where they are mandatory for the
+  // providers behind a verification wall).
+  const [cloud, setCloud] = useState(false);
+  const [oauthApps, setOauthApps] = useState<OAuthApp[]>([]);
+  const [redirectUriTemplate, setRedirectUriTemplate] = useState("");
+  const [oauthAppProvider, setOauthAppProvider] = useState<string | null>(null);
+  const [oauthAppForm, setOauthAppForm] = useState({ clientId: "", clientSecret: "" });
+  const [oauthAppSubmitting, setOauthAppSubmitting] = useState(false);
 
   // Email form state
   const [emailFormOpen, setEmailFormOpen] = useState(false);
@@ -110,8 +122,16 @@ export function ServicesTab({ projectId }: { projectId: string }) {
   async function loadServices() {
     setError(null);
     try {
-      const data = await apiGet<{ services: Service[] }>(`/api/projects/${projectId}/services`);
+      const [data, appData] = await Promise.all([
+        apiGet<{ services: Service[] }>(`/api/projects/${projectId}/services`),
+        apiGet<{ cloud: boolean; redirectUriTemplate: string; apps: OAuthApp[] }>(
+          `/api/projects/${projectId}/oauth-apps`
+        ),
+      ]);
       setServices(data.services || []);
+      setCloud(appData.cloud);
+      setOauthApps(appData.apps || []);
+      setRedirectUriTemplate(appData.redirectUriTemplate ?? "");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load services");
     } finally {
@@ -119,14 +139,28 @@ export function ServicesTab({ projectId }: { projectId: string }) {
     }
   }
 
-  function handleConnect(providerKey: string) {
-    const target = getConnectTarget(providerKey, projectId);
+  function hasOwnApp(providerKey: string): boolean {
+    const group = getCredentialGroup(providerKey);
+    return group !== null && oauthApps.some((app) => app.appGroup === group);
+  }
+
+  function openTarget(providerKey: string, onDialog: () => void) {
+    const target = getConnectTarget(providerKey, projectId, {
+      cloud,
+      hasOwnApp: hasOwnApp(providerKey),
+    });
     if (target.kind === "dialog") {
       if (target.dialog === "email") setEmailFormOpen(true);
+      else if (target.dialog === "oauthApp") setOauthAppProvider(providerKey);
       else setApiKeyProvider(providerKey);
+      onDialog();
     } else {
       window.location.href = target.url;
     }
+  }
+
+  function handleConnect(providerKey: string) {
+    openTarget(providerKey, () => {});
   }
 
   function resetEmailForm() {
@@ -162,15 +196,10 @@ export function ServicesTab({ projectId }: { projectId: string }) {
 
   function handleReconnect(service: Service) {
     setReconnecting(service.id);
-    const target = getConnectTarget(service.provider, projectId);
-    if (target.kind === "dialog") {
-      if (target.dialog === "email") setEmailFormOpen(true);
-      else setApiKeyProvider(service.provider);
+    openTarget(service.provider, () => {
       setDialogOpen(true);
       setReconnecting(null);
-    } else {
-      window.location.href = target.url;
-    }
+    });
   }
 
   function resetApiKeyForm() {
@@ -180,11 +209,18 @@ export function ServicesTab({ projectId }: { projectId: string }) {
     setApiKeySubmitting(false);
   }
 
+  function resetOAuthAppForm() {
+    setOauthAppProvider(null);
+    setOauthAppForm({ clientId: "", clientSecret: "" });
+    setOauthAppSubmitting(false);
+  }
+
   function handleDialogClose(open: boolean) {
     setDialogOpen(open);
     if (!open) {
       resetApiKeyForm();
       resetEmailForm();
+      resetOAuthAppForm();
     }
   }
 
@@ -213,6 +249,38 @@ export function ServicesTab({ projectId }: { projectId: string }) {
     }
   }
 
+  async function handleOAuthAppSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!oauthAppProvider) return;
+    const appGroup = getCredentialGroup(oauthAppProvider);
+    if (!appGroup) return;
+
+    setOauthAppSubmitting(true);
+    try {
+      await apiSend(`/api/projects/${projectId}/oauth-apps`, "POST", {
+        appGroup,
+        clientId: oauthAppForm.clientId,
+        clientSecret: oauthAppForm.clientSecret,
+      });
+      // Straight on to the provider consent screen — the credentials were only
+      // ever a prerequisite for this redirect, so do not make the user find the
+      // Connect button again.
+      const target = getConnectTarget(oauthAppProvider, projectId, {
+        cloud,
+        hasOwnApp: true,
+      });
+      if (target.kind === "redirect") {
+        window.location.href = target.url;
+        return;
+      }
+      resetOAuthAppForm();
+      loadServices();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to save credentials.");
+      setOauthAppSubmitting(false);
+    }
+  }
+
   function askDisconnect(serviceId: string) {
     setServiceToDisconnect(serviceId);
     setConfirmOpen(true);
@@ -236,6 +304,12 @@ export function ServicesTab({ projectId }: { projectId: string }) {
 
   if (loading) return <TabContentSkeleton />;
 
+  // Server-derived (from BETTER_AUTH_URL) so it matches byte-for-byte what
+  // the callback will send. window.location.origin would drift behind a proxy.
+  const oauthRedirectUri = oauthAppProvider
+    ? redirectUriTemplate.replace("{group}", getCredentialGroup(oauthAppProvider) ?? "")
+    : "";
+
   const providers = Object.entries(PERMISSION_GROUPS).map(([key, group]) => ({
     key,
     name: group.name,
@@ -254,20 +328,86 @@ export function ServicesTab({ projectId }: { projectId: string }) {
             <DialogTitle>
               {emailFormOpen
                 ? "Connect Email (IMAP/SMTP)"
-                : apiKeyProvider
-                  ? `Connect ${getProviderDisplayName(apiKeyProvider)}`
-                  : "Connect a Service"}
+                : oauthAppProvider
+                  ? `Your OAuth app for ${getProviderDisplayName(oauthAppProvider)}`
+                  : apiKeyProvider
+                    ? `Connect ${getProviderDisplayName(apiKeyProvider)}`
+                    : "Connect a Service"}
             </DialogTitle>
             <DialogDescription>
               {emailFormOpen
                 ? "Enter your email server credentials to connect."
-                : apiKeyProvider
-                  ? "Enter your API key to connect this service."
-                  : "Choose a service to connect to this project."}
+                : oauthAppProvider
+                  ? "This provider requires an OAuth application you own. It is used for every service in the same group, so you only enter it once."
+                  : apiKeyProvider
+                    ? "Enter your API key to connect this service."
+                    : "Choose a service to connect to this project."}
             </DialogDescription>
           </DialogHeader>
 
-          {emailFormOpen ? (
+          {oauthAppProvider ? (
+            <form onSubmit={handleOAuthAppSubmit} className="space-y-4">
+              <button
+                type="button"
+                onClick={resetOAuthAppForm}
+                className="flex cursor-pointer items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ArrowLeft className="size-3" />
+                Back to services
+              </button>
+
+              <div className="rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
+                Register an OAuth application with the provider, then paste its
+                credentials here. Add the redirect URI below to the app first —
+                without it the provider rejects the sign-in with
+                <code className="mx-1">redirect_uri_mismatch</code>.
+              </div>
+
+              <div className="space-y-2">
+                <Label>Redirect URI (add this to your app)</Label>
+                <div className="flex gap-2">
+                  <Input readOnly value={oauthRedirectUri} className="font-mono text-xs" />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="cursor-pointer"
+                    onClick={() => {
+                      navigator.clipboard.writeText(oauthRedirectUri);
+                      toast.success("Redirect URI copied.");
+                    }}
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="oauth-client-id">Client ID</Label>
+                <Input
+                  id="oauth-client-id"
+                  value={oauthAppForm.clientId}
+                  onChange={(e) => setOauthAppForm((f) => ({ ...f, clientId: e.target.value }))}
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="oauth-client-secret">Client Secret</Label>
+                <Input
+                  id="oauth-client-secret"
+                  type="password"
+                  value={oauthAppForm.clientSecret}
+                  onChange={(e) => setOauthAppForm((f) => ({ ...f, clientSecret: e.target.value }))}
+                  required
+                />
+              </div>
+
+              <Button type="submit" className="w-full cursor-pointer" disabled={oauthAppSubmitting}>
+                {oauthAppSubmitting ? "Saving…" : "Save and continue"}
+              </Button>
+            </form>
+          ) : emailFormOpen ? (
             <form onSubmit={handleEmailSubmit} className="space-y-4">
               <button
                 type="button"

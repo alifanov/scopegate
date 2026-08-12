@@ -26,6 +26,9 @@ describe("threads_publish_thread", () => {
   });
 
   it("polls the container until FINISHED before publishing text posts too", async () => {
+    // Freeze Date.now() so the budget math (deadline - now - reserve) is deterministic —
+    // real elapsed ms between the handler's Date.now() calls made this flaky (4499 vs 4500).
+    vi.spyOn(Date, "now").mockReturnValue(0);
     vi.mocked(threadsFetch)
       .mockResolvedValueOnce({ id: "container-1" }) // create container
       .mockResolvedValueOnce({ status: "FINISHED" }) // status poll

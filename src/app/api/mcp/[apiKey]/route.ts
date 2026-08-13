@@ -21,8 +21,13 @@ import { PROJECT_ROLE } from "@/lib/project-roles";
 // maxDuration tells Next.js/Vercel the expected maximum connection duration.
 export const maxDuration = 300;
 
-function withSseKeepAlive(response: Response, intervalMs = 30_000): Response {
+// Statuses that per the Fetch spec must not carry a body — `new Response(body, { status })`
+// throws "Invalid response status code" if body is non-null for these.
+const NULL_BODY_STATUSES = new Set([204, 205, 304]);
+
+export function withSseKeepAlive(response: Response, intervalMs = 30_000): Response {
   if (!response.body) return response;
+  if (NULL_BODY_STATUSES.has(response.status)) return response;
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("text/event-stream")) return response;
 

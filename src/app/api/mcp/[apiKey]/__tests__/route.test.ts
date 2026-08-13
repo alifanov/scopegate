@@ -38,7 +38,7 @@ vi.mock("@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js", () => (
   },
 }));
 
-import { GET, POST } from "../route";
+import { GET, POST, withSseKeepAlive } from "../route";
 import { db } from "@/lib/db";
 import { resetInvalidMcpApiKeyRateLimitsForTest } from "@/lib/mcp/api-keys";
 import { createMcpServerForEndpoint } from "@/lib/mcp/handler";
@@ -129,5 +129,35 @@ describe("MCP route invalid API key throttling", () => {
       code: 2,
       message: "transport exploded",
     });
+  });
+});
+
+describe("withSseKeepAlive", () => {
+  it.each([204, 205, 304])(
+    // The `Response` constructor itself rejects a non-null body on these statuses, but the
+    // MCP SDK transport can still hand back an object shaped like one (e.g. a proxied
+    // response) with a non-null `body` — that's the real-world crash this guards against.
+    "returns the original response untouched for status %d with a non-null body",
+    (status) => {
+      const { readable } = new TransformStream<Uint8Array, Uint8Array>();
+      const response = {
+        status,
+        body: readable,
+        headers: new Headers({ "content-type": "text/event-stream" }),
+      } as unknown as Response;
+
+      expect(() => withSseKeepAlive(response)).not.toThrow();
+      expect(withSseKeepAlive(response)).toBe(response);
+    }
+  );
+
+  it("wraps a 200 text/event-stream response with keep-alive pings", () => {
+    const { readable } = new TransformStream<Uint8Array, Uint8Array>();
+    const response = new Response(readable, {
+      status: 200,
+      headers: { "content-type": "text/event-stream" },
+    });
+
+    expect(withSseKeepAlive(response)).not.toBe(response);
   });
 });

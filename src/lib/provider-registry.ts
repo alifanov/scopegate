@@ -271,6 +271,9 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
     transport: {
       baseUrl: "https://www.googleapis.com/webmasters/v3",
       altBaseUrls: { v1: "https://searchconsole.googleapis.com/v1" },
+      // Applies to all operations except /urlInspection/*, which overrides with its own
+      // higher explicit timeout (see URL_INSPECTION_TIMEOUT_MS in google-search-console.ts).
+      timeoutMs: 15_000,
       retry: {
         delaysMs: [1_000, 2_000, 4_000],
         statusCodes: [429],

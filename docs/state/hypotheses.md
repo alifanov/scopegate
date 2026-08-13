@@ -10,7 +10,7 @@ without new data.
 
 | ID | Bet | Evidence | Status |
 |---|---|---|---|
-| H-002 | `/api/mcp/[apiKey]` 400-rate reflects malformed client requests, not a server defect | 3/3 — 52 reqs (0.11%) [2026-08-11](../logs/2026-08-11.md) → 582 reqs (0.74%) [2026-08-12](../logs/2026-08-12.md) → 262 reqs (0.48%) [2026-08-13](../logs/2026-08-13.md) — task #227 filed to classify `body_preview` samples | testing |
+| H-002 | `/api/mcp/[apiKey]` 400-rate reflects malformed client requests, not a server defect | 3/3 — 52 reqs (0.11%) [2026-08-11](../logs/2026-08-11.md) → 582 reqs (0.74%) [2026-08-12](../logs/2026-08-12.md) → 262 reqs (0.48%) [2026-08-13](../logs/2026-08-13.md) — task #227's SigNoz query for `event: "mcp.invalid_request"` returned zero hits because the log was written via `console.log`, which `bridgeConsoleToOtelLogs()` (`src/lib/otel-console-bridge.ts`) never forwards (only error/warn/info are bridged) — samples were never ingested, not absent. Fixed to `console.warn` (`route.ts:260`). Classification still needs real `body_preview` samples, which only exist from now on — task #227 snoozed to let them accumulate | testing |
 | H-003 | No analytics instrumentation (no OpenPanel MCP, no client-side tracking) — landing→signup funnel changes shipped this week are unmeasured | 1/3 — [2026-08-13](../logs/2026-08-13.md) | tracking |
 
 ## Closed

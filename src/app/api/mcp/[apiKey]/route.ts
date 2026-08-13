@@ -257,7 +257,11 @@ async function handleMcpRequest(
     if (response.status === 400) {
       recordMcpInvalidRequest("invalid_format");
       const bodyPreview = await requestClone.text().catch(() => "<unreadable>");
-      console.log(
+      // console.warn, not .log: the OTel console bridge only forwards
+      // error/warn/info (see otel-console-bridge.ts) — this was invisible to
+      // SigNoz, which is why task #227's body_preview classification query
+      // came back empty.
+      console.warn(
         JSON.stringify({
           event: "mcp.invalid_request",
           route: "/api/mcp/[apiKey]",

@@ -37,9 +37,13 @@ vi.mock("@/lib/oauth-token-lifecycle", () => ({
 import {
   LINKEDIN_CREATE_POST_TIMEOUT_MS,
   LINKEDIN_DEFAULT_TIMEOUT_MS,
+  LINKEDIN_UPLOAD_TIMEOUT_MS,
   getLinkedInMemberUrn,
   linkedinFetch,
+  linkedinUploadDocument,
+  linkedinUploadImage,
 } from "../linkedin";
+import { getValidAccessToken } from "@/lib/oauth-token-lifecycle";
 
 describe("linkedinFetch", () => {
   beforeEach(() => {
@@ -140,5 +144,66 @@ describe("linkedinFetch", () => {
       where: { id: "conn-without-metadata" },
       data: { metadata: { linkedinMemberUrn: "urn:li:person:new-sub" } },
     });
+  });
+});
+
+describe("linkedin binary upload timeout", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(db.serviceConnection.findUnique).mockResolvedValue({
+      metadata: { linkedinMemberUrn: "urn:li:person:abc123" },
+    } as never);
+    vi.mocked(getValidAccessToken).mockResolvedValue("token-1");
+  });
+
+  it("linkedinUploadImage passes a timeout to the binary safeFetch PUT", async () => {
+    vi.mocked(serviceFetch).mockResolvedValue(
+      new Response(JSON.stringify({ value: { uploadUrl: "https://up.example/x", image: "urn:li:image:1" } }), {
+        status: 200,
+      })
+    );
+    vi.mocked(safeFetch).mockResolvedValue(new Response(null, { status: 201 }));
+
+    await expect(
+      linkedinUploadImage("conn-1", Buffer.from("data"), "image/png")
+    ).resolves.toBe("urn:li:image:1");
+
+    expect(safeFetch).toHaveBeenCalledWith(
+      "https://up.example/x",
+      expect.objectContaining({ method: "PUT", timeout: LINKEDIN_UPLOAD_TIMEOUT_MS })
+    );
+  });
+
+  it("linkedinUploadDocument passes a timeout to the binary safeFetch PUT", async () => {
+    vi.mocked(serviceFetch).mockResolvedValue(
+      new Response(JSON.stringify({ value: { uploadUrl: "https://up.example/y", document: "urn:li:document:1" } }), {
+        status: 200,
+      })
+    );
+    vi.mocked(safeFetch).mockResolvedValue(new Response(null, { status: 201 }));
+
+    await expect(
+      linkedinUploadDocument("conn-1", Buffer.from("data"), "application/pdf")
+    ).resolves.toBe("urn:li:document:1");
+
+    expect(safeFetch).toHaveBeenCalledWith(
+      "https://up.example/y",
+      expect.objectContaining({ method: "PUT", timeout: LINKEDIN_UPLOAD_TIMEOUT_MS })
+    );
+  });
+
+  it("propagates a TimeoutError from the binary upload safeFetch call", async () => {
+    vi.mocked(serviceFetch).mockResolvedValue(
+      new Response(JSON.stringify({ value: { uploadUrl: "https://up.example/z", image: "urn:li:image:2" } }), {
+        status: 200,
+      })
+    );
+    const err = new Error(`Request timed out after ${LINKEDIN_UPLOAD_TIMEOUT_MS}ms`);
+    err.name = "TimeoutError";
+    vi.mocked(safeFetch).mockRejectedValue(err);
+
+    await expect(
+      linkedinUploadImage("conn-1", Buffer.from("data"), "image/png")
+    ).rejects.toThrow("Request timed out");
   });
 });

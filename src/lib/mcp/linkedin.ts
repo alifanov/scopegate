@@ -9,6 +9,7 @@ export const LINKEDIN_VERSION = "202601";
 const LINKEDIN_TRANSPORT = getProviderDef("linkedin")?.transport;
 export const LINKEDIN_DEFAULT_TIMEOUT_MS = LINKEDIN_TRANSPORT?.timeoutMs ?? 1_400;
 export const LINKEDIN_CREATE_POST_TIMEOUT_MS = 1_250;
+export const LINKEDIN_UPLOAD_TIMEOUT_MS = 30_000;
 
 // Cache member URN per service connection
 const memberUrnCache = new Map<string, string>();
@@ -137,6 +138,7 @@ export async function linkedinUploadImage(
       "Content-Type": mimeType,
     },
     body: new Uint8Array(imageBuffer),
+    timeout: LINKEDIN_UPLOAD_TIMEOUT_MS,
   });
 
   if (!uploadRes.ok) {
@@ -186,6 +188,7 @@ export async function linkedinUploadDocument(
       "Content-Type": mimeType,
     },
     body: new Uint8Array(documentBuffer),
+    timeout: LINKEDIN_UPLOAD_TIMEOUT_MS,
   });
 
   if (!uploadRes.ok) {

@@ -66,14 +66,17 @@ describe("getCredentialGroup", () => {
 });
 
 describe("providerRequiresOwnApp", () => {
-  it("covers the providers behind a verification wall", () => {
-    for (const key of ["gmail", "youtube", "metaAds", "instagram", "threads", "linkedin", "twitter"]) {
+  it("covers every OAuth provider, not just the ones behind a verification wall", () => {
+    for (const key of [
+      "gmail", "youtube", "metaAds", "instagram", "threads", "linkedin", "twitter",
+      "github", "slack", "notion", "hubspot", "jira", "salesforce",
+    ]) {
       expect(providerRequiresOwnApp(key), key).toBe(true);
     }
   });
 
-  it("leaves the self-serve providers on the operator's app", () => {
-    for (const key of ["github", "slack", "notion", "hubspot", "jira", "salesforce"]) {
+  it("exempts providers that have no OAuth app at all", () => {
+    for (const key of ["ahrefs", "semrush", "openrouter"]) {
       expect(providerRequiresOwnApp(key), key).toBe(false);
     }
   });
@@ -122,11 +125,26 @@ describe("resolveOAuthApp", () => {
     expect(error.status).toBe(428);
   });
 
-  it("still uses the operator's app on the cloud for self-serve providers", async () => {
+  // The operator's app is never lent out on the cloud, even when its env vars
+  // are present and the provider needs no verification to launch.
+  it("ignores the operator's env on the cloud and demands the user's own app", async () => {
+    vi.stubEnv("GITHUB_CLIENT_ID", "gh-id");
+    vi.stubEnv("GITHUB_CLIENT_SECRET", "gh-secret");
+    const error = await resolveOAuthApp("github", "project-1", {
+      database: noRows() as never,
+      cloud: true,
+    }).catch((e) => e);
+
+    expect(error).toBeInstanceOf(OAuthAppNotConfiguredError);
+    expect(error.appGroup).toBe("github");
+    expect(error.status).toBe(428);
+  });
+
+  it("still uses the operator's app when self-hosted", async () => {
     vi.stubEnv("GITHUB_CLIENT_ID", "gh-id");
     vi.stubEnv("GITHUB_CLIENT_SECRET", "gh-secret");
     await expect(
-      resolveOAuthApp("github", "project-1", { database: noRows() as never, cloud: true }),
+      resolveOAuthApp("github", "project-1", { database: noRows() as never, cloud: false }),
     ).resolves.toEqual({ clientId: "gh-id", clientSecret: "gh-secret" });
   });
 
@@ -171,8 +189,14 @@ describe("getConnectTarget with BYO", () => {
     });
   });
 
-  it("never asks for credentials for a self-serve provider", () => {
+  it("asks for credentials for every OAuth provider on the cloud", () => {
     expect(getConnectTarget("github", "project-1", { cloud: true, hasOwnApp: false }).kind).toBe(
+      "dialog",
+    );
+  });
+
+  it("leaves self-hosted going straight to consent", () => {
+    expect(getConnectTarget("github", "project-1", { cloud: false, hasOwnApp: false }).kind).toBe(
       "redirect",
     );
   });

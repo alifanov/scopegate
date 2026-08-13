@@ -1,27 +1,32 @@
 # Bring your own OAuth credentials
 
-Some providers cannot be offered through a shared application. Google's
-restricted scopes (`gmail.modify`, `drive`) require an annual CASA security
-assessment; Meta requires App Review plus business verification; LinkedIn's
-posting scope is gated behind its partner programme. Until those are granted,
-a shared app is capped at 100 users and its refresh tokens expire weekly.
+A shared application is the wrong unit of trust. Some providers make that
+explicit — Google's restricted scopes (`gmail.modify`, `drive`) require an
+annual CASA security assessment, Meta requires App Review plus business
+verification, LinkedIn's posting scope is gated behind its partner programme,
+and until those are granted a shared app is capped at 100 users with refresh
+tokens that expire weekly. The rest are merely quieter about it: one app means
+one pooled rate limit and one consent screen whose revocation takes every
+customer down together.
 
-ScopeGate's answer is to let each project use **its own** OAuth application for
-those providers. On the cloud deployment this is required. On a self-hosted
-instance it is optional — the operator's environment variables keep working
-exactly as before.
+So on the cloud, ScopeGate lends nobody its own access — **every** OAuth
+provider uses the project's own application. On a self-hosted instance it stays
+optional: the operator's environment variables keep working exactly as before.
 
 ## Which providers need it
 
-| Credential group | Covers | Required on cloud |
+Every provider connected over OAuth. API-key providers (Ahrefs, Semrush,
+OpenRouter, …) have no OAuth app and are unaffected.
+
+| Credential group | Covers | Verification wall |
 |---|---|---|
-| `google` | Gmail, Calendar, Drive, Google Ads, Search Console, YouTube, Tag Manager | yes |
-| `meta` | Meta Ads | yes |
-| `instagram` | Instagram | yes |
-| `threads` | Threads | yes |
-| `linkedin` | LinkedIn | yes |
-| `twitter` | X/Twitter, X/Twitter Ads | yes |
-| `github`, `slack`, `notion`, `hubspot`, `jira`, `salesforce` | — | no, the operator's app is used |
+| `google` | Gmail, Calendar, Drive, Google Ads, Search Console, YouTube, Tag Manager | CASA audit |
+| `meta` | Meta Ads | App Review + business verification |
+| `instagram` | Instagram | App Review |
+| `threads` | Threads | App Review |
+| `linkedin` | LinkedIn | partner programme |
+| `twitter` | X/Twitter, X/Twitter Ads | paid API tier |
+| `github`, `slack`, `notion`, `hubspot`, `jira`, `salesforce` | one each | none — self-serve to register |
 
 One application covers a whole group. A Google client entered once serves all
 seven Google services.

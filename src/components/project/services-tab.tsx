@@ -86,8 +86,8 @@ export function ServicesTab({ projectId }: { projectId: string }) {
   const [apiKeySubmitting, setApiKeySubmitting] = useState(false);
 
   // BYO OAuth app state — which credential groups this project has registered,
-  // and whether this deployment is the cloud (where they are mandatory for the
-  // providers behind a verification wall).
+  // and whether this deployment is the cloud (where they are mandatory for
+  // every OAuth provider).
   const [cloud, setCloud] = useState(false);
   const [oauthApps, setOauthApps] = useState<OAuthApp[]>([]);
   const [redirectUriTemplate, setRedirectUriTemplate] = useState("");

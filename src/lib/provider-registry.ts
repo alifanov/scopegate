@@ -1109,22 +1109,6 @@ export type ConnectTarget =
 // grouping, so the credential group is derived from it rather than being a
 // second list that can drift.
 
-/**
- * Groups whose public launch requires a verification process the operator
- * cannot complete on a user's behalf — Google's CASA audit for restricted
- * scopes, Meta's App Review and business verification, LinkedIn's partner
- * programme, X's paid API tiers. On the cloud deployment these demand the
- * user's own OAuth app; self-hosted keeps using the operator's env vars.
- */
-const OWN_APP_REQUIRED_GROUPS: ReadonlySet<string> = new Set([
-  "google",
-  "meta",
-  "instagram",
-  "threads",
-  "linkedin",
-  "twitter",
-]);
-
 /** The credential group a provider's OAuth app belongs to, or null for
  *  API-key/email providers that have no OAuth app at all. */
 export function getCredentialGroup(providerKey: string): string | null {
@@ -1133,8 +1117,17 @@ export function getCredentialGroup(providerKey: string): string | null {
   return def.connect.startRoute;
 }
 
+/**
+ * On the cloud deployment every OAuth group demands the user's own app — the
+ * operator lends nobody its access. Some groups make that unavoidable anyway
+ * (Google's CASA audit for restricted scopes, Meta's App Review, LinkedIn's
+ * partner programme, X's paid tiers), and for the rest a shared app would still
+ * pool every customer's traffic under one rate limit and one revocable consent
+ * screen. Self-hosted is unaffected: the caller only consults this when
+ * `isCloud()`, so an operator's env vars keep working there.
+ */
 export function groupRequiresOwnApp(group: string | null): boolean {
-  return group !== null && OWN_APP_REQUIRED_GROUPS.has(group);
+  return group !== null;
 }
 
 export function providerRequiresOwnApp(providerKey: string): boolean {

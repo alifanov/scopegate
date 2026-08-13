@@ -64,6 +64,19 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // Canonical host is the apex; www is served by the same container (both FQDNs
+  // are registered in Coolify so Traefik issues a cert for each) and 301s here.
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.scopegate.dev" }],
+        destination: "https://scopegate.dev/:path*",
+        // 301, not `permanent: true` — that emits 308.
+        statusCode: 301,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

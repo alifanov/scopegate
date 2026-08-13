@@ -50,7 +50,8 @@ RUN --mount=type=cache,id=npm,target=/root/.npm \
 COPY docker/prisma.config.ts /prisma-runtime/prisma.config.ts
 
 COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh && \
+RUN mkdir -p /app/data && \
+    chmod +x /docker-entrypoint.sh && \
     chown -R node:node /app /prisma-runtime /docker-entrypoint.sh
 
 USER node

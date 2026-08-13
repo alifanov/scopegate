@@ -12,7 +12,27 @@ AI Access Proxy Layer. Connect external services (e.g. Google), define granular 
 - **MCP**: `@modelcontextprotocol/sdk` (Streamable HTTP)
 - **Package Manager**: pnpm
 
-## Getting Started
+## Quick Start (self-hosted)
+
+Full feature parity with the hosted cloud version — nothing is cut for self-host.
+
+```bash
+git clone https://github.com/alifanov/scopegate.git
+cd scopegate
+docker compose --profile local up
+```
+
+Open [http://localhost:3000](http://localhost:3000). No `.env` file needed: a local
+Postgres and a fresh `BETTER_AUTH_SECRET` are provisioned automatically, and the
+generated admin login is printed once in the `app` container logs on first boot
+(look for `Generated admin login`) — search it with `docker compose logs app | grep -A4 "First run"`.
+The password is also saved to the `app_data` volume so it survives restarts.
+
+To connect real services (Gmail, LinkedIn, GitHub, …), copy `.env.example` to `.env`
+and fill in the OAuth client id/secret for the providers you want — every block is
+independent and optional, a provider without credentials simply doesn't show up.
+
+## Development Setup
 
 ### Prerequisites
 

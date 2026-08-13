@@ -34,10 +34,14 @@ services:
     environment:
       # External DB in prod; falls back to the local `postgres` service for `--profile local`.
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/scopegate?schema=public}
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required}
+      # Left unset here on purpose (Task #229): docker-entrypoint.sh generates a strong random
+      # value on first boot and persists it on the app_data volume when the env var is empty, so
+      # a self-host quick start needs zero manual .env editing. Set either var explicitly (e.g. in
+      # Coolify) to skip generation and pin your own value.
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@scopegate.local}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID:-}
@@ -80,10 +84,13 @@ services:
       POLAR_SERVER: ${POLAR_SERVER:-}
       POLAR_PRODUCT_PRO: ${POLAR_PRODUCT_PRO:-}
       POLAR_PRODUCT_TEAM: ${POLAR_PRODUCT_TEAM:-}
-    # Coolify proxies traffic to the container by FQDN over its internal network —
-    # publish the port to the host only for local runs (uncomment for `--profile local`).
-    # ports:
-    #   - "3000:3000"
+    # Persists generated secrets (see docker-entrypoint.sh) across restarts/redeploys — without
+    # this, a container recreate would rotate BETTER_AUTH_SECRET and strand encrypted tokens.
+    volumes:
+      - app_data:/app/data
+    # Coolify proxies traffic to the container by FQDN over its internal network — local port
+    # publishing lives in docker-compose.override.yml, auto-merged only for `docker compose up`
+    # without an explicit `-f` (i.e. never for Coolify's deploy).
     expose:
       - "3000"
     # Coolify reads the healthcheck from compose, not from the Dockerfile's HEALTHCHECK.
@@ -129,3 +136,4 @@ networks:
 
 volumes:
   postgres_data:
+  app_data:

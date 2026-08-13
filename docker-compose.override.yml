@@ -1,0 +1,7 @@
+# Self-host quick start only. `docker compose up` auto-merges this file when no `-f` flag is
+# given; Coolify always deploys with an explicit `-f docker-compose.yaml`, so it never sees this.
+# Publishes the app port to the host so http://localhost:3000 works without editing anything.
+services:
+  app:
+    ports:
+      - "3000:3000"

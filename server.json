@@ -1,0 +1,25 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.alifanov/scopegate",
+  "title": "ScopeGate",
+  "description": "Permission gateway for AI agents: scoped MCP endpoints over 27 services, audited and revocable.",
+  "version": "1.0.1",
+  "websiteUrl": "https://scopegate.dev",
+  "repository": {
+    "url": "https://github.com/alifanov/scopegate",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://scopegate.dev/api/mcp/{api_key}",
+      "variables": {
+        "api_key": {
+          "description": "Your ScopeGate endpoint API key. Create one at https://scopegate.dev: connect a service, pick the allowed actions, copy the endpoint key.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      }
+    }
+  ]
+}

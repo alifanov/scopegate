@@ -1,6 +1,8 @@
+import { MailIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { isCloud } from "@/lib/cloud";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -61,6 +63,16 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
+        {isCloud() && (
+          <a
+            href="mailto:hello@scopegate.dev"
+            aria-label="Contact us by email"
+            title="Contact us"
+            className="fixed bottom-5 right-5 z-50 flex size-12 cursor-pointer items-center justify-center rounded-full bg-violet-600 text-white shadow-lg transition-colors hover:bg-violet-500"
+          >
+            <MailIcon className="size-5" />
+          </a>
+        )}
         <Toaster />
       </body>
     </html>

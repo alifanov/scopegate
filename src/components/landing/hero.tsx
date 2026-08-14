@@ -132,9 +132,9 @@ export function Hero() {
             {/* description */}
             <p className="animate-fade-up animate-delay-300 hidden sm:block text-lg text-slate-400 max-w-[480px] leading-relaxed">
               ScopeGate is a permission gateway between your AI agents and the
-              external services they reach. Connect a service once, toggle the
-              exact actions each agent may call, and get a scoped MCP endpoint
-              with every request logged — in minutes.
+              accounts they reach — yours or your clients&apos;. Connect a service
+              once, toggle the exact actions each agent may call, and hand it a
+              scoped MCP endpoint where every request is logged.
             </p>
 
             {/* trust signals */}

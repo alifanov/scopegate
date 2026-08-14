@@ -1,6 +1,25 @@
 # ScopeGate
 
-AI Access Proxy Layer. Connect external services (e.g. Google), define granular permissions, and receive an MCP endpoint URL for use in AI agents. Acts as a permission gateway — exposing only the specific capabilities you authorize, more granular than native OAuth scopes.
+**Never hand an AI agent a full OAuth scope again.**
+
+ScopeGate sits between your agents and the accounts they reach — yours or your
+clients'. You connect a service once, tick the exact actions an agent may call,
+and hand it an MCP endpoint that can do nothing else. Every call is logged; one
+click kills the key without touching the connection.
+
+- **Per-action permissions** — `gmail:read_emails` yes, `gmail:send_email` no. Finer than any provider's OAuth scopes.
+- **Audit trail** — who, which tool, what outcome, how long. Per project, exportable.
+- **One-click revocation** — regenerate an endpoint key; the service connection stays.
+- **Tokens never leave** — AES-256-GCM at rest, refreshed automatically, agents only ever see `sg_…`.
+
+Run it yourself in one command:
+
+```bash
+docker compose --profile local up
+```
+
+Open [http://localhost:3000](http://localhost:3000) — the admin login is printed in
+the container logs on first boot. Details in [Quick Start](#quick-start-self-hosted).
 
 ## Tech Stack
 
@@ -36,7 +55,7 @@ independent and optional, a provider without credentials simply doesn't show up.
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20.19+, 22.12+ or 24+ (required by Prisma 7)
 - pnpm
 - PostgreSQL
 
@@ -100,10 +119,12 @@ src/
 │   ├── auth-client.ts       # Better Auth client SDK
 │   ├── auth-middleware.ts   # getCurrentUser() helper
 │   ├── bootstrap.ts         # Admin user bootstrap on empty DB
+│   ├── provider-registry.ts # Every supported provider — the one file to edit
 │   └── mcp/
-│       ├── permissions.ts   # Permission groups (source of truth)
-│       ├── tools.ts         # MCP tool definitions
-│       └── handler.ts       # MCP server factory
+│       ├── permissions.ts   # Permission groups (derived from the registry)
+│       ├── tools/           # One file per service, aggregated in index.ts
+│       ├── service-fetch.ts # Unified, SSRF-safe transport for all providers
+│       └── handler.ts       # MCP server factory + audit logging
 ├── generated/prisma/        # Generated Prisma client
 └── middleware.ts             # Route protection
 ```
@@ -131,7 +152,14 @@ pnpm prisma studio    # Open Prisma Studio (DB browser)
 
 ## Permissions
 
-Permissions are defined in `src/lib/mcp/permissions.ts` and grouped by service:
+A permission is a single action, not a service — `gmail:read_emails` can be granted
+without `gmail:send_email`. Groups are derived from `src/lib/provider-registry.ts`
+(27 providers: Google Workspace, Google Ads & Search Console, Meta, LinkedIn,
+Twitter, Slack, Notion, Jira, HubSpot, Salesforce, Stripe, Airtable, …) and listed
+in `src/lib/mcp/permissions.ts`. Adding a provider means editing the registry —
+transport, token strategy and permission groups are all derived from it.
+
+A few Google examples:
 
 | Group | Actions |
 |---|---|

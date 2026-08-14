@@ -75,7 +75,9 @@ export function Problem() {
           <p className="text-slate-400 max-w-2xl mx-auto text-lg leading-relaxed">
             Authorization is evaluated against the agent&apos;s identity, not the
             requester&apos;s. Traditional security controls are insufficient for
-            autonomous agents that <em className="text-slate-300">reason</em> instead of execute.
+            autonomous agents that <em className="text-slate-300">reason</em> instead of execute —
+            and when the agent runs inside a client&apos;s account, the blast radius
+            isn&apos;t yours to absorb.
           </p>
         </div>
 

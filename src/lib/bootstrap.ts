@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { auth } from "./auth";
+import { createCredentialUser } from "./create-user";
 
 export async function ensureAdminUser() {
   const email = process.env.ADMIN_EMAIL;
@@ -15,9 +15,7 @@ export async function ensureAdminUser() {
   const existing = await db.user.findUnique({ where: { email } });
   if (existing) return;
 
-  await auth.api.signUpEmail({
-    body: { email, password, name: "Admin" },
-  });
+  await createCredentialUser(email, password, "Admin");
 
   console.log(`[ScopeGate] Admin user created: ${email}`);
 }

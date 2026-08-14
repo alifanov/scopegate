@@ -177,7 +177,9 @@ if (!endpoint) {
 
   const sdk = new NodeSDK({
     resource: resourceFromAttributes({
-      [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME ?? "scopegate",
+      // `||`, not `??`: docker-compose passes `${OTEL_SERVICE_NAME:-}`, so an
+      // unset var arrives as "" — which `??` would happily use as the name.
+      [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME || "scopegate",
     }),
     spanProcessors: [
       new SensitiveUrlSpanProcessor(),

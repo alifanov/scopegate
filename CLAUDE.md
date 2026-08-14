@@ -101,7 +101,9 @@ THREADS_APP_ID/SECRET
 TWITTER_CLIENT_ID/SECRET
 NOTION_CLIENT_ID/SECRET
 OTEL_EXPORTER_OTLP_ENDPOINT  # SigNoz OTLP endpoint
-OTEL_SERVICE_NAME            # service name for traces
+OTEL_SERVICE_NAME            # service name for traces; prod deployments report as
+                             # `scopegate-selfhost` (chatindex.app) / `scopegate-cloud`
+                             # (scopegate.dev) — query SigNoz by those, not `scopegate`
 OBSERVABILITY_URL            # SigNoz base URL
 OBSERVABILITY_API_KEY        # SigNoz ingestion key
 

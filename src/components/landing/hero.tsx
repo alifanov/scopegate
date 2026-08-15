@@ -20,7 +20,7 @@ const CODE_LINES = [
 ];
 
 const colorMap: Record<string, string> = {
-  comment: "text-slate-500",
+  comment: "text-slate-400",
   dim:     "text-slate-300",
   bad:     "text-red-400",
   good:    "text-emerald-400",
@@ -103,7 +103,7 @@ export function Hero() {
                 <br />
                 access to your data.
               </h1>
-              <p className="text-2xl text-slate-500 font-light pt-1">
+              <p className="text-2xl text-slate-400 font-light pt-1">
                 It&apos;s time to fix that.
               </p>
             </div>
@@ -138,7 +138,7 @@ export function Hero() {
             </p>
 
             {/* trust signals */}
-            <div className="animate-fade-up animate-delay-400 flex flex-wrap items-center gap-5 text-xs text-slate-500">
+            <div className="animate-fade-up animate-delay-400 flex flex-wrap items-center gap-5 text-xs text-slate-400">
               <span className="flex items-center gap-1.5">
                 <span className="text-violet-500"><ShieldIcon /></span>
                 No credit card required
@@ -167,7 +167,7 @@ export function Hero() {
                 <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
                 <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
                 <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
-                <span className="ml-2 text-xs text-slate-600 font-mono">agent-setup.ts</span>
+                <span className="ml-2 text-xs text-slate-400 font-mono">agent-setup.ts</span>
               </div>
 
               {/* code lines */}

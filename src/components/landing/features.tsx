@@ -66,7 +66,7 @@ export function Features() {
           <h2 className="text-4xl md:text-5xl font-bold text-slate-50">
             The missing permission layer
             <br />
-            <span className="text-slate-500">for the MCP ecosystem</span>
+            <span className="text-slate-400">for the MCP ecosystem</span>
           </h2>
         </div>
 
@@ -96,17 +96,17 @@ export function Features() {
 
             {/* permission matrix visualization */}
             <div className="bg-slate-950/60 rounded-xl border border-slate-800/50 overflow-hidden">
-              <div className="px-4 py-2.5 border-b border-slate-800/50 text-xs text-slate-600 font-mono">
+              <div className="px-4 py-2.5 border-b border-slate-800/50 text-xs text-slate-400 font-mono">
                 Permission matrix
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs font-mono">
                   <thead>
                     <tr className="border-b border-slate-800/50">
-                      <th className="px-4 py-2.5 text-left text-slate-600 font-normal">Agent</th>
-                      <th className="px-4 py-2.5 text-left text-slate-600 font-normal">Drive</th>
-                      <th className="px-4 py-2.5 text-left text-slate-600 font-normal">Gmail</th>
-                      <th className="px-4 py-2.5 text-left text-slate-600 font-normal">Calendar</th>
+                      <th className="px-4 py-2.5 text-left text-slate-400 font-normal">Agent</th>
+                      <th className="px-4 py-2.5 text-left text-slate-400 font-normal">Drive</th>
+                      <th className="px-4 py-2.5 text-left text-slate-400 font-normal">Gmail</th>
+                      <th className="px-4 py-2.5 text-left text-slate-400 font-normal">Calendar</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -115,21 +115,21 @@ export function Features() {
                         <td className="px-4 py-2.5 text-violet-400">{row.agent}</td>
                         <td className="px-4 py-2.5">
                           {row.drive === "—" ? (
-                            <span className="text-slate-700">—</span>
+                            <span className="text-slate-400">—</span>
                           ) : (
                             <span className="text-emerald-400">{row.drive}</span>
                           )}
                         </td>
                         <td className="px-4 py-2.5">
                           {row.gmail === "—" ? (
-                            <span className="text-slate-700">—</span>
+                            <span className="text-slate-400">—</span>
                           ) : (
                             <span className="text-emerald-400">{row.gmail}</span>
                           )}
                         </td>
                         <td className="px-4 py-2.5">
                           {row.calendar === "—" ? (
-                            <span className="text-slate-700">—</span>
+                            <span className="text-slate-400">—</span>
                           ) : (
                             <span className="text-emerald-400">{row.calendar}</span>
                           )}
@@ -172,7 +172,7 @@ export function Features() {
                 </div>
                 <ul className="space-y-1">
                   {f.bullets.map((b) => (
-                    <li key={b} className="flex items-center gap-2 text-xs text-slate-500">
+                    <li key={b} className="flex items-center gap-2 text-xs text-slate-400">
                       <CheckIcon className="text-violet-500 flex-shrink-0" />
                       {b}
                     </li>

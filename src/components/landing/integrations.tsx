@@ -142,7 +142,7 @@ export function Integrations() {
           </p>
           <h2 className="text-4xl md:text-5xl font-bold text-slate-50">
             Works with the tools<br />
-            <span className="text-slate-500">your team already uses</span>
+            <span className="text-slate-400">your team already uses</span>
           </h2>
           <p className="text-slate-400 text-lg">
             Each integration is a scoped MCP endpoint. Add a new service in seconds.
@@ -162,7 +162,7 @@ export function Integrations() {
             >
               {integration.icon}
               <span className={`text-[10px] font-medium text-center leading-tight ${
-                integration.name === "More coming" ? "text-slate-700" : "text-slate-500 group-hover:text-slate-400"
+                integration.name === "More coming" ? "text-slate-400" : "text-slate-400 group-hover:text-slate-300"
               } transition-colors`}>
                 {integration.name}
               </span>
@@ -180,7 +180,7 @@ export function Integrations() {
               <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </Link>
-          <p className="text-xs text-slate-700">
+          <p className="text-xs text-slate-400">
             Don&apos;t see your service?{" "}
             <a href="https://github.com/alifanov/scopegate/issues" className="text-violet-600 hover:text-violet-400 transition-colors">
               Request an integration →

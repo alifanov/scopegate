@@ -101,13 +101,13 @@ export function Pricing() {
           <h2 className="text-4xl md:text-5xl font-bold text-slate-50">
             Simple, transparent pricing
             <br />
-            <span className="text-slate-500">that scales with your agents</span>
+            <span className="text-slate-400">that scales with your agents</span>
           </h2>
         </div>
 
         {/* billing toggle */}
         <div className="flex items-center justify-center gap-3 mb-14">
-          <span className={`text-sm ${!annual ? "text-slate-200" : "text-slate-500"}`}>Monthly</span>
+          <span className={`text-sm ${!annual ? "text-slate-200" : "text-slate-400"}`}>Monthly</span>
           <button
             onClick={() => setAnnual(!annual)}
             className={`relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${annual ? "bg-violet-600" : "bg-slate-700"}`}
@@ -117,7 +117,7 @@ export function Pricing() {
               className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${annual ? "translate-x-5" : "translate-x-0"}`}
             />
           </button>
-          <span className={`text-sm ${annual ? "text-slate-200" : "text-slate-500"}`}>
+          <span className={`text-sm ${annual ? "text-slate-200" : "text-slate-400"}`}>
             Annual
             <span className="ml-1.5 text-xs text-emerald-400 font-medium">save 20%</span>
           </span>
@@ -154,14 +154,14 @@ export function Pricing() {
                       <span className="text-3xl font-bold text-slate-50">
                         ${annual ? tier.price.yearly : tier.price.monthly}
                       </span>
-                      <span className="text-slate-500 text-sm mb-1">/mo</span>
+                      <span className="text-slate-400 text-sm mb-1">/mo</span>
                     </>
                   )}
                 </div>
                 {tier.price.monthly !== null && tier.price.monthly !== 0 && annual && (
                   <p className="text-xs text-emerald-400">Billed annually</p>
                 )}
-                <p className="text-xs text-slate-500 leading-relaxed">{tier.description}</p>
+                <p className="text-xs text-slate-400 leading-relaxed">{tier.description}</p>
               </div>
 
               <a
@@ -199,7 +199,7 @@ export function Pricing() {
               <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </Link>
-          <p className="text-xs text-slate-600">
+          <p className="text-xs text-slate-400">
             All plans include TLS encryption, encrypted credential storage, and GDPR-compliant data
             handling. A contractual uptime SLA is part of the Enterprise plan.
             <br />

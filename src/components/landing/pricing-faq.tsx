@@ -88,7 +88,7 @@ export function PricingFaq() {
           ))}
         </div>
 
-        <p className="text-center text-xs text-slate-600 mt-10">
+        <p className="text-center text-xs text-slate-400 mt-10">
           Still have questions?{" "}
           <a
             href="mailto:hello@scopegate.dev"

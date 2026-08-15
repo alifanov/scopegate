@@ -50,7 +50,7 @@ export function CtaSection() {
         </div>
 
         {/* trust signals */}
-        <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-slate-600">
+        <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-slate-400">
           <span className="flex items-center gap-1.5">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
               <path d="M2 6l2.5 2.5 5.5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />

@@ -44,10 +44,10 @@ export function Footer() {
           {/* brand column */}
           <div className="col-span-2 lg:col-span-2 space-y-4">
             <Logo />
-            <p className="text-sm text-slate-500 leading-relaxed max-w-xs">
+            <p className="text-sm text-slate-400 leading-relaxed max-w-xs">
               The permission proxy between your AI agents and the external services they access.
             </p>
-            <p className="text-xs text-slate-600 font-mono">
+            <p className="text-xs text-slate-400 font-mono">
               Open-core · Self-hostable · Developer-first
             </p>
             {/* social links */}
@@ -56,7 +56,7 @@ export function Footer() {
                 href="https://github.com/alifanov/scopegate"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-slate-600 hover:text-slate-400 transition-colors"
+                className="text-slate-400 hover:text-slate-300 transition-colors"
                 aria-label="GitHub"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -67,7 +67,7 @@ export function Footer() {
                 href="https://twitter.com/scopegate_cloud"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-slate-600 hover:text-slate-400 transition-colors"
+                className="text-slate-400 hover:text-slate-300 transition-colors"
                 aria-label="Twitter / X"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -91,14 +91,14 @@ export function Footer() {
                         href={link.href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm text-slate-500 hover:text-slate-300 transition-colors"
+                        className="text-sm text-slate-400 hover:text-slate-300 transition-colors"
                       >
                         {link.label}
                       </a>
                     ) : (
                       <Link
                         href={link.href}
-                        className="text-sm text-slate-500 hover:text-slate-300 transition-colors"
+                        className="text-sm text-slate-400 hover:text-slate-300 transition-colors"
                       >
                         {link.label}
                       </Link>
@@ -112,10 +112,10 @@ export function Footer() {
 
         {/* bottom row */}
         <div className="border-t border-slate-800/60 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-slate-600">
+          <p className="text-xs text-slate-400">
             &copy; {new Date().getFullYear()} ScopeGate. All rights reserved.
           </p>
-          <p className="text-xs text-slate-700">
+          <p className="text-xs text-slate-400">
             Built with Next.js · Self-hostable via Docker · MIT licensed core
           </p>
         </div>

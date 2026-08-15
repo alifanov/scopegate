@@ -94,7 +94,7 @@ export function HowItWorks() {
                   <div className="w-11 h-11 rounded-xl bg-violet-600/15 border border-violet-700/30 flex items-center justify-center text-violet-400 group-hover:bg-violet-600/25 transition-colors">
                     <Icon />
                   </div>
-                  <span className="text-4xl font-bold text-slate-800 tabular-nums select-none">
+                  <span aria-hidden="true" className="text-4xl font-bold text-slate-800 tabular-nums select-none">
                     {step.number}
                   </span>
                 </div>
@@ -109,7 +109,7 @@ export function HowItWorks() {
                   {step.code}
                 </div>
 
-                <p className="text-xs text-slate-600">{step.detail}</p>
+                <p className="text-xs text-slate-400">{step.detail}</p>
               </div>
             );
           })}

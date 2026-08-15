@@ -34,13 +34,13 @@ export function StatsBar() {
               <div className={`text-4xl font-bold tabular-nums ${stat.color}`}>
                 {stat.value}
               </div>
-              <p className="text-xs text-slate-500 leading-snug max-w-[180px] mx-auto">
+              <p className="text-xs text-slate-400 leading-snug max-w-[180px] mx-auto">
                 {stat.label}
               </p>
             </div>
           ))}
         </div>
-        <p className="text-center text-xs text-slate-600 mt-8">
+        <p className="text-center text-xs text-slate-400 mt-8">
           Sources: Gravitee State of AI Agent Security 2026 · Clutch Security · MCP Anniversary Blog · Noma Security
         </p>
       </div>

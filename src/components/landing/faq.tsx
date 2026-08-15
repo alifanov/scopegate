@@ -71,7 +71,7 @@ export function Faq() {
               <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </Link>
-          <p className="text-xs text-slate-600">
+          <p className="text-xs text-slate-400">
             Still have questions?{" "}
             <a href="mailto:hello@scopegate.dev" className="cursor-pointer text-violet-600 hover:text-violet-400 transition-colors">
               Email us →

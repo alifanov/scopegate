@@ -27,7 +27,7 @@ export function BlogPreview() {
               href={`/blog/${post.slug}`}
               className="group rounded-xl border border-slate-800/60 bg-slate-900/40 p-6 transition-all duration-150 hover:border-violet-600/40 hover:bg-violet-500/5"
             >
-              <time className="text-xs text-slate-500 font-mono">
+              <time className="text-xs text-slate-400 font-mono">
                 {post.publishedAt}
               </time>
               <h3 className="text-lg font-semibold text-slate-100 mt-1 mb-2 group-hover:text-violet-400 transition-colors">

@@ -102,11 +102,12 @@ export function CloudSignIn({
 
       <form onSubmit={handleMagicLink} className="space-y-3">
         <div className="space-y-2">
-          <Label htmlFor="magic-email">Email</Label>
+          <Label htmlFor="magic-email">Email for a one-time link</Label>
           <Input
             id="magic-email"
             name="magic-email"
             type="email"
+            autoComplete="email"
             placeholder="you@example.com"
             required
           />

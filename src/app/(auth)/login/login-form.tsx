@@ -100,19 +100,31 @@ export function LoginForm({
               {error}
             </div>
           )}
+          {cloud && (
+            <p className="text-sm font-medium text-muted-foreground">
+              Sign in with password
+            </p>
+          )}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               name="email"
               type="email"
+              autoComplete="username"
               placeholder="you@example.com"
               required
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input id="password" name="password" type="password" required />
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+            />
           </div>
         </CardContent>
         <CardFooter className="flex-col items-stretch gap-3 pt-2">

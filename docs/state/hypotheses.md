@@ -12,6 +12,7 @@ without new data.
 |---|---|---|---|
 | H-002 | `/api/mcp/[apiKey]` 400-rate reflects malformed client requests, not a server defect | 3/3 — 52 reqs (0.11%) [2026-08-11](../logs/2026-08-11.md) → 582 reqs (0.74%) [2026-08-12](../logs/2026-08-12.md) → 262 reqs (0.48%) [2026-08-13](../logs/2026-08-13.md) — task #227's SigNoz query for `event: "mcp.invalid_request"` returned zero hits because the log was written via `console.log`, which `bridgeConsoleToOtelLogs()` (`src/lib/otel-console-bridge.ts`) never forwards (only error/warn/info are bridged) — samples were never ingested, not absent. Fixed to `console.warn` (`route.ts:260`). Classification still needs real `body_preview` samples, which only exist from now on — task #227 snoozed to let them accumulate | testing |
 | H-003 | No analytics instrumentation (no OpenPanel MCP, no client-side tracking) — landing→signup funnel changes shipped this week are unmeasured | 1/3 — [2026-08-13](../logs/2026-08-13.md) | tracking |
+| H-004 | `state/` is only updated when a routine is explicitly doing docs work — feature commits never touch it, so drift accumulates in bursts rather than gradually | 1/3 — [2026-08-15](../logs/2026-08-15.md): all 8 drift findings trace to one commit wave (54e575b, f015f8e, bfca673, 4f1f78e, 2026-08-12…08-14), none of which touched `docs/state/`. Next audit checks whether tasks #234–#239 landed *and* whether the wave after them left new drift | tracking |
 
 ## Closed
 

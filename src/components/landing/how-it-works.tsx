@@ -87,7 +87,7 @@ export function HowItWorks() {
             return (
               <div
                 key={step.number}
-                className="relative bg-slate-900 rounded-2xl border border-slate-800/60 p-7 space-y-5 hover:border-violet-800/40 transition-colors group"
+                className="relative min-w-0 bg-slate-900 rounded-2xl border border-slate-800/60 p-7 space-y-5 hover:border-violet-800/40 transition-colors group"
               >
                 {/* step dot on line */}
                 <div className="flex items-start justify-between">
@@ -105,7 +105,7 @@ export function HowItWorks() {
                 </div>
 
                 {/* mini code */}
-                <div className="bg-slate-950/60 rounded-lg p-3 font-mono text-xs text-emerald-400 leading-5 whitespace-pre">
+                <div className="bg-slate-950/60 rounded-lg p-3 font-mono text-xs text-emerald-400 leading-5 whitespace-pre overflow-x-auto">
                   {step.code}
                 </div>
 

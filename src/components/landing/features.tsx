@@ -73,7 +73,7 @@ export function Features() {
         {/* asymmetric grid */}
         <div className="grid lg:grid-cols-5 gap-5">
           {/* large left card — per-agent scope control */}
-          <div className="lg:col-span-3 bg-gradient-to-br from-violet-950/40 to-slate-900 rounded-2xl border border-violet-800/20 p-8 space-y-6">
+          <div className="lg:col-span-3 min-w-0 bg-gradient-to-br from-violet-950/40 to-slate-900 rounded-2xl border border-violet-800/20 p-8 space-y-6">
             <div className="space-y-3">
               <div className="w-11 h-11 rounded-xl bg-violet-600/20 border border-violet-700/30 flex items-center justify-center text-violet-400">
                 <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -155,7 +155,7 @@ export function Features() {
           </div>
 
           {/* 3 small right cards */}
-          <div className="lg:col-span-2 grid sm:grid-cols-1 gap-5">
+          <div className="lg:col-span-2 min-w-0 grid sm:grid-cols-1 gap-5">
             {SMALL_FEATURES.map((f) => (
               <div
                 key={f.title}

@@ -46,6 +46,13 @@ const sections = [
       "Copy the MCP endpoint URL into your agent\u2019s configuration",
       "Your agent now accesses the service through ScopeGate\u2019s permission layer",
     ],
+    code: `{
+  "mcpServers": {
+    "scopegate": {
+      "url": "https://scopegate.dev/api/mcp/sg_your_endpoint_key"
+    }
+  }
+}`,
   },
   {
     id: "integrations",
@@ -58,6 +65,13 @@ const sections = [
     title: "Self-Hosting",
     content:
       "The core ScopeGate engine is open-source (MIT license) and available on GitHub. You can run it yourself with no usage limits. ScopeGate Cloud adds hosted reliability, managed upgrades and paid plans on top of the same codebase.",
+    code: `git clone https://github.com/alifanov/scopegate.git
+cd scopegate
+docker compose --profile local up`,
+    link: {
+      href: "https://github.com/alifanov/scopegate",
+      label: "github.com/alifanov/scopegate",
+    },
   },
 ];
 
@@ -104,6 +118,21 @@ export default function DocsPage() {
                   <li key={step}>{step}</li>
                 ))}
               </ol>
+            )}
+            {"code" in section && section.code && (
+              <pre className="mt-4 p-4 bg-slate-900 border border-slate-800 rounded-lg overflow-x-auto text-sm text-slate-200">
+                <code>{section.code}</code>
+              </pre>
+            )}
+            {"link" in section && section.link && (
+              <a
+                href={section.link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block mt-3 text-cyan-400 hover:text-cyan-300 transition-colors"
+              >
+                {section.link.label} →
+              </a>
             )}
           </section>
         ))}

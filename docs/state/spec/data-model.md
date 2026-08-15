@@ -15,6 +15,8 @@ erDiagram
   McpEndpoint ||--o{ RateLimitBucket : лимиты
   User ||--o{ Session : сессии
   User ||--o{ Account : пароль/провайдер
+  Project ||--o{ ProviderCredential : BYO OAuth-креды
+  User ||--o{ MonthlyUsage : квота
 ```
 
 ## Сущности
@@ -31,6 +33,8 @@ erDiagram
 | `RateLimitBucket` | Атомарный счётчик лимита | `INSERT … ON CONFLICT DO UPDATE` |
 | `Notification` (`NotificationType`) | Уведомления команде | Единственный автор текста «Reconnect required» — `notifyConnectionRevoked()` |
 | `InviteToken` | Приглашение в закрытую систему | Регистрация возможна только по нему |
+| `ProviderCredential` | Собственные OAuth-креды проекта (BYO) | Ключ — «группа кредов» (`appGroup`), не провайдер; читается `resolveOAuthApp()` в `oauth-credentials.ts`; в облаке группы из `OWN_APP_REQUIRED_GROUPS` без своих кредов падают `OAuthAppNotConfiguredError` (428) |
+| `MonthlyUsage` | Месячный счётчик MCP-запросов для лимитов плана (cloud only) | Ключ `[userId, month]`, атомарный `INSERT … ON CONFLICT DO UPDATE`, не `COUNT` по `AuditLog`; проверяется в `api/mcp/[apiKey]/route.ts`, fail-open при ошибке БД |
 
 ## Правила изменений
 

@@ -23,8 +23,14 @@ function GoogleIcon() {
  * magic link. Password sign-up stays disabled in every mode
  * (`disableSignUp: true` in auth.ts), so these are the only self-serve doors.
  */
-export function CloudSignIn({ googleEnabled }: { googleEnabled: boolean }) {
-  const [error, setError] = useState("");
+export function CloudSignIn({
+  googleEnabled,
+  initialError,
+}: {
+  googleEnabled: boolean;
+  initialError?: string;
+}) {
+  const [error, setError] = useState(initialError ?? "");
   const [sentTo, setSentTo] = useState("");
   const [loading, setLoading] = useState(false);
 

@@ -3,9 +3,14 @@ import Link from "next/link";
 import { isCloud } from "@/lib/cloud";
 import { LoginForm } from "./login-form";
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   const cloud = isCloud();
   const googleEnabled = cloud && Boolean(process.env.GOOGLE_SIGNIN_CLIENT_ID);
+  const { error } = await searchParams;
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
@@ -20,7 +25,11 @@ export default function LoginPage() {
             and expose MCP endpoints for your AI agents.
           </p>
         </div>
-        <LoginForm cloud={cloud} googleEnabled={googleEnabled} />
+        <LoginForm
+          cloud={cloud}
+          googleEnabled={googleEnabled}
+          magicLinkError={Boolean(error)}
+        />
       </div>
     </div>
   );

@@ -30,9 +30,14 @@ function MagicLinkVerifier() {
 
     // Rebuilt from individual params rather than carrying a full URL in the
     // query string — nested encoding breaks when link-tracking rewrites it.
+    // errorCallbackURL sends invalid/expired/already-used tokens to
+    // /login?error=INVALID_TOKEN instead of better-auth's default silent
+    // fallback to callbackURL, which drops unauthenticated users on a plain
+    // /login with no explanation (Task #248).
     window.location.href =
       `/api/auth/magic-link/verify?token=${encodeURIComponent(token)}` +
-      `&callbackURL=${encodeURIComponent(callbackURL)}`;
+      `&callbackURL=${encodeURIComponent(callbackURL)}` +
+      `&errorCallbackURL=${encodeURIComponent("/login")}`;
   }, [searchParams]);
 
   if (status === "error") {

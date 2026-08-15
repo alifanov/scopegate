@@ -21,9 +21,11 @@ import { CloudSignIn } from "@/components/auth/cloud-sign-in";
 export function LoginForm({
   cloud,
   googleEnabled,
+  magicLinkError,
 }: {
   cloud: boolean;
   googleEnabled: boolean;
+  magicLinkError?: boolean;
 }) {
   const router = useRouter();
   const [error, setError] = useState("");
@@ -70,7 +72,14 @@ export function LoginForm({
 
       {cloud && (
         <CardContent className="space-y-4">
-          <CloudSignIn googleEnabled={googleEnabled} />
+          <CloudSignIn
+            googleEnabled={googleEnabled}
+            initialError={
+              magicLinkError
+                ? "This sign-in link is invalid or has expired. Request a new one below."
+                : undefined
+            }
+          />
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />

@@ -4,7 +4,7 @@
 
 ## Примитивы (`src/components/ui`)
 
-`badge` · `button` · `card` · `checkbox` · `dialog` · `dropdown-menu` · `form` · `input` · `label` · `separator` · `skeleton` · `sonner` (тосты) · `table` · `tabs`
+`badge` · `button` · `card` · `checkbox` · `dialog` · `dropdown-menu` · `input` · `label` · `separator` · `skeleton` · `sonner` (тосты) · `table` · `tabs`
 
 ## Составные (`src/components`)
 
@@ -15,6 +15,8 @@
 | `service-icons.tsx` | Иконки провайдеров |
 | `skeletons.tsx` | Заготовки состояния загрузки |
 | `admin/` · `project/` · `layout/` | Экранные блоки соответствующих разделов |
+| `landing/` | Весь маркетинговый UI (лендинг, `/pricing`, `/features`, блог/глоссарий/сравнения — navbar, hero, pricing, faq, footer и т.д.) |
+| `auth/` | UI входа для cloud-режима (`cloud-sign-in.tsx` — Google/magic-link) |
 
 ## Паттерны состояний
 

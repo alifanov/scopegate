@@ -55,6 +55,20 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Only actual dashboard routes require a session. Anything else (typos,
+  // stale links) falls through to Next.js, which renders not-found.tsx
+  // instead of being redirected to /login.
+  const isDashboardPath =
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/billing") ||
+    pathname.startsWith("/notifications") ||
+    pathname.startsWith("/projects") ||
+    pathname.startsWith("/settings");
+
+  if (!isDashboardPath) {
+    return NextResponse.next();
+  }
+
   // Dashboard routes — require session cookie
   const sessionToken = getSessionCookie(request);
   if (!sessionToken) {

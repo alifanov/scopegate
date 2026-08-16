@@ -14,16 +14,13 @@ import { checkMonthlyUsage } from "@/lib/mcp/monthly-usage";
 import { isCloud } from "@/lib/cloud";
 import { getUserLimits } from "@/lib/plan-limits";
 import { PROJECT_ROLE } from "@/lib/project-roles";
+import { NULL_BODY_STATUSES } from "@/lib/mcp/safe-fetch";
 
 // SSE connections are long-lived by design (MCP Streamable HTTP spec).
 // p99 ≈ 299 s is the reverse-proxy idle timeout, not an app bug.
 // Keep-alive comments sent every 30 s prevent Traefik/nginx from dropping idle connections.
 // maxDuration tells Next.js/Vercel the expected maximum connection duration.
 export const maxDuration = 300;
-
-// Statuses that per the Fetch spec must not carry a body — `new Response(body, { status })`
-// throws "Invalid response status code" if body is non-null for these.
-const NULL_BODY_STATUSES = new Set([204, 205, 304]);
 
 export function withSseKeepAlive(response: Response, intervalMs = 30_000): Response {
   if (!response.body) return response;

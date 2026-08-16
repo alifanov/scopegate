@@ -5,6 +5,10 @@ import { trace } from "@opentelemetry/api";
 
 const MAX_REDIRECTS = 5;
 
+// Statuses that per the Fetch spec must not carry a body — `new Response(body, { status })`
+// throws "Invalid response status code" if body is non-null for these.
+export const NULL_BODY_STATUSES = new Set([204, 205, 304]);
+
 // Some hosts (e.g. catbox.moe) reset the connection ("socket hang up" / ECONNRESET)
 // on requests without a User-Agent as bot/hotlink protection. Send a default UA
 // unless the caller set one explicitly.
@@ -214,6 +218,14 @@ function makeRequest(
           if (typeof v === "string") headers.set(k, v);
           else if (Array.isArray(v)) v.forEach((item) => headers.append(k, item));
         }
+        const status = res.statusCode ?? 0;
+        if (NULL_BODY_STATUSES.has(status)) {
+          // Fetch spec forbids a body (even an empty stream) for these statuses —
+          // drain the socket and resolve with a null body.
+          res.resume();
+          resolve(new Response(null, { status, statusText: res.statusMessage ?? "", headers }));
+          return;
+        }
         const stream = new ReadableStream<Uint8Array>({
           start(controller) {
             res.on("data", (chunk: Buffer) =>
@@ -225,7 +237,7 @@ function makeRequest(
         });
         resolve(
           new Response(stream, {
-            status: res.statusCode ?? 0,
+            status,
             statusText: res.statusMessage ?? "",
             headers,
           })
@@ -279,7 +291,9 @@ export async function safeFetch(
     throw err;
   }
 
-  if (res.status >= 300 && res.status < 400) {
+  // 304 Not Modified is a 3xx status but not a redirect to follow — it carries
+  // no Location header by definition, it just confirms the cached response is fresh.
+  if (res.status >= 300 && res.status < 400 && res.status !== 304) {
     const location = res.headers.get("location");
     if (!location) {
       throw new Error("Redirect response missing Location header");

@@ -42,6 +42,7 @@ type MockRes = {
   statusMessage: string;
   headers: Record<string, string | string[]>;
   on: ReturnType<typeof vi.fn>;
+  resume: ReturnType<typeof vi.fn>;
 };
 
 // Builds a minimal ClientRequest-like mock and registers a one-shot https response
@@ -54,6 +55,7 @@ function mockHttpsResponse(
     statusMessage: "OK",
     headers,
     on: vi.fn().mockReturnThis(),
+    resume: vi.fn(),
   };
 
   const mockReq = {
@@ -399,6 +401,19 @@ describe("safeFetch – SSRF protection", () => {
         expect.any(Function)
       );
     });
+  });
+
+  describe("null-body statuses", () => {
+    it.each([204, 205, 304])(
+      "resolves without constructing a Response body for status %i",
+      async (status) => {
+        mockDns({ address: "93.184.216.34", family: 4 });
+        mockHttpsResponse(status);
+        const res = await safeFetch("https://example.com/api");
+        expect(res.status).toBe(status);
+        expect(res.body).toBeNull();
+      }
+    );
   });
 
   describe("pinned DNS lookup honors autoSelectFamily (Happy Eyeballs)", () => {

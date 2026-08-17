@@ -199,8 +199,12 @@ export async function serviceJsonFetch(
       select: { provider: true },
     });
     const label = conn ? getProviderDisplayName(conn.provider) : connectionId;
-    console.error(`[ScopeGate] ${label} API error (${res.status})`);
-    throw new Error(`${label} API request failed`);
+    // ponytail: status code only in the thrown message — the response body can echo
+    // a token for query-param-auth providers, and it lands in AuditLog.error.
+    console.error(
+      `[ScopeGate] ${label} API error (${res.status}): ${(await res.text().catch(() => "")).slice(0, 500)}`
+    );
+    throw new Error(`${label} API request failed (${res.status})`);
   }
 
   if (res.status === 204) return { success: true };

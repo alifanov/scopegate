@@ -28,17 +28,12 @@ ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 
-# Next.js standalone output (minimal node_modules via nft trace)
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
-
-# Prisma schema + migrations for runtime deploy
-COPY --from=builder /app/prisma ./prisma
-
 # Prisma CLI for database migrations (separate from app runtime deps).
 # Reads only /prisma-version (not the whole package.json) and reuses the npm
 # cache mount, instead of a second full package.json COPY straight into this stage.
+# Placed before the app COPY layers below: its parent chain then only depends on
+# /prisma-version (changes rarely), so BuildKit reuses the cached install even
+# when the app layers below it change on every build.
 COPY --from=deps /prisma-version /prisma-version
 RUN --mount=type=cache,id=npm,target=/root/.npm \
     PRISMA_SKIP_POSTINSTALL_GENERATE=1 \
@@ -48,6 +43,14 @@ RUN --mount=type=cache,id=npm,target=/root/.npm \
 # it is supplied here from DATABASE_URL. Loaded from cwd /prisma-runtime by the
 # entrypoint so that `prisma/config` resolves against the prisma CLI installed above.
 COPY docker/prisma.config.ts /prisma-runtime/prisma.config.ts
+
+# Next.js standalone output (minimal node_modules via nft trace)
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+
+# Prisma schema + migrations for runtime deploy
+COPY --from=builder /app/prisma ./prisma
 
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN mkdir -p /app/data && \

@@ -16,6 +16,11 @@ import {
 import { UserPlus } from "lucide-react";
 import { apiSend, ApiError } from "@/lib/api-client";
 
+// Mirrors MIN_PASSWORD_LENGTH in src/lib/auth.ts. Duplicated instead of
+// imported — that module pulls in server-only deps (db, better-auth, email)
+// that can't be bundled into a client component.
+const MIN_PASSWORD_LENGTH = 12;
+
 export function InviteForm({ token }: { token: string }) {
   const router = useRouter();
   const [error, setError] = useState("");
@@ -31,6 +36,12 @@ export function InviteForm({ token }: { token: string }) {
     const name = formData.get("name") as string;
     const password = formData.get("password") as string;
     const confirmPassword = formData.get("confirmPassword") as string;
+
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
+      setLoading(false);
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError("Passwords do not match");
@@ -89,8 +100,11 @@ export function InviteForm({ token }: { token: string }) {
               name="password"
               type="password"
               required
-              minLength={12}
+              minLength={MIN_PASSWORD_LENGTH}
             />
+            <p className="text-xs text-muted-foreground">
+              At least {MIN_PASSWORD_LENGTH} characters
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">Confirm Password</Label>
@@ -99,7 +113,7 @@ export function InviteForm({ token }: { token: string }) {
               name="confirmPassword"
               type="password"
               required
-              minLength={12}
+              minLength={MIN_PASSWORD_LENGTH}
             />
           </div>
         </CardContent>

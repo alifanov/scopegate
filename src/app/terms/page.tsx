@@ -1,6 +1,7 @@
 import { Navbar } from "@/components/landing/navbar";
 import { Footer } from "@/components/landing/footer";
 import type { Metadata } from "next";
+import { MARKETING_VIEWPORT } from "@/lib/marketing-viewport";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -9,6 +10,8 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://scopegate.dev/terms" },
   robots: { index: false, follow: false },
 };
+
+export const viewport = MARKETING_VIEWPORT;
 
 const SECTIONS = [
   {

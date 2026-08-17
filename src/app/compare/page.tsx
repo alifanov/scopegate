@@ -3,6 +3,7 @@ import { Footer } from "@/components/landing/footer";
 import { comparisons } from "@/data/comparisons";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { MARKETING_VIEWPORT } from "@/lib/marketing-viewport";
 
 export const metadata: Metadata = {
   title: "ScopeGate vs Alternatives — MCP Gateway Comparison",
@@ -16,6 +17,8 @@ export const metadata: Metadata = {
     url: "https://scopegate.dev/compare",
   },
 };
+
+export const viewport = MARKETING_VIEWPORT;
 
 function ArrowIcon() {
   return (

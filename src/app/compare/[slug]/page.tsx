@@ -4,12 +4,15 @@ import { comparisons, type ComparisonData } from "@/data/comparisons";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { MARKETING_VIEWPORT } from "@/lib/marketing-viewport";
 
 /* ---------- static params ---------- */
 
 export function generateStaticParams() {
   return comparisons.map((c) => ({ slug: c.slug }));
 }
+
+export const viewport = MARKETING_VIEWPORT;
 
 /* ---------- metadata ---------- */
 

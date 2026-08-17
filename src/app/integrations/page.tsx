@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { MARKETING_VIEWPORT } from "@/lib/marketing-viewport";
 import Link from "next/link";
 import { Navbar } from "@/components/landing/navbar";
 import { Footer } from "@/components/landing/footer";
@@ -12,6 +13,8 @@ export const metadata: Metadata = {
     canonical: "https://scopegate.dev/integrations",
   },
 };
+
+export const viewport = MARKETING_VIEWPORT;
 
 function SchemaMarkup() {
   const schema = {

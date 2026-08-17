@@ -4,12 +4,15 @@ import { glossaryEntries, type GlossaryEntry } from "@/data/glossary";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { MARKETING_VIEWPORT } from "@/lib/marketing-viewport";
 
 /* ---------- static params ---------- */
 
 export function generateStaticParams() {
   return glossaryEntries.map((e) => ({ slug: e.slug }));
 }
+
+export const viewport = MARKETING_VIEWPORT;
 
 /* ---------- metadata ---------- */
 

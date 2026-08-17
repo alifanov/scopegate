@@ -6,6 +6,7 @@ import { PricingFaq } from "@/components/landing/pricing-faq";
 import { isCloud } from "@/lib/cloud";
 import { publicPlans, UNLIMITED } from "@/lib/plans";
 import type { Metadata } from "next";
+import { MARKETING_VIEWPORT } from "@/lib/marketing-viewport";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -14,6 +15,8 @@ export const metadata: Metadata = {
     "Free plan to get started, Pro for solo developers, Team for shared governance. Simple transparent pricing for AI agent permission control.",
   alternates: { canonical: "https://scopegate.dev/pricing" },
 };
+
+export const viewport = MARKETING_VIEWPORT;
 
 function limit(value: number, noun: string): string {
   if (value === UNLIMITED) return `unlimited ${noun}s`;

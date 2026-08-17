@@ -3,6 +3,7 @@ import { Footer } from "@/components/landing/footer";
 import { Features } from "@/components/landing/features";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { MARKETING_VIEWPORT } from "@/lib/marketing-viewport";
 
 export const metadata: Metadata = {
   title: "Features — Per-Agent Permissions, Audit Trails & Rate Limiting",
@@ -10,6 +11,8 @@ export const metadata: Metadata = {
     "Granular per-agent permission control, instant revocation, full audit trails, and rate limiting for MCP-connected AI agents.",
   alternates: { canonical: "https://scopegate.dev/features" },
 };
+
+export const viewport = MARKETING_VIEWPORT;
 
 const ALL_FEATURES = [
   {

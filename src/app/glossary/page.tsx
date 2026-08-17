@@ -3,6 +3,7 @@ import { Footer } from "@/components/landing/footer";
 import { glossaryEntries } from "@/data/glossary";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { MARKETING_VIEWPORT } from "@/lib/marketing-viewport";
 
 export const metadata: Metadata = {
   title: "MCP & AI Agent Security Glossary",
@@ -10,6 +11,8 @@ export const metadata: Metadata = {
     "Learn the key concepts behind MCP gateways, AI agent permissions, OAuth for MCP, audit trails, and agentic AI security. Plain-English definitions with technical depth.",
   alternates: { canonical: "https://scopegate.dev/glossary" },
 };
+
+export const viewport = MARKETING_VIEWPORT;
 
 export default function GlossaryPage() {
   return (

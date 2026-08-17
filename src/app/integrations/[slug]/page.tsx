@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { MARKETING_VIEWPORT } from "@/lib/marketing-viewport";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navbar } from "@/components/landing/navbar";
@@ -13,6 +14,8 @@ interface PageProps {
 export function generateStaticParams() {
   return integrations.map((i) => ({ slug: i.slug }));
 }
+
+export const viewport = MARKETING_VIEWPORT;
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;

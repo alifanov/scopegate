@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth-middleware";
 import { isCloud } from "@/lib/cloud";
+import { MARKETING_VIEWPORT } from "@/lib/marketing-viewport";
 import { Navbar } from "@/components/landing/navbar";
 import { Hero } from "@/components/landing/hero";
 import { DemoVideo } from "@/components/landing/demo-video";
@@ -24,6 +25,8 @@ export const metadata: Metadata = {
     "Give each AI agent exactly the access it needs — nothing more. ScopeGate enforces per-agent permissions on MCP: restrict tools, scopes & data, instant revoke, full audit trail. Free plan available.",
   alternates: { canonical: "https://scopegate.dev" },
 };
+
+export const viewport = MARKETING_VIEWPORT;
 
 const organizationSchema = {
   "@context": "https://schema.org",

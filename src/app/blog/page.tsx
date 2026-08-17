@@ -3,6 +3,7 @@ import { Footer } from "@/components/landing/footer";
 import { blogPosts } from "@/data/blog";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { MARKETING_VIEWPORT } from "@/lib/marketing-viewport";
 
 export const metadata: Metadata = {
   title: "Blog — MCP Security, AI Agent Permissions & Guides",
@@ -10,6 +11,8 @@ export const metadata: Metadata = {
     "In-depth guides on MCP gateways, AI agent security, permission management, and best practices for securing agent access to external services.",
   alternates: { canonical: "https://scopegate.dev/blog" },
 };
+
+export const viewport = MARKETING_VIEWPORT;
 
 export default function BlogPage() {
   const sorted = [...blogPosts].sort(

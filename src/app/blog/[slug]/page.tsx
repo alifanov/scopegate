@@ -4,12 +4,15 @@ import { blogPosts, type BlogPost } from "@/data/blog";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { MARKETING_VIEWPORT } from "@/lib/marketing-viewport";
 
 /* ---------- static params ---------- */
 
 export function generateStaticParams() {
   return blogPosts.map((p) => ({ slug: p.slug }));
 }
+
+export const viewport = MARKETING_VIEWPORT;
 
 /* ---------- metadata ---------- */
 

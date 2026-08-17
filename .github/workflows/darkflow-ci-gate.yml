@@ -43,16 +43,25 @@ jobs:
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.9.0
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
+      # Checked out by hand instead of actions/checkout — the runner container is
+      # ephemeral, so every job re-downloaded checkout/pnpm-action/setup-node from
+      # codeload.github.com and eventually got 429 Too Many Requests, failing the
+      # job before a single check ran. node 22, npm, pnpm and corepack are already
+      # in the runner image, so those three actions bought nothing anyway.
+      - name: Checkout
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git init -q .
+          git remote get-url origin >/dev/null 2>&1 \
+            || git remote add origin "https://github.com/${{ github.repository }}"
+          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" \
+            fetch -q --depth=1 origin "$GITHUB_SHA"
+          git checkout -q -f "$GITHUB_SHA"
+          # ponytail: node_modules survives between jobs on purpose — pnpm install
+          # reconciles it and the workspace is not shared with another repo.
+          git clean -qffdx -e node_modules
 
       - name: Run checks
         id: checks
@@ -76,7 +85,7 @@ jobs:
           }
 
           # ── Node / pnpm / npm ────────────────────────────────────────────────
-          # pnpm + node are already on PATH here (provisioned by the setup steps).
+          # pnpm + node are already on PATH here (baked into the runner image).
           if [ -f package.json ]; then
             if [ -f pnpm-lock.yaml ]; then
               run_check "install" pnpm install --frozen-lockfile

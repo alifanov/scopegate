@@ -170,20 +170,24 @@ export function Hero() {
                 <span className="ml-2 text-xs text-slate-400 font-mono">agent-setup.ts</span>
               </div>
 
-              {/* code lines */}
-              <div className="p-5 font-mono text-[13px] leading-7 min-h-[300px]">
-                {CODE_LINES.slice(0, visibleLines).map((line) => (
-                  <div key={line.text || "blank"}>
-                    {line.type === "blank" ? (
-                      <span>&nbsp;</span>
-                    ) : (
-                      <span className={colorMap[line.type]}>{line.text}</span>
-                    )}
-                  </div>
-                ))}
-                {visibleLines < CODE_LINES.length && (
-                  <span className="inline-block w-[7px] h-[14px] bg-violet-400 animate-cursor align-middle" />
-                )}
+              {/* code lines — all rows always rendered (reserves final height, no CLS);
+                  not-yet-typed rows are `invisible` so they still occupy their line box */}
+              <div className="p-5 font-mono text-[13px] leading-7">
+                {CODE_LINES.map((line, i) => {
+                  const shown = i < visibleLines;
+                  return (
+                    <div key={line.text || `blank-${i}`} className={shown ? undefined : "invisible"}>
+                      {line.type === "blank" ? (
+                        <span>&nbsp;</span>
+                      ) : (
+                        <span className={colorMap[line.type]}>{line.text}</span>
+                      )}
+                      {shown && i === visibleLines - 1 && visibleLines < CODE_LINES.length && (
+                        <span className="inline-block w-[7px] h-[14px] bg-violet-400 animate-cursor align-middle ml-0.5" />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

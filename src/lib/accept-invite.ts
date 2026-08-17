@@ -27,6 +27,20 @@ async function defaultHashPassword(password: string): Promise<string> {
 
 export class AcceptInviteError extends AuthError {}
 
+// Server-rendered pre-check for the invite page (Task #250) — lets the page
+// show an invalid/used state before the user fills out the form, instead of
+// only surfacing it from acceptInvite() after submit. Doesn't check the
+// per-invite email restriction; that only matters once an email is entered,
+// at submit time.
+export async function isInviteTokenValid(
+  token: string,
+  database: Pick<typeof db.inviteToken, "findUnique"> = db.inviteToken
+): Promise<boolean> {
+  const invite = await database.findUnique({ where: { token } });
+  if (!invite || invite.usedAt) return false;
+  return invite.expiresAt >= new Date();
+}
+
 export type AcceptInviteInput = {
   token: string;
   email: string;

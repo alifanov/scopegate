@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@/generated/prisma/client";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth";
-import { acceptInvite } from "../accept-invite";
+import { acceptInvite, isInviteTokenValid } from "../accept-invite";
 
 const database = {
   inviteToken: { findUnique: vi.fn(), updateMany: vi.fn() },
@@ -180,5 +180,36 @@ describe("acceptInvite", () => {
     });
 
     expect(database.user.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("isInviteTokenValid", () => {
+  const findUnique = vi.fn();
+
+  beforeEach(() => {
+    findUnique.mockReset();
+  });
+
+  it("is false for an unknown token", async () => {
+    findUnique.mockResolvedValue(null);
+    await expect(isInviteTokenValid("bad", { findUnique })).resolves.toBe(false);
+  });
+
+  it("is false for an already-used invite", async () => {
+    findUnique.mockResolvedValue({ ...validInvite, usedAt: new Date() });
+    await expect(isInviteTokenValid("tok", { findUnique })).resolves.toBe(false);
+  });
+
+  it("is false for an expired invite", async () => {
+    findUnique.mockResolvedValue({
+      ...validInvite,
+      expiresAt: new Date(Date.now() - 1000),
+    });
+    await expect(isInviteTokenValid("tok", { findUnique })).resolves.toBe(false);
+  });
+
+  it("is true for a valid invite", async () => {
+    findUnique.mockResolvedValue(validInvite);
+    await expect(isInviteTokenValid("tok", { findUnique })).resolves.toBe(true);
   });
 });

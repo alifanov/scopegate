@@ -65,7 +65,7 @@ function MagicLinkVerifier() {
 
 export function MagicLinkClient() {
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
+    <div className="dark flex min-h-screen items-center justify-center bg-background p-4 text-foreground">
       <div className="w-full max-w-sm text-center space-y-4">
         <Image src="/logo.png" alt="ScopeGate" width={48} height={48} className="mx-auto" />
         <Suspense

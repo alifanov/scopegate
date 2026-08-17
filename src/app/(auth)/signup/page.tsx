@@ -15,24 +15,33 @@ import { getPlanDef, publicPlans } from "@/lib/plans";
 
 const FREE_PLAN = getPlanDef("free");
 
-/** The pricing page links here with ?plan=pro / ?plan=team. Sign-up itself always
- *  creates a Free account — the paid plan is a Polar checkout from /billing — so
- *  the only honest thing to do with the param is acknowledge the choice. */
-function intent(planParam: string | string[] | undefined): string {
-  const slug = Array.isArray(planParam) ? planParam[0] : planParam;
+function param(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+/** The pricing page links here with ?plan=pro&billing=annual (or =monthly, the
+ *  default). Sign-up itself always creates a Free account — the paid plan is a
+ *  Polar checkout from /billing — so the only honest thing to do with the
+ *  params is acknowledge the choice, with the same price shown on /pricing
+ *  (Task #249). */
+function intent(planParam: string | string[] | undefined, billingParam: string | string[] | undefined): string {
+  const slug = param(planParam);
   const plan = publicPlans().find(
     (p) => p.slug === slug && p.slug !== "free" && p.priceMonthly !== null,
   );
   if (!plan) {
     return `No credit card. ${FREE_PLAN.limits.projects} project and ${FREE_PLAN.limits.endpoints} MCP endpoints on the free plan.`;
   }
-  return `You picked ${plan.name} — $${plan.priceMonthly}/mo. Create your account first, then upgrade from Billing.`;
+  const annual = param(billingParam) === "annual";
+  const price = annual ? plan.priceYearly : plan.priceMonthly;
+  const suffix = annual ? ", billed annually" : "";
+  return `You picked ${plan.name} — $${price}/mo${suffix}. Create your account first, then upgrade from Billing.`;
 }
 
 export default async function SignupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ plan?: string | string[] }>;
+  searchParams: Promise<{ plan?: string | string[]; billing?: string | string[] }>;
 }) {
   // Self-hosted is invite-only by design — admins generate invite links from
   // the dashboard, so there is no public sign-up route there at all.
@@ -41,7 +50,7 @@ export default async function SignupPage({
   }
 
   const googleEnabled = Boolean(process.env.GOOGLE_SIGNIN_CLIENT_ID);
-  const { plan } = await searchParams;
+  const { plan, billing } = await searchParams;
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
@@ -51,7 +60,7 @@ export default async function SignupPage({
             <Image src="/logo.png" alt="ScopeGate" width={64} height={64} className="mx-auto" />
             <h1 className="text-3xl font-bold tracking-tight">Start free</h1>
           </Link>
-          <p className="text-muted-foreground">{intent(plan)}</p>
+          <p className="text-muted-foreground">{intent(plan, billing)}</p>
         </div>
         <Card>
           <CardHeader>

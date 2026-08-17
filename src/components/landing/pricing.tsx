@@ -87,6 +87,13 @@ const TIERS = publicPlans().map((plan) => {
   };
 });
 
+// Only pro/team CTAs carry a plan param — appending billing there lets /signup
+// show the same period the visitor just picked here (Task #249).
+function ctaHref(href: string, annual: boolean): string {
+  if (!annual || !href.includes("plan=")) return href;
+  return `${href}${href.includes("?") ? "&" : "?"}billing=annual`;
+}
+
 export function Pricing() {
   const [annual, setAnnual] = useState(false);
 
@@ -165,7 +172,7 @@ export function Pricing() {
               </div>
 
               <a
-                href={tier.ctaHref}
+                href={ctaHref(tier.ctaHref, annual)}
                 className={`block cursor-pointer text-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${
                   tier.highlight
                     ? "bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-900/30"

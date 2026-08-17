@@ -26,6 +26,7 @@ sequenceDiagram
 | Шаг | Файл |
 |---|---|
 | Определения планов и лимитов | `src/lib/plans.ts` (`PLAN_REGISTRY`) — источник и для `/pricing`, и для enforcement, чтобы цифры не разъезжались |
+| Период оплаты в CTA `/pricing` → `/signup` | Тумблер Annual добавляет `&billing=annual` к `?plan=pro`/`?plan=team` (`src/components/landing/pricing.tsx`); `/signup` читает его и показывает `priceYearly` вместо `priceMonthly` в «You picked …» (`src/app/(auth)/signup/page.tsx`) — сам чекаут Polar периода пока не различает, один product id на план |
 | Product id → план | `getPolarProductId` / `getPlanForProductId` — через env-переменную (`polarProductIdEnv`), sandbox/production id не в коде |
 | Checkout/portal/webhook | `src/lib/auth.ts` → `polarPlugin()`, подключается только если заданы `POLAR_ACCESS_TOKEN` + `POLAR_WEBHOOK_SECRET` |
 | Применение состояния | `src/lib/billing.ts` → `applyCustomerState()` |

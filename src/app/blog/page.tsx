@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Blog — MCP Security, AI Agent Permissions & Guides | ScopeGate",
+  title: "Blog — MCP Security, AI Agent Permissions & Guides",
   description:
     "In-depth guides on MCP gateways, AI agent security, permission management, and best practices for securing agent access to external services.",
   alternates: { canonical: "https://scopegate.dev/blog" },

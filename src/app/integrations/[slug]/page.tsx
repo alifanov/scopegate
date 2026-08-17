@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!integration) return {};
 
   return {
-    title: integration.metaTitle,
+    title: { absolute: integration.metaTitle },
     description: integration.metaDescription,
     alternates: {
       canonical: `https://scopegate.dev/integrations/${integration.slug}`,

@@ -22,7 +22,7 @@ export async function generateMetadata({
   const entry = glossaryEntries.find((e) => e.slug === slug);
   if (!entry) return {};
   return {
-    title: entry.metaTitle,
+    title: { absolute: entry.metaTitle },
     description: entry.metaDescription,
     alternates: { canonical: `https://scopegate.dev/glossary/${entry.slug}` },
   };

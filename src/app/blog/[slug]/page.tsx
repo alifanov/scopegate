@@ -22,7 +22,7 @@ export async function generateMetadata({
   const post = blogPosts.find((p) => p.slug === slug);
   if (!post) return {};
   return {
-    title: post.metaTitle,
+    title: { absolute: post.metaTitle },
     description: post.metaDescription,
     alternates: { canonical: `https://scopegate.dev/blog/${post.slug}` },
     openGraph: {

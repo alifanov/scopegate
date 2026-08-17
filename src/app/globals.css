@@ -123,6 +123,16 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Canvas background (overscroll rubber-band, pre-hydration paint). Marketing
+     pages put their dark `bg-slate-950` on an inner div, so body's light
+     `--background` is what propagates to the canvas and flashes white when you
+     overscroll on mobile. These 15 pages share no layout — only the
+     `theme-color` meta that MARKETING_VIEWPORT emits — so key off that.
+     Keep the hex in sync with MARKETING_VIEWPORT (src/lib/marketing-viewport.ts);
+     marketing-viewport.test.ts fails if it drifts. Task #245. */
+  html:has(meta[name="theme-color"][content="#020617"]) {
+    background-color: #020617;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

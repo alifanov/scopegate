@@ -12,6 +12,7 @@ without new data.
 |---|---|---|---|
 | H-003 | No analytics instrumentation (no OpenPanel MCP, no client-side tracking) — landing→signup funnel changes shipped this week are unmeasured | 1/3 — [2026-08-13](../logs/2026-08-13.md) | tracking |
 | H-004 | `state/` is only updated when a routine is explicitly doing docs work — feature commits never touch it, so drift accumulates in bursts rather than gradually | 1/3 — [2026-08-15](../logs/2026-08-15.md): all 8 drift findings trace to one commit wave (54e575b, f015f8e, bfca673, 4f1f78e, 2026-08-12…08-14), none of which touched `docs/state/`. Next audit checks whether tasks #234–#239 landed *and* whether the wave after them left new drift | tracking |
+| H-005 | `GET /pricing` p99 latency (~1.8s) on `scopegate-cloud` — above the 1s "slow" threshold, first sighting | 1/3 — [2026-08-18](../logs/2026-08-18.md): 1812.1ms p99, DB queries in the same window all ≤9.1ms so not a DB-bound cause; no prior observability snapshot (08-11…08-17) shows this route | tracking |
 
 ## Closed
 

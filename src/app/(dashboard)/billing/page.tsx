@@ -8,11 +8,18 @@ import { BillingClient } from "./billing-client";
 
 export const metadata = { title: "Billing" };
 
-export default async function BillingPage() {
+export default async function BillingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ billing?: string | string[] }>;
+}) {
   // Self-hosted has no plans and no payments — the whole route is absent there.
   if (!isCloud()) {
     notFound();
   }
+
+  const { billing } = await searchParams;
+  const billingParam = Array.isArray(billing) ? billing[0] : billing;
 
   const user = await getCurrentUser();
   if (!user) {
@@ -55,6 +62,7 @@ export default async function BillingPage() {
           requestsThisMonth: usage?.count ?? 0,
         }}
         checkoutAvailable={Boolean(process.env.POLAR_ACCESS_TOKEN)}
+        initialCycle={billingParam === "annual" ? "annual" : "monthly"}
       />
     </div>
   );

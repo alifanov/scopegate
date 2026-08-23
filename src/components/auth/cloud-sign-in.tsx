@@ -26,9 +26,13 @@ function GoogleIcon() {
 export function CloudSignIn({
   googleEnabled,
   initialError,
+  callbackURL = "/projects",
 }: {
   googleEnabled: boolean;
   initialError?: string;
+  /** Where to land after auth completes — /signup passes /billing when the
+   *  visitor arrived with a paid plan picked on /pricing (Task #267). */
+  callbackURL?: string;
 }) {
   const [error, setError] = useState(initialError ?? "");
   const [sentTo, setSentTo] = useState("");
@@ -39,7 +43,7 @@ export function CloudSignIn({
     setLoading(true);
     const { error: googleError } = await authClient.signIn.social({
       provider: "google",
-      callbackURL: "/projects",
+      callbackURL,
     });
     if (googleError) {
       setError(googleError.message || "Google sign-in failed");
@@ -55,7 +59,7 @@ export function CloudSignIn({
     try {
       const { error: linkError } = await authClient.signIn.magicLink({
         email,
-        callbackURL: "/projects",
+        callbackURL,
       });
       if (linkError) {
         setError(linkError.message || "Could not send the sign-in link");

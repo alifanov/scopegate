@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { applyCustomerState } from "../billing";
 
 const PRO_PRODUCT = "prod_pro_123";
+const PRO_PRODUCT_YEARLY = "prod_pro_yearly_123";
 const TEAM_PRODUCT = "prod_team_456";
 
 function fakeDb() {
@@ -11,6 +12,7 @@ function fakeDb() {
 describe("applyCustomerState", () => {
   beforeEach(() => {
     vi.stubEnv("POLAR_PRODUCT_PRO", PRO_PRODUCT);
+    vi.stubEnv("POLAR_PRODUCT_PRO_YEARLY", PRO_PRODUCT_YEARLY);
     vi.stubEnv("POLAR_PRODUCT_TEAM", TEAM_PRODUCT);
   });
 
@@ -41,6 +43,22 @@ describe("applyCustomerState", () => {
         planValidUntil: new Date("2026-09-01T00:00:00Z"),
       },
     });
+  });
+
+  // An annual-billed subscription must attribute the same plan as its
+  // monthly counterpart — the two are separate Polar products (Task #267).
+  it("writes the plan matching an annual-billed subscription's product", async () => {
+    const database = fakeDb();
+    const result = await applyCustomerState(
+      {
+        id: "cus_1",
+        externalId: "user-1",
+        activeSubscriptions: [{ productId: PRO_PRODUCT_YEARLY, status: "active" }],
+      },
+      { database: database as never },
+    );
+
+    expect(result.planSlug).toBe("pro");
   });
 
   it("falls back to free when there are no active subscriptions", async () => {

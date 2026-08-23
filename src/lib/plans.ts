@@ -26,6 +26,9 @@ export type PlanDef = {
    *  RefreshTokenConfig.clientIdEnv, so sandbox/production ids stay out of
    *  source. Absent for plans with no self-serve checkout. */
   polarProductIdEnv?: string;
+  /** Env var NAME holding the Polar product id for the annual-billed variant
+   *  of this plan. Absent for plans with no self-serve checkout. */
+  polarProductIdEnvYearly?: string;
   /** Hidden from the pricing page and the billing picker. */
   internal?: boolean;
 };
@@ -49,6 +52,7 @@ export const PLAN_REGISTRY: PlanDef[] = [
     description: "For solo developers shipping production agents.",
     limits: { projects: 5, endpoints: 25, requestsPerMonth: 50_000 },
     polarProductIdEnv: "POLAR_PRODUCT_PRO",
+    polarProductIdEnvYearly: "POLAR_PRODUCT_PRO_YEARLY",
   },
   {
     slug: "team",
@@ -58,6 +62,7 @@ export const PLAN_REGISTRY: PlanDef[] = [
     description: "For teams with multiple agents and shared governance.",
     limits: { projects: UNLIMITED, endpoints: 100, requestsPerMonth: 500_000 },
     polarProductIdEnv: "POLAR_PRODUCT_TEAM",
+    polarProductIdEnvYearly: "POLAR_PRODUCT_TEAM_YEARLY",
   },
   {
     slug: "enterprise",
@@ -102,15 +107,32 @@ export function publicPlans(): PlanDef[] {
   return PLAN_REGISTRY.filter((p) => !p.internal);
 }
 
-/** Maps a Polar product id back to a plan. Resolved through the env indirection
- *  so the same code works against sandbox and production products. */
+export type BillingCycle = "monthly" | "annual";
+
+/** Maps a Polar product id back to a plan — monthly or annual, either counts
+ *  as that plan for entitlement purposes. Resolved through the env
+ *  indirection so the same code works against sandbox and production
+ *  products. */
 export function getPlanForProductId(productId: string): PlanDef | undefined {
   return PLAN_REGISTRY.find(
-    (p) => p.polarProductIdEnv && process.env[p.polarProductIdEnv] === productId,
+    (p) =>
+      (p.polarProductIdEnv && process.env[p.polarProductIdEnv] === productId) ||
+      (p.polarProductIdEnvYearly && process.env[p.polarProductIdEnvYearly] === productId),
   );
 }
 
-/** The Polar product id for a plan, or undefined when it has no checkout. */
-export function getPolarProductId(plan: PlanDef): string | undefined {
-  return plan.polarProductIdEnv ? process.env[plan.polarProductIdEnv] : undefined;
+/** The Polar product id for a plan's billing cycle, or undefined when that
+ *  cycle has no checkout configured. */
+export function getPolarProductId(
+  plan: PlanDef,
+  cycle: BillingCycle = "monthly",
+): string | undefined {
+  const envName = cycle === "annual" ? plan.polarProductIdEnvYearly : plan.polarProductIdEnv;
+  return envName ? process.env[envName] : undefined;
+}
+
+/** The `slug` a plan's billing cycle checks out under — see polarPlugin() in
+ *  auth.ts, which registers one Polar checkout slug per (plan, cycle) pair. */
+export function checkoutSlug(plan: PlanDef, cycle: BillingCycle): string {
+  return cycle === "annual" ? `${plan.slug}-annual` : plan.slug;
 }

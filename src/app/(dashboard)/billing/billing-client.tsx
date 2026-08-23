@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { authClient } from "@/lib/auth-client";
-import { UNLIMITED, type PlanDef } from "@/lib/plans";
+import { UNLIMITED, checkoutSlug, type BillingCycle, type PlanDef } from "@/lib/plans";
 import { toast } from "sonner";
 
 export type Usage = {
@@ -52,6 +52,7 @@ export function BillingClient({
   planValidUntil,
   usage,
   checkoutAvailable,
+  initialCycle = "monthly",
 }: {
   plans: PlanDef[];
   currentSlug: string;
@@ -59,15 +60,18 @@ export function BillingClient({
   planValidUntil: string | null;
   usage: Usage;
   checkoutAvailable: boolean;
+  initialCycle?: BillingCycle;
 }) {
   const [pending, setPending] = useState<string | null>(null);
+  const [cycle, setCycle] = useState<BillingCycle>(initialCycle);
   const current = plans.find((p) => p.slug === currentSlug);
   const currentLimits = current?.limits;
+  const annual = cycle === "annual";
 
-  async function startCheckout(slug: string) {
-    setPending(slug);
+  async function startCheckout(plan: PlanDef) {
+    setPending(plan.slug);
     try {
-      await authClient.checkout({ slug });
+      await authClient.checkout({ slug: checkoutSlug(plan, cycle) });
     } catch {
       toast.error("Could not open checkout. Please try again.");
       setPending(null);
@@ -130,20 +134,44 @@ export function BillingClient({
         )}
       </Card>
 
+      <div className="flex items-center justify-center gap-3">
+        <span className={`text-sm ${!annual ? "font-medium" : "text-muted-foreground"}`}>
+          Monthly
+        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={annual}
+          aria-label="Toggle annual billing"
+          onClick={() => setCycle(annual ? "monthly" : "annual")}
+          className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
+            annual ? "bg-primary" : "bg-muted"
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-background rounded-full shadow transition-transform ${
+              annual ? "translate-x-5" : "translate-x-0"
+            }`}
+          />
+        </button>
+        <span className={`text-sm ${annual ? "font-medium" : "text-muted-foreground"}`}>
+          Annual <span className="text-emerald-600 dark:text-emerald-400">save 20%</span>
+        </span>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {plans.map((plan) => {
           const isCurrent = plan.slug === currentSlug;
-          const purchasable = checkoutAvailable && Boolean(plan.polarProductIdEnv);
+          const productField = annual ? plan.polarProductIdEnvYearly : plan.polarProductIdEnv;
+          const purchasable = checkoutAvailable && Boolean(productField);
+          const price = annual ? plan.priceYearly : plan.priceMonthly;
           return (
             <Card key={plan.slug} className={isCurrent ? "border-primary" : undefined}>
               <CardHeader>
                 <CardTitle className="text-lg">{plan.name}</CardTitle>
                 <CardDescription>
-                  {plan.priceMonthly === null
-                    ? "Custom pricing"
-                    : plan.priceMonthly === 0
-                      ? "Free"
-                      : `$${plan.priceMonthly}/mo`}
+                  {price === null ? "Custom pricing" : price === 0 ? "Free" : `$${price}/mo`}
+                  {annual && price !== null && price !== 0 && " · billed annually"}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2 text-sm text-muted-foreground">
@@ -159,7 +187,7 @@ export function BillingClient({
                 ) : purchasable ? (
                   <Button
                     className="w-full cursor-pointer"
-                    onClick={() => startCheckout(plan.slug)}
+                    onClick={() => startCheckout(plan)}
                     disabled={pending !== null}
                   >
                     {pending === plan.slug ? "Opening…" : `Upgrade to ${plan.name}`}

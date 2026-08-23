@@ -8,7 +8,7 @@ import { db } from "./db";
 import { isCloud } from "./cloud";
 import { isEmailConfigured, sendEmail } from "./email";
 import { applyCustomerState } from "./billing";
-import { getPolarProductId, publicPlans } from "./plans";
+import { checkoutSlug, getPolarProductId, publicPlans } from "./plans";
 
 // Single source of truth for the minimum password length — reused by
 // accept-invite.ts, which creates credentials directly and bypasses
@@ -41,8 +41,12 @@ function polarPlugin() {
   }
 
   const products = publicPlans().flatMap((plan) => {
-    const productId = getPolarProductId(plan);
-    return productId ? [{ productId, slug: plan.slug }] : [];
+    const monthlyId = getPolarProductId(plan, "monthly");
+    const yearlyId = getPolarProductId(plan, "annual");
+    return [
+      ...(monthlyId ? [{ productId: monthlyId, slug: checkoutSlug(plan, "monthly") }] : []),
+      ...(yearlyId ? [{ productId: yearlyId, slug: checkoutSlug(plan, "annual") }] : []),
+    ];
   });
 
   const client = new Polar({

@@ -24,11 +24,13 @@ function param(value: string | string[] | undefined): string | undefined {
  *  Polar checkout from /billing — so the only honest thing to do with the
  *  params is acknowledge the choice, with the same price shown on /pricing
  *  (Task #249). */
-function intent(planParam: string | string[] | undefined, billingParam: string | string[] | undefined): string {
+function pickedPlan(planParam: string | string[] | undefined) {
   const slug = param(planParam);
-  const plan = publicPlans().find(
-    (p) => p.slug === slug && p.slug !== "free" && p.priceMonthly !== null,
-  );
+  return publicPlans().find((p) => p.slug === slug && p.slug !== "free" && p.priceMonthly !== null);
+}
+
+function intent(planParam: string | string[] | undefined, billingParam: string | string[] | undefined): string {
+  const plan = pickedPlan(planParam);
   if (!plan) {
     return `No credit card. ${FREE_PLAN.limits.projects} project and ${FREE_PLAN.limits.endpoints} MCP endpoints on the free plan.`;
   }
@@ -36,6 +38,14 @@ function intent(planParam: string | string[] | undefined, billingParam: string |
   const price = annual ? plan.priceYearly : plan.priceMonthly;
   const suffix = annual ? ", billed annually" : "";
   return `You picked ${plan.name} — $${price}/mo${suffix}. Create your account first, then upgrade from Billing.`;
+}
+
+// A paid plan picked on /pricing sends the new account straight to Billing
+// with the same period preselected (Task #267) instead of dropping the
+// choice at /projects, where nothing carries it forward.
+function postSignupUrl(planParam: string | string[] | undefined, billingParam: string | string[] | undefined): string {
+  if (!pickedPlan(planParam)) return "/projects";
+  return param(billingParam) === "annual" ? "/billing?billing=annual" : "/billing";
 }
 
 export default async function SignupPage({
@@ -70,7 +80,7 @@ export default async function SignupPage({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <CloudSignIn googleEnabled={googleEnabled} />
+            <CloudSignIn googleEnabled={googleEnabled} callbackURL={postSignupUrl(plan, billing)} />
           </CardContent>
           <CardFooter>
             <p className="w-full text-center text-sm text-muted-foreground">

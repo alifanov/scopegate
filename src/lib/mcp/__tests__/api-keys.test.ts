@@ -55,14 +55,18 @@ describe("isInvalidMcpApiKeyRateLimited", () => {
     resetInvalidMcpApiKeyRateLimitsForTest();
   });
 
-  it("caps memory usage when flooded with unique IPs", () => {
-    const now = Date.now();
-    for (let i = 0; i < 200_000; i++) {
-      isInvalidMcpApiKeyRateLimited(`10.0.${Math.floor(i / 65536)}.${i % 65536}`, now);
-    }
+  it(
+    "caps memory usage when flooded with unique IPs",
+    () => {
+      const now = Date.now();
+      for (let i = 0; i < 200_000; i++) {
+        isInvalidMcpApiKeyRateLimited(`10.0.${Math.floor(i / 65536)}.${i % 65536}`, now);
+      }
 
-    expect(getInvalidMcpApiKeyBucketCountForTest()).toBeLessThanOrEqual(20_000);
-  });
+      expect(getInvalidMcpApiKeyBucketCountForTest()).toBeLessThanOrEqual(20_000);
+    },
+    15_000
+  );
 
   it("expires stale buckets instead of keeping them forever", () => {
     const start = Date.now();

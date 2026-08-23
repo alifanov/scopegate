@@ -62,6 +62,15 @@ const nextConfig: NextConfig = {
         source: "/(.*)",
         headers: securityHeaders,
       },
+      // Landing demo assets are immutable — a change ships under a new filename.
+      {
+        source: "/scopegate-demo.mp4",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+      {
+        source: "/scopegate-demo-poster.webp",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
     ];
   },
   // Canonical host is the apex; www is served by the same container (both FQDNs

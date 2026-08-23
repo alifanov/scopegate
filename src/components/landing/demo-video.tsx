@@ -11,7 +11,9 @@ export function DemoVideo() {
             src="/scopegate-demo.mp4"
             controls
             playsInline
-            className="w-full block"
+            preload="none"
+            poster="/scopegate-demo-poster.webp"
+            className="w-full block aspect-video"
           />
         </div>
       </div>

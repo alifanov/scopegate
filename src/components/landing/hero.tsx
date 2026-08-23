@@ -74,7 +74,7 @@ export function Hero() {
   }, []);
 
   return (
-    <section className="relative min-h-screen flex items-center pt-20 pb-16 overflow-hidden">
+    <section className="relative min-h-screen flex items-start lg:items-center pt-20 pb-16 overflow-hidden">
       {/* dot grid background */}
       <div className="absolute inset-0 dot-grid opacity-100 pointer-events-none" />
 

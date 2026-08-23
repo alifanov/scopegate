@@ -85,7 +85,7 @@ export default function PricingPage() {
       </section>
 
       {/* Pricing tiers */}
-      <Pricing />
+      <Pricing showHeading={false} />
 
       {/* Trust signals */}
       <section className="py-12 border-t border-slate-800/40">

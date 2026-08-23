@@ -94,23 +94,25 @@ function ctaHref(href: string, annual: boolean): string {
   return `${href}${href.includes("?") ? "&" : "?"}billing=annual`;
 }
 
-export function Pricing() {
+export function Pricing({ showHeading = true }: { showHeading?: boolean } = {}) {
   const [annual, setAnnual] = useState(false);
 
   return (
     <section id="pricing" className="py-28">
       <div className="max-w-7xl mx-auto px-6">
         {/* header */}
-        <div className="text-center space-y-4 mb-12">
-          <p className="text-xs font-semibold text-violet-400 uppercase tracking-[0.15em]">
-            Pricing
-          </p>
-          <h2 className="text-4xl md:text-5xl font-bold text-slate-50">
-            Simple, transparent pricing
-            <br />
-            <span className="text-slate-400">that scales with your agents</span>
-          </h2>
-        </div>
+        {showHeading && (
+          <div className="text-center space-y-4 mb-12">
+            <p className="text-xs font-semibold text-violet-400 uppercase tracking-[0.15em]">
+              Pricing
+            </p>
+            <h2 className="text-4xl md:text-5xl font-bold text-slate-50">
+              Simple, transparent pricing
+              <br />
+              <span className="text-slate-400">that scales with your agents</span>
+            </h2>
+          </div>
+        )}
 
         {/* billing toggle */}
         <div className="flex items-center justify-center gap-3 mb-14">

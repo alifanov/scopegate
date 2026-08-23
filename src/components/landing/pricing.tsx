@@ -27,14 +27,14 @@ const TIER_COPY: Record<
     extras: ["Every integration included", "Audit log of every tool call", "Community support"],
   },
   pro: {
-    cta: "Start Pro trial",
+    cta: "Get Pro",
     ctaHref: "/signup?plan=pro",
     highlight: false,
     badge: null,
     extras: ["Every integration included", "Rate limit per endpoint", "Email support"],
   },
   team: {
-    cta: "Start Team trial",
+    cta: "Get Team",
     ctaHref: "/signup?plan=team",
     highlight: true,
     badge: "Most popular",

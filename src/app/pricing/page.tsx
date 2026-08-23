@@ -118,7 +118,7 @@ export default function PricingPage() {
       <PricingFaq />
 
       {/* CTA */}
-      <section className="py-16 border-t border-slate-800/40">
+      <section className="pt-16 pb-24 sm:pb-16 border-t border-slate-800/40">
         <div className="max-w-2xl mx-auto px-6 text-center space-y-5">
           <h2 className="text-3xl font-bold text-slate-50">
             Start with the free plan today

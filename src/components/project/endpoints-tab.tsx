@@ -15,7 +15,7 @@ import {
 import { TableSkeleton } from "@/components/skeletons";
 import { CreateEndpointDialog } from "@/components/project/create-endpoint-dialog";
 import { getProviderDisplayName } from "@/lib/provider-names";
-import { Plus } from "lucide-react";
+import { Plus, Plug } from "lucide-react";
 import { ServiceIcon } from "@/components/service-icons";
 import { apiGet, ApiError } from "@/lib/api-client";
 
@@ -33,6 +33,7 @@ interface Endpoint {
 
 export function EndpointsTab({ projectId }: { projectId: string }) {
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
+  const [hasServices, setHasServices] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -40,8 +41,12 @@ export function EndpointsTab({ projectId }: { projectId: string }) {
   const fetchEndpoints = useCallback(async () => {
     setError(null);
     try {
-      const data = await apiGet<{ endpoints: Endpoint[] }>(`/api/projects/${projectId}/endpoints`);
-      setEndpoints(data.endpoints || []);
+      const [endpointsData, servicesData] = await Promise.all([
+        apiGet<{ endpoints: Endpoint[] }>(`/api/projects/${projectId}/endpoints`),
+        apiGet<{ services: unknown[] }>(`/api/projects/${projectId}/services`),
+      ]);
+      setEndpoints(endpointsData.endpoints || []);
+      setHasServices((servicesData.services || []).length > 0);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load endpoints");
     } finally {
@@ -55,10 +60,24 @@ export function EndpointsTab({ projectId }: { projectId: string }) {
 
   if (loading) return <TableSkeleton />;
 
+  const showEmptyState = !error && endpoints.length === 0;
+  const noServices = showEmptyState && !hasServices;
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-end">
-        <Button onClick={() => setDialogOpen(true)}><Plus className="size-4" />New Endpoint</Button>
+      <div className="flex items-center justify-end gap-2">
+        {noServices && (
+          <Button asChild>
+            <Link href={`/projects/${projectId}?tab=services`}><Plug className="size-4" />Connect a service</Link>
+          </Button>
+        )}
+        <Button
+          variant={noServices ? "outline" : "default"}
+          disabled={noServices}
+          onClick={() => setDialogOpen(true)}
+        >
+          <Plus className="size-4" />New Endpoint
+        </Button>
       </div>
 
       <CreateEndpointDialog

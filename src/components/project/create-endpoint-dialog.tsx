@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { PermissionPicker } from "@/components/project/permission-picker";
 import { getProviderDisplayName } from "@/lib/provider-names";
-import { Plus } from "lucide-react";
+import { Plus, Plug } from "lucide-react";
 import { ServiceIcon } from "@/components/service-icons";
 import { toast } from "sonner";
 import { apiGet, apiSend, ApiError } from "@/lib/api-client";
@@ -143,10 +143,22 @@ export function CreateEndpointDialog({
             </Button>
           </div>
         ) : services.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No services connected. Connect a service first before creating an
-            endpoint.
-          </p>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              No services connected. Connect a service first before creating an
+              endpoint.
+            </p>
+            <Button
+              type="button"
+              onClick={() => {
+                onOpenChange(false);
+                router.push(`/projects/${projectId}?tab=services`);
+              }}
+            >
+              <Plug className="size-4" />
+              Connect a service
+            </Button>
+          </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-4">

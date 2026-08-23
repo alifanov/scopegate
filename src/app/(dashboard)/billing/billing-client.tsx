@@ -199,6 +199,15 @@ export function BillingClient({
                   <Button asChild variant="outline" className="w-full cursor-pointer">
                     <a href="mailto:hello@scopegate.dev">Contact sales</a>
                   </Button>
+                ) : plan.priceMonthly === 0 ? (
+                  <Button
+                    variant="outline"
+                    className="w-full cursor-pointer"
+                    onClick={openPortal}
+                    disabled={pending !== null}
+                  >
+                    {pending === "portal" ? "Opening…" : "Downgrade to Free"}
+                  </Button>
                 ) : (
                   <Button variant="outline" className="w-full" disabled>
                     Unavailable

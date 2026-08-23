@@ -56,7 +56,7 @@ export function Footer() {
                 href="https://github.com/alifanov/scopegate"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-slate-400 hover:text-slate-300 transition-colors"
+                className="inline-flex items-center justify-center size-9 -m-1.5 text-slate-400 hover:text-slate-300 transition-colors"
                 aria-label="GitHub"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -67,7 +67,7 @@ export function Footer() {
                 href="https://twitter.com/scopegate_cloud"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-slate-400 hover:text-slate-300 transition-colors"
+                className="inline-flex items-center justify-center size-9 -m-1.5 text-slate-400 hover:text-slate-300 transition-colors"
                 aria-label="Twitter / X"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">

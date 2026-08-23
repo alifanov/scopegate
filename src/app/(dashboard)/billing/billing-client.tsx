@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { authClient } from "@/lib/auth-client";
-import { UNLIMITED, checkoutSlug, type BillingCycle, type PlanDef } from "@/lib/plans";
+import { UNLIMITED, checkoutSlug, getPlanDef, type BillingCycle, type PlanDef } from "@/lib/plans";
 import { toast } from "sonner";
 
 export type Usage = {
@@ -64,8 +64,11 @@ export function BillingClient({
 }) {
   const [pending, setPending] = useState<string | null>(null);
   const [cycle, setCycle] = useState<BillingCycle>(initialCycle);
-  const current = plans.find((p) => p.slug === currentSlug);
-  const currentLimits = current?.limits;
+  // getPlanDef never throws, and knows about internal plans (e.g.
+  // grandfathered) that `plans` (publicPlans()) deliberately omits — looking
+  // up in `plans` here would leak the raw slug to the badge below.
+  const current = getPlanDef(currentSlug);
+  const currentLimits = current.limits;
   const annual = cycle === "annual";
 
   async function startCheckout(plan: PlanDef) {
@@ -94,32 +97,32 @@ export function BillingClient({
         <CardHeader>
           <div className="flex items-center gap-2">
             <CardTitle>Current plan</CardTitle>
-            <Badge variant="secondary">{current?.name ?? currentSlug}</Badge>
+            <Badge variant="secondary">{current.name}</Badge>
             {planStatus && planStatus !== "active" && (
               <Badge variant="destructive">{planStatus}</Badge>
             )}
           </div>
           <CardDescription>
-            {planValidUntil
-              ? `Renews ${new Date(planValidUntil).toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}`
-              : "No active subscription"}
+            {current.internal
+              ? "Legacy account — no plan limits apply."
+              : planValidUntil
+                ? `Renews ${new Date(planValidUntil).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}`
+                : "No active subscription"}
           </CardDescription>
         </CardHeader>
-        {currentLimits && (
-          <CardContent className="space-y-2">
-            <UsageRow label="Projects" used={usage.projects} limit={currentLimits.projects} />
-            <UsageRow label="MCP endpoints" used={usage.endpoints} limit={currentLimits.endpoints} />
-            <UsageRow
-              label="Requests this month"
-              used={usage.requestsThisMonth}
-              limit={currentLimits.requestsPerMonth}
-            />
-          </CardContent>
-        )}
+        <CardContent className="space-y-2">
+          <UsageRow label="Projects" used={usage.projects} limit={currentLimits.projects} />
+          <UsageRow label="MCP endpoints" used={usage.endpoints} limit={currentLimits.endpoints} />
+          <UsageRow
+            label="Requests this month"
+            used={usage.requestsThisMonth}
+            limit={currentLimits.requestsPerMonth}
+          />
+        </CardContent>
         {planStatus && (
           <CardFooter>
             <Button

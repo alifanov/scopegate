@@ -93,8 +93,8 @@ export default function ProjectPage() {
 
       <Tabs value={currentTab} onValueChange={handleTabChange}>
         <TabsList>
-          <TabsTrigger value="endpoints">MCP Endpoints</TabsTrigger>
-          <TabsTrigger value="services">Auth Connections</TabsTrigger>
+          <TabsTrigger value="endpoints">Endpoints</TabsTrigger>
+          <TabsTrigger value="services">Connections</TabsTrigger>
           <TabsTrigger value="logs">Logs</TabsTrigger>
         </TabsList>
 

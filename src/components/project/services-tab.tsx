@@ -196,6 +196,7 @@ export function ServicesTab({ projectId }: { projectId: string }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [serviceToDisconnect, setServiceToDisconnect] = useState<string | null>(null);
+  const [providerSearch, setProviderSearch] = useState("");
 
   // Add-MCP-endpoint dialog state
   const [mcpServiceId, setMcpServiceId] = useState<string | null>(null);
@@ -342,6 +343,7 @@ export function ServicesTab({ projectId }: { projectId: string }) {
       resetApiKeyForm();
       resetEmailForm();
       resetOAuthAppForm();
+      setProviderSearch("");
     }
   }
 
@@ -438,6 +440,11 @@ export function ServicesTab({ projectId }: { projectId: string }) {
     name: group.name,
     description: group.description,
   }));
+  const filteredProviders = providerSearch.trim()
+    ? providers.filter((provider) =>
+        provider.name.toLowerCase().includes(providerSearch.trim().toLowerCase())
+      )
+    : providers;
 
   return (
     <div className="space-y-4">
@@ -691,53 +698,67 @@ export function ServicesTab({ projectId }: { projectId: string }) {
               </Button>
             </form>
           ) : (
-            <div className="max-h-[60vh] overflow-y-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Service</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Auth</TableHead>
-                    <TableHead className="w-[1%]" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {providers.map((provider) => (
-                    <TableRow
-                      key={provider.key}
-                      className="cursor-pointer"
-                      onClick={() => handleConnect(provider.key)}
-                    >
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <ServiceIcon provider={provider.key} className="size-5 shrink-0" />
-                          <span className="font-medium">{provider.name}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {provider.description}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs">
-                          {(() => {
-                            const target = getConnectTarget(provider.key, projectId);
-                            return target.kind === "redirect"
-                              ? "OAuth"
-                              : target.dialog === "email"
-                                ? "IMAP/SMTP"
-                                : "API Key";
-                          })()}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Button size="sm" variant="ghost">
-                          <Plug className="size-4" />
-                        </Button>
-                      </TableCell>
+            <div className="space-y-3">
+              <Input
+                type="search"
+                placeholder="Search services…"
+                value={providerSearch}
+                onChange={(e) => setProviderSearch(e.target.value)}
+                aria-label="Search services"
+              />
+              <div className="max-h-[60vh] overflow-y-auto">
+                <Table className="table-fixed">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Service</TableHead>
+                      <TableHead className="w-24">Auth</TableHead>
+                      <TableHead className="w-14" />
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredProviders.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center text-muted-foreground whitespace-normal">
+                          No services match &quot;{providerSearch}&quot;.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredProviders.map((provider) => (
+                        <TableRow
+                          key={provider.key}
+                          className="cursor-pointer"
+                          title={provider.description}
+                          onClick={() => handleConnect(provider.key)}
+                        >
+                          <TableCell>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <ServiceIcon provider={provider.key} className="size-5 shrink-0" />
+                              <span className="font-medium truncate">{provider.name}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {(() => {
+                                const target = getConnectTarget(provider.key, projectId);
+                                return target.kind === "redirect"
+                                  ? "OAuth"
+                                  : target.dialog === "email"
+                                    ? "IMAP"
+                                    : "API Key";
+                              })()}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button size="sm" variant="ghost" aria-label={`Connect ${provider.name}`}>
+                              <Plug className="size-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           )}
         </DialogContent>

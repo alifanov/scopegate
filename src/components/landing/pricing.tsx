@@ -116,20 +116,32 @@ export function Pricing({ showHeading = true }: { showHeading?: boolean } = {}) 
 
         {/* billing toggle */}
         <div className="flex items-center justify-center gap-3 mb-14">
-          <span className={`text-sm ${!annual ? "text-slate-200" : "text-slate-400"}`}>Monthly</span>
+          <button
+            type="button"
+            onClick={() => setAnnual(false)}
+            className={`text-sm ${!annual ? "text-slate-200" : "text-slate-400"}`}
+          >
+            Monthly
+          </button>
           <button
             onClick={() => setAnnual(!annual)}
             className={`relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${annual ? "bg-violet-600" : "bg-slate-700"}`}
             aria-label="Toggle annual billing"
+            role="switch"
+            aria-checked={annual}
           >
             <span
               className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${annual ? "translate-x-5" : "translate-x-0"}`}
             />
           </button>
-          <span className={`text-sm ${annual ? "text-slate-200" : "text-slate-400"}`}>
+          <button
+            type="button"
+            onClick={() => setAnnual(true)}
+            className={`text-sm ${annual ? "text-slate-200" : "text-slate-400"}`}
+          >
             Annual
             <span className="ml-1.5 text-xs text-emerald-400 font-medium">save 20%</span>
-          </span>
+          </button>
         </div>
 
         {/* tiers */}

@@ -98,7 +98,7 @@ export default function DocsPage() {
               <li key={s.id}>
                 <a
                   href={`#${s.id}`}
-                  className="text-cyan-400 hover:text-cyan-300 transition-colors"
+                  className="text-violet-400 hover:text-violet-300 transition-colors"
                 >
                   {s.title}
                 </a>
@@ -132,7 +132,7 @@ export default function DocsPage() {
                 href={section.link.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-block mt-3 text-cyan-400 hover:text-cyan-300 transition-colors"
+                className="inline-block mt-3 text-violet-400 hover:text-violet-300 transition-colors"
               >
                 {section.link.label} →
               </a>

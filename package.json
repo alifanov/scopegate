@@ -97,7 +97,8 @@
       "@opentelemetry/propagator-jaeger": ">=2.9.0",
       "valibot": ">=1.4.2",
       "nanoid": ">=3.3.17",
-      "body-parser": ">=2.3.0"
+      "body-parser": ">=2.3.0",
+      "deepmerge-ts": "^8.0.0"
     }
   },
   "devDependencies": {

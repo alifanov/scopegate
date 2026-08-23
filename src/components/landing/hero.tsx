@@ -87,7 +87,7 @@ export function Hero() {
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
 
           {/* ── Left ── */}
-          <div className="space-y-8">
+          <div className="space-y-8 min-w-0">
             {/* badge */}
             <div className="animate-fade-up inline-flex items-center gap-2 bg-violet-950/70 border border-violet-700/30 rounded-full px-4 py-1.5 text-xs text-violet-300 font-medium">
               <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-pulse" />
@@ -96,7 +96,7 @@ export function Hero() {
 
             {/* headline */}
             <div className="animate-fade-up animate-delay-100 space-y-2">
-              <h1 className="text-5xl xl:text-6xl font-bold leading-[1.08] tracking-tight text-slate-50">
+              <h1 className="text-4xl sm:text-5xl xl:text-6xl font-bold leading-[1.08] tracking-tight text-slate-50">
                 Your AI agents<br />
                 have{" "}
                 <span className="shimmer-text">god-mode</span>

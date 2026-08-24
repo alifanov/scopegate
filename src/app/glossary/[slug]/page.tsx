@@ -65,17 +65,7 @@ function buildJsonLd(entry: GlossaryEntry) {
     mainEntityOfPage: `https://scopegate.dev/glossary/${entry.slug}`,
   };
 
-  const faqPage = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: entry.faq.map((f) => ({
-      "@type": "Question",
-      name: f.question,
-      acceptedAnswer: { "@type": "Answer", text: f.answer },
-    })),
-  };
-
-  return [breadcrumb, article, faqPage];
+  return [breadcrumb, article];
 }
 
 /* ---------- page ---------- */

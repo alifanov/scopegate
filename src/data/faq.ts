@@ -1,6 +1,4 @@
-// Single source for the landing FAQ: the accordion renders it and the FAQPage
-// JSON-LD on `/` is built from the same array. Google penalises schema that
-// disagrees with the visible text, and the two copies had already drifted apart.
+// Single source for the landing FAQ accordion.
 export type FaqItem = { q: string; a: string };
 
 // The one place the supported-service list is written out. Deliberately a plain

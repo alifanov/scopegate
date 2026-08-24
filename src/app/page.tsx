@@ -17,7 +17,6 @@ import { Faq } from "@/components/landing/faq";
 import { BlogPreview } from "@/components/landing/blog-preview";
 import { CtaSection } from "@/components/landing/cta-section";
 import { Footer } from "@/components/landing/footer";
-import { LANDING_FAQ } from "@/data/faq";
 
 export const metadata: Metadata = {
   title: "ScopeGate — Granular AI Agent Permissions for MCP | Free",
@@ -73,18 +72,6 @@ const softwareSchema = {
   },
 };
 
-// Built from the same array the <Faq> accordion renders, so the schema can never
-// again claim something the visible page doesn't say.
-const faqSchema = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: LANDING_FAQ.map((item) => ({
-    "@type": "Question",
-    name: item.q,
-    acceptedAnswer: { "@type": "Answer", text: item.a },
-  })),
-};
-
 export default async function HomePage() {
   // Self-hosted keeps the original behaviour: the root path is a doorway to the
   // dashboard, not a marketing site.
@@ -106,10 +93,6 @@ export default async function HomePage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareSchema) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
       <Navbar />
       <Hero />

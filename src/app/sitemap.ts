@@ -23,7 +23,7 @@ const baseUrl = 'https://scopegate.dev'
 // Dates are the real content dates from git history. Bump one in the same commit
 // that changes what a visitor sees; leave it for refactors and styling.
 const PAGE_DATES: Record<string, string> = {
-  '': '2026-03-23',
+  '': '2026-08-24',
   '/features': '2026-03-23',
   '/pricing': '2026-03-23',
   '/docs': '2026-03-23',
@@ -35,9 +35,9 @@ const PAGE_DATES: Record<string, string> = {
 
 // Programmatic clusters render from one data file each, so the file's own date
 // is the content date for every page it produces.
-const COMPARISONS_DATE = '2026-03-06' // src/data/comparisons.ts
+const COMPARISONS_DATE = '2026-08-24' // src/data/comparisons.ts
 const INTEGRATIONS_DATE = '2026-03-06' // src/data/integrations-seo.ts
-const GLOSSARY_DATE = '2026-03-06' // src/data/glossary.ts
+const GLOSSARY_DATE = '2026-08-24' // src/data/glossary.ts
 
 const at = (date: string) => new Date(`${date}T00:00:00Z`)
 

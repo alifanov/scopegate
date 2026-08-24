@@ -66,17 +66,7 @@ function buildJsonLd(post: BlogPost) {
     mainEntityOfPage: `https://scopegate.dev/blog/${post.slug}`,
   };
 
-  const faqPage = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: post.faq.map((f) => ({
-      "@type": "Question",
-      name: f.question,
-      acceptedAnswer: { "@type": "Answer", text: f.answer },
-    })),
-  };
-
-  return [article, faqPage];
+  return [article];
 }
 
 /* ---------- render content with inline code ---------- */

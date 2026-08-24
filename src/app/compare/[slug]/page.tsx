@@ -149,35 +149,6 @@ export default async function ComparisonPage({
       name: "ScopeGate",
       url: "https://scopegate.dev",
     },
-    mainEntity: {
-      "@type": "FAQPage",
-      mainEntity: [
-        {
-          "@type": "Question",
-          name: `What is the difference between ScopeGate and ${data.competitor}?`,
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: data.intro,
-          },
-        },
-        {
-          "@type": "Question",
-          name: `Should I use ScopeGate or ${data.competitor}?`,
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: data.verdict,
-          },
-        },
-        {
-          "@type": "Question",
-          name: `Who is ScopeGate best for compared to ${data.competitor}?`,
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: `ScopeGate is best for: ${data.bestFor.scopegate} ${data.competitor} is best for: ${data.bestFor.competitor}`,
-          },
-        },
-      ],
-    },
   };
 
   return (

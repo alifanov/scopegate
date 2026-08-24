@@ -10,6 +10,12 @@ export const metadata: Metadata = {
   description:
     "Granular per-agent permission control, instant revocation, full audit trails, and rate limiting for MCP-connected AI agents.",
   alternates: { canonical: "https://scopegate.dev/features" },
+  openGraph: {
+    title: "Features — Per-Agent Permissions, Audit Trails & Rate Limiting",
+    description:
+      "Granular per-agent permission control, instant revocation, full audit trails, and rate limiting for MCP-connected AI agents.",
+    url: "https://scopegate.dev/features",
+  },
 };
 
 export const viewport = MARKETING_VIEWPORT;

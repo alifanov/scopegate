@@ -24,6 +24,12 @@ export const metadata: Metadata = {
   description:
     "Give each AI agent exactly the access it needs — nothing more. ScopeGate enforces per-agent permissions on MCP: restrict tools, scopes & data, instant revoke, full audit trail. Free plan available.",
   alternates: { canonical: "https://scopegate.dev" },
+  openGraph: {
+    title: "ScopeGate — Granular AI Agent Permissions for MCP | Free",
+    description:
+      "Give each AI agent exactly the access it needs — nothing more. ScopeGate enforces per-agent permissions on MCP: restrict tools, scopes & data, instant revoke, full audit trail. Free plan available.",
+    url: "https://scopegate.dev",
+  },
 };
 
 export const viewport = MARKETING_VIEWPORT;

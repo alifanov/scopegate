@@ -10,6 +10,12 @@ export const metadata: Metadata = {
   description:
     "Learn how ScopeGate works as an MCP proxy layer. Set up per-agent permissions, audit trails, and rate limiting for AI agents accessing Google, Slack, GitHub, and more.",
   alternates: { canonical: "https://scopegate.dev/docs" },
+  openGraph: {
+    title: "Docs — How to Set Up Your MCP Proxy & AI Agent Permissions",
+    description:
+      "Learn how ScopeGate works as an MCP proxy layer. Set up per-agent permissions, audit trails, and rate limiting for AI agents accessing Google, Slack, GitHub, and more.",
+    url: "https://scopegate.dev/docs",
+  },
 };
 
 export const viewport = MARKETING_VIEWPORT;

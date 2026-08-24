@@ -14,6 +14,12 @@ export const metadata: Metadata = {
   description:
     "Free plan to get started, Pro for solo developers, Team for shared governance. Simple transparent pricing for AI agent permission control.",
   alternates: { canonical: "https://scopegate.dev/pricing" },
+  openGraph: {
+    title: "Pricing — Free Plan Available, Pro from $29/mo",
+    description:
+      "Free plan to get started, Pro for solo developers, Team for shared governance. Simple transparent pricing for AI agent permission control.",
+    url: "https://scopegate.dev/pricing",
+  },
 };
 
 export const viewport = MARKETING_VIEWPORT;

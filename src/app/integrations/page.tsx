@@ -12,6 +12,12 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "https://scopegate.dev/integrations",
   },
+  openGraph: {
+    title: "Integrations — Secure Google, Slack, GitHub & More for AI Agents",
+    description:
+      "Browse ScopeGate integrations. Set granular AI agent permissions for Google Drive, Gmail, Slack, GitHub, Notion, Twitter, LinkedIn, Google Ads, OpenRouter, and more.",
+    url: "https://scopegate.dev/integrations",
+  },
 };
 
 export const viewport = MARKETING_VIEWPORT;

@@ -28,6 +28,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     alternates: {
       canonical: `https://scopegate.dev/integrations/${integration.slug}`,
     },
+    openGraph: {
+      title: integration.metaTitle,
+      description: integration.metaDescription,
+      url: `https://scopegate.dev/integrations/${integration.slug}`,
+    },
   };
 }
 

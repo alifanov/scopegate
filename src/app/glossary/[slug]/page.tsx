@@ -28,6 +28,11 @@ export async function generateMetadata({
     title: { absolute: entry.metaTitle },
     description: entry.metaDescription,
     alternates: { canonical: `https://scopegate.dev/glossary/${entry.slug}` },
+    openGraph: {
+      title: entry.metaTitle,
+      description: entry.metaDescription,
+      url: `https://scopegate.dev/glossary/${entry.slug}`,
+    },
   };
 }
 

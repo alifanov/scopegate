@@ -12,6 +12,7 @@ without new data.
 |---|---|---|---|
 | H-003 | No analytics instrumentation (no OpenPanel MCP, no client-side tracking) — landing→signup funnel changes shipped this week are unmeasured | 1/3 — [2026-08-13](../logs/2026-08-13.md) | tracking |
 | H-004 | `state/` is only updated when a routine is explicitly doing docs work — feature commits never touch it, so drift accumulates in bursts rather than gradually | 1/3 — [2026-08-15](../logs/2026-08-15.md): all 8 drift findings trace to one commit wave (54e575b, f015f8e, bfca673, 4f1f78e, 2026-08-12…08-14), none of which touched `docs/state/`. Next audit checks whether tasks #234–#239 landed *and* whether the wave after them left new drift | tracking |
+| H-006 | `McpEndpoint` SELECT (by `apiKey`, already `@unique`/indexed) p99 latency (~243ms) on `scopegate-selfhost` — above the 200ms "needs optimization" DB threshold | 1/3 — [2026-08-24](../logs/2026-08-24.md): 242.7ms, first sighting; all prior snapshots (08-11…08-22) stayed ≤48.2ms. Column is already indexed, so a repeat points at query shape (joined relations) or connection-pool contention, not a missing index | tracking |
 
 ## Closed
 

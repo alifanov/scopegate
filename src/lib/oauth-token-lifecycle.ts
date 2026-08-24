@@ -10,6 +10,7 @@ import {
   type RefreshTokenConfig,
   type ExchangeTokenConfig,
 } from "@/lib/provider-registry";
+import { formatOAuthErrorReason } from "@/lib/format-oauth-error";
 
 // Serializes all reads+writes for one connection's tokens behind a Postgres
 // advisory lock held for the transaction, so concurrent callers (on-demand
@@ -422,12 +423,19 @@ function needsRefresh(
   return !expiresAt || expiresAt.getTime() < Date.now() + bufferMs;
 }
 
+// Surfaces the stored revocation reason on every subsequent call against an
+// already-revoked connection, so this message — which lands verbatim in the
+// audit log's `error` column via handler.ts — is self-explanatory without a
+// DB lookup.
+function revokedReconnectMessage(conn: Pick<DbConnection, "id" | "provider" | "lastError">): string {
+  const base = `Connection ${conn.id} (${conn.provider}) is revoked — reconnect required`;
+  const reason = formatOAuthErrorReason(conn.lastError);
+  return reason ? `${base} (${reason})` : base;
+}
+
 export async function getValidAccessTokenForConnection(conn: DbConnection): Promise<string> {
   if (conn.status === "revoked") {
-    throw new OAuthTokenError(
-      `Connection ${conn.id} (${conn.provider}) is revoked — reconnect required`,
-      { permanent: true }
-    );
+    throw new OAuthTokenError(revokedReconnectMessage(conn), { permanent: true });
   }
 
   const config = getProviderConfig(conn);
@@ -447,10 +455,7 @@ export async function getValidAccessTokenForConnection(conn: DbConnection): Prom
     const fresh = await tx.serviceConnection.findUniqueOrThrow({ where: { id: conn.id } });
 
     if (fresh.status === "revoked") {
-      throw new OAuthTokenError(
-        `Connection ${fresh.id} (${fresh.provider}) is revoked — reconnect required`,
-        { permanent: true }
-      );
+      throw new OAuthTokenError(revokedReconnectMessage(fresh), { permanent: true });
     }
 
     if (!needsRefresh(fresh.expiresAt, config.bufferMs)) {

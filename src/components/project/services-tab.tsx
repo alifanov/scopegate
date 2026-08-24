@@ -34,6 +34,7 @@ import { TabContentSkeleton } from "@/components/skeletons";
 import { getProviderDisplayName } from "@/lib/provider-names";
 import { PERMISSION_GROUPS } from "@/lib/mcp/permissions";
 import { getConnectTarget, getCredentialGroup } from "@/lib/provider-registry";
+import { formatOAuthErrorReason, isGoogleTestingModeError } from "@/lib/format-oauth-error";
 import { Plug, Unplug, ArrowLeft, RefreshCw, AlertTriangle, XCircle, Plus } from "lucide-react";
 import { ServiceIcon } from "@/components/service-icons";
 import { toast } from "sonner";
@@ -181,10 +182,15 @@ interface Service {
   status: string;
   lastError: string | null;
   createdAt: string;
+  updatedAt: string;
   _count: { mcpEndpoints: number };
 }
 
 type OAuthApp = { appGroup: string; clientId: string; redirectUri: string };
+
+function formatShortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
 export function ServicesTab({ projectId }: { projectId: string }) {
   const searchParams = useSearchParams();
@@ -826,18 +832,39 @@ export function ServicesTab({ projectId }: { projectId: string }) {
                             )}
                           </span>
                         )}
+                        {(service.status === "error" || service.status === "revoked") && (() => {
+                          const reason = formatOAuthErrorReason(service.lastError);
+                          return (
+                            <>
+                              {reason && (
+                                <span className="block text-destructive">
+                                  {service.status === "revoked" ? "Revoked" : "Error"}{" "}
+                                  {formatShortDate(service.updatedAt)} · {reason}
+                                </span>
+                              )}
+                              {service.status === "revoked" &&
+                                isGoogleTestingModeError(reason) &&
+                                getCredentialGroup(service.provider) === "google" && (
+                                  <span className="block text-muted-foreground/70">
+                                    This Google OAuth app is still in Testing — refresh tokens expire
+                                    every 7 days. Publish the consent screen to fix this permanently.
+                                  </span>
+                                )}
+                            </>
+                          );
+                        })()}
                       </CardDescription>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {service.status === "expired" && (
+                    {service.status === "revoked" && (
                       <Badge
                         variant="outline"
                         className="border-yellow-500 text-yellow-600 dark:text-yellow-400"
-                        title={service.lastError || "Token expired"}
+                        title={service.lastError || "Revoked — reconnect required"}
                       >
                         <AlertTriangle className="size-3 mr-1" />
-                        Token Expired
+                        Revoked
                       </Badge>
                     )}
                     {service.status === "error" && (

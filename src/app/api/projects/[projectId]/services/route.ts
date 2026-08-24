@@ -19,7 +19,7 @@ export const GET = withProjectAuth<{ projectId: string }>(
         status: true,
         lastError: true,
         createdAt: true,
-        updatedAt: true,
+        updatedAt: true, // last status transition — doubles as "revoked at" for the UI
         _count: { select: { mcpEndpoints: true } },
       },
       orderBy: { createdAt: "desc" },

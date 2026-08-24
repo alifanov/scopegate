@@ -13,7 +13,18 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/admin/', '/billing/', '/projects/', '/settings/'],
+      disallow: [
+        '/admin',
+        '/admin/',
+        '/billing',
+        '/billing/',
+        '/projects',
+        '/projects/',
+        '/settings',
+        '/settings/',
+        '/notifications',
+        '/notifications/',
+      ],
     },
     sitemap: 'https://scopegate.dev/sitemap.xml',
   }

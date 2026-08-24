@@ -31,6 +31,23 @@ describe("robots.txt", () => {
       }
     });
 
+    it("matches bare dashboard routes by prefix, not just their trailing-slash form", () => {
+      const result = robots();
+      const rules = Array.isArray(result.rules) ? result.rules : [result.rules];
+      const mainRule = rules.find((r) => r.userAgent === "*")!;
+      const disallowed = (
+        Array.isArray(mainRule.disallow) ? mainRule.disallow : [mainRule.disallow]
+      ) as string[];
+      // robots.txt Disallow matches by string prefix, so a "/billing/" rule
+      // never covers the bare route "/billing" — each path below must be
+      // covered by some disallow entry that is itself a prefix of it.
+      const isBlocked = (path: string) =>
+        disallowed.some((rule) => path.startsWith(rule));
+      for (const path of ["/billing", "/projects", "/settings", "/notifications"]) {
+        expect(isBlocked(path)).toBe(true);
+      }
+    });
+
     it("points sitemap to the correct URL", () => {
       expect(robots().sitemap).toBe("https://scopegate.dev/sitemap.xml");
     });

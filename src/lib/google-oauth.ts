@@ -14,7 +14,10 @@ const GOOGLE_SCOPES: Record<string, string> = {
   searchConsole: "https://www.googleapis.com/auth/webmasters",
   // youtube.force-ssl is required by the comments/commentThreads write endpoints —
   // the plain `youtube` scope is not accepted there (403 insufficientPermissions).
-  youtube: "https://www.googleapis.com/auth/youtube https://www.googleapis.com/auth/youtube.force-ssl https://www.googleapis.com/auth/youtube.channel-memberships.creator",
+  // yt-analytics.readonly backs youtube_get_analytics (Analytics API v2 /reports).
+  // Adding it means already-connected accounts must reconnect — Google does not widen
+  // scopes on a refresh-token exchange.
+  youtube: "https://www.googleapis.com/auth/youtube https://www.googleapis.com/auth/youtube.force-ssl https://www.googleapis.com/auth/youtube.channel-memberships.creator https://www.googleapis.com/auth/yt-analytics.readonly",
   googleTagManager: "https://www.googleapis.com/auth/tagmanager.readonly https://www.googleapis.com/auth/tagmanager.edit.containers https://www.googleapis.com/auth/tagmanager.delete.containers https://www.googleapis.com/auth/tagmanager.edit.containerversions https://www.googleapis.com/auth/tagmanager.publish https://www.googleapis.com/auth/tagmanager.manage.users https://www.googleapis.com/auth/tagmanager.manage.accounts",
 };
 

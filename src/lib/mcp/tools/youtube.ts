@@ -2,6 +2,11 @@ import { z } from 'zod';
 import { youtubeFetch, youtubeUploadVideo } from '../youtube';
 import { createFetchTool } from './fetch-tool';
 import type { ToolDefinition } from './types';
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const DEFAULT_ANALYTICS_METRICS =
+    "views,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,subscribersGained";
+
 export const youtubeTools: ToolDefinition[] = [
     // YouTube tools
     createFetchTool(youtubeFetch, {
@@ -445,25 +450,45 @@ export const youtubeTools: ToolDefinition[] = [
     },
     {
         name: "youtube_get_analytics",
-        description: "Get analytics for the authenticated user's YouTube channel (views, watch time, subscribers)",
+        description:
+            "Query the YouTube Analytics API (v2 /reports) for the authenticated user's channel. " +
+            "Returns a time series or breakdown, not the channel profile — use youtube_list_channels for lifetime counts. " +
+            "Examples: audience retention for one video = metrics 'audienceWatchRatio,relativeRetentionPerformance', " +
+            "dimensions 'elapsedVideoTimeRatio', filters 'video==VIDEO_ID'. " +
+            "Traffic sources = metrics 'views,estimatedMinutesWatched', dimensions 'insightTrafficSourceType'. " +
+            "Daily views = metrics 'views', dimensions 'day'.",
         action: "youtube:get_analytics",
         inputSchema: z.object({
-            channelId: z.string().optional(),
-            maxResults: z.number().optional().default(10),
+            startDate: z.string().regex(DATE_RE, "startDate must be YYYY-MM-DD"),
+            endDate: z.string().regex(DATE_RE, "endDate must be YYYY-MM-DD"),
+            metrics: z.string().optional().default(DEFAULT_ANALYTICS_METRICS)
+                .describe("Comma-separated YouTube Analytics metrics"),
+            dimensions: z.string().optional()
+                .describe("Comma-separated dimensions, e.g. 'day', 'insightTrafficSourceType', 'elapsedVideoTimeRatio'"),
+            filters: z.string().optional()
+                .describe("Semicolon-separated filters, e.g. 'video==VIDEO_ID'"),
+            sort: z.string().optional().describe("Dimension or metric to sort by; prefix with '-' for descending"),
+            maxResults: z.number().optional()
+                .describe("Only accepted together with dimensions + sort"),
         }),
         handler: async (params, context) => {
-            // Use the YouTube Data API to get channel statistics (basic analytics)
+            // channel==MINE is the only valid id here — channel==<id> requires
+            // content-owner credentials and 403s for a normal OAuth user.
             const query = new URLSearchParams({
-                part: "snippet,statistics,contentDetails",
-                maxResults: String(params.maxResults ?? 10),
+                ids: "channel==MINE",
+                startDate: params.startDate as string,
+                endDate: params.endDate as string,
+                metrics: (params.metrics as string) || DEFAULT_ANALYTICS_METRICS,
             });
-            if (params.channelId) {
-                query.set("id", params.channelId as string);
+            for (const key of ["dimensions", "filters", "sort"] as const) {
+                if (params[key])
+                    query.set(key, params[key] as string);
             }
-            else {
-                query.set("mine", "true");
-            }
-            return youtubeFetch(context.serviceConnectionId, `/channels?${query.toString()}`);
+            if (params.maxResults !== undefined)
+                query.set("maxResults", String(params.maxResults));
+            return youtubeFetch(context.serviceConnectionId, `/reports?${query.toString()}`, {
+                baseUrlKey: "analytics",
+            });
         },
     },
     // ─── YouTube additional tools ──────────────────────────────────────────

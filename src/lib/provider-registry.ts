@@ -299,7 +299,11 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
     displayName: "YouTube",
     description: "Access to YouTube Data API operations",
     token: GOOGLE_REFRESH,
-    transport: { baseUrl: "https://www.googleapis.com/youtube/v3" },
+    transport: {
+      baseUrl: "https://www.googleapis.com/youtube/v3",
+      // YouTube Analytics is a separate host — reached via baseUrlKey: "analytics".
+      altBaseUrls: { analytics: "https://youtubeanalytics.googleapis.com/v2" },
+    },
     actions: [
       "youtube:list_channels",
       "youtube:get_channel",

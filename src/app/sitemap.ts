@@ -25,18 +25,18 @@ const baseUrl = 'https://scopegate.dev'
 const PAGE_DATES: Record<string, string> = {
   '': '2026-08-24',
   '/features': '2026-03-23',
-  '/pricing': '2026-03-23',
+  '/pricing': '2026-08-23',
   '/docs': '2026-03-23',
   '/compare': '2026-03-23',
   '/integrations': '2026-03-23',
-  '/glossary': '2026-03-23',
-  '/blog': '2026-03-20',
+  '/glossary': '2026-08-17',
+  '/blog': '2026-08-17',
 }
 
 // Programmatic clusters render from one data file each, so the file's own date
 // is the content date for every page it produces.
 const COMPARISONS_DATE = '2026-08-24' // src/data/comparisons.ts
-const INTEGRATIONS_DATE = '2026-03-06' // src/data/integrations-seo.ts
+const INTEGRATIONS_DATE = '2026-08-17' // src/data/integrations-seo.ts
 const GLOSSARY_DATE = '2026-08-24' // src/data/glossary.ts
 
 const at = (date: string) => new Date(`${date}T00:00:00Z`)

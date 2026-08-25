@@ -103,6 +103,7 @@ model TeamMember {
   createdAt DateTime    @default(now())
 
   @@unique([userId, projectId])
+  @@index([projectId, role])
 }
 
 enum ServiceProvider {

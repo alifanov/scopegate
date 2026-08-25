@@ -292,12 +292,15 @@ export const googleAdsTools: ToolDefinition[] = [
             datePreset: gaqlDatePreset.optional(),
         }),
         handler: async (params, context) => {
-            // conversion metrics must be queried from campaign/customer resource, not conversion_action
+            // conversion metrics must be queried from campaign/customer resource, not conversion_action.
+            // segments.conversion_action only admits conversion-scoped metrics — cost metrics
+            // (cost_per_conversion, cost_micros) are unattributable per conversion action and 400
+            // the whole query; get_campaign_performance is where cost belongs.
             const cid = params.conversionActionId
                 ? await getGoogleAdsCustomerId(context.serviceConnectionId)
                 : null;
             const fromResource = params.campaignId ? "campaign" : "customer";
-            const query = new GaqlBuilder(["segments.conversion_action", "segments.conversion_action_name", "metrics.conversions", "metrics.conversions_value", "metrics.cost_per_conversion", "segments.date"], fromResource)
+            const query = new GaqlBuilder(["segments.conversion_action", "segments.conversion_action_name", "metrics.conversions", "metrics.conversions_value", "metrics.all_conversions", "metrics.all_conversions_value", "segments.date"], fromResource)
                 .resourceEq("segments.conversion_action", `customers/${cid}/conversionActions/{id}`, params.conversionActionId)
                 .eqId("campaign.id", params.campaignId)
                 .dateRange(params)
@@ -316,7 +319,9 @@ export const googleAdsTools: ToolDefinition[] = [
             maxResults: z.number().int().positive().optional().default(50),
         }),
         handler: async (params, context) => {
-            const query = new GaqlBuilder(["asset.id", "asset.type", "asset.name", "asset.sitelink_asset", "asset.callout_asset", "asset.structured_snippet_asset"], "asset")
+            // GAQL selects leaf fields only — a bare message field like asset.sitelink_asset is
+            // rejected with "Cannot select field", so name each sub-field explicitly.
+            const query = new GaqlBuilder(["asset.id", "asset.type", "asset.name", "asset.sitelink_asset.link_text", "asset.sitelink_asset.description1", "asset.sitelink_asset.description2", "asset.callout_asset.callout_text", "asset.structured_snippet_asset.header", "asset.structured_snippet_asset.values"], "asset")
                 .eqEnum("asset.type", params.type)
                 .limit(params.maxResults, 50)
                 .toString();

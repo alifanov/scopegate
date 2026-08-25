@@ -6,8 +6,12 @@ const PENDING_ACCOUNT_EMAIL_RE = /#pending:[^#]+$/;
 // Google Ads API error bodies nest the specific failure reason inside
 // error.details[].errors[] (GoogleAdsFailure) — error.message alone is often a generic
 // "Request contains an invalid argument."; prefer the detail message when present.
+// googleAds:searchStream wraps its response in an array — errors included ([{ error: … }]) — so
+// an unwrapped body?.error read dropped every query failure reason, leaving a bare "(400)";
+// :mutate returns a plain object and was unaffected.
 async function googleAdsErrorReason(res: Response): Promise<string> {
-  const body = (await res.json().catch(() => null)) as {
+  const parsed = await res.json().catch(() => null);
+  const body = (Array.isArray(parsed) ? parsed[0] : parsed) as {
     error?: { message?: string; details?: Array<{ errors?: Array<{ message?: string }> }> };
   } | null;
   const detailMessage = body?.error?.details?.[0]?.errors?.[0]?.message;

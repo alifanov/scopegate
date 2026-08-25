@@ -162,6 +162,27 @@ describe("googleAdsQuery error reporting", () => {
     );
   });
 
+  // searchStream is the shape every query tool actually hits: its error body is array-wrapped,
+  // which used to leave a bare "query failed (400)" with no reason at all.
+  it("unwraps the array envelope searchStream returns on error", async () => {
+    vi.mocked(serviceFetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify([
+          {
+            error: {
+              message: "Request contains an invalid argument.",
+              details: [{ errors: [{ message: "Cannot select field 'asset.sitelink_asset'." }] }],
+            },
+          },
+        ]),
+        { status: 400 }
+      )
+    );
+    await expect(googleAdsQuery("conn-1", "SELECT asset.sitelink_asset FROM asset")).rejects.toThrow(
+      "Google Ads API query failed (400) — Cannot select field 'asset.sitelink_asset'."
+    );
+  });
+
   it("falls back to a generic message when the body isn't JSON", async () => {
     vi.mocked(serviceFetch).mockResolvedValueOnce(new Response("not json", { status: 500 }));
     await expect(googleAdsQuery("conn-1", "SELECT customer.id FROM customer")).rejects.toThrow(

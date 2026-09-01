@@ -11,7 +11,7 @@ without new data.
 | ID | Bet | Evidence | Status |
 |---|---|---|---|
 | H-003 | No analytics instrumentation (no OpenPanel MCP, no client-side tracking) — landing→signup funnel changes shipped this week are unmeasured | 1/3 — [2026-08-13](../logs/2026-08-13.md) | tracking |
-| H-004 | `state/` is only updated when a routine is explicitly doing docs work — feature commits never touch it, so drift accumulates in bursts rather than gradually | 1/3 — [2026-08-15](../logs/2026-08-15.md): all 8 drift findings trace to one commit wave (54e575b, f015f8e, bfca673, 4f1f78e, 2026-08-12…08-14), none of which touched `docs/state/`. Next audit checks whether tasks #234–#239 landed *and* whether the wave after them left new drift | tracking |
+| H-004 | `state/` is only updated when a routine is explicitly doing docs work — feature commits never touch it, so drift accumulates in bursts rather than gradually | 2/3 — [2026-08-15](../logs/2026-08-15.md): all 8 drift findings trace to one commit wave (54e575b, f015f8e, bfca673, 4f1f78e, 2026-08-12…08-14), none of which touched `docs/state/`. 2/3 — [2026-09-01](../logs/2026-09-01.md): tasks #234–#239 all landed and none regressed; the wave since (f527900 annual checkout, 7cb352e YouTube Analytics, e610725 BYO in the start route) again touched no file under `docs/state/`, leaving exactly one new drift — the annual-checkout claim in `flows/billing-checkout.md` (#298). Pattern holds but the burst is far smaller than the first one. Next audit: does a third feature wave land with `docs/state/` untouched | tracking |
 ## Closed
 
 | ID | Bet | Verdict | Evidence |

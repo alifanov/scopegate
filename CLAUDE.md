@@ -14,7 +14,7 @@ bash ~/.darkflow/darkflow-run.sh        # Dark Flow routine dispatcher (global w
 
 ## Commits & CI
 
-**Do NOT run `pnpm build` before or after commits.** The Dark Flow CI gate (`.github/workflows/darkflow-ci-gate.yml`) runs `install` → `build` (`prisma generate && tsc --noEmit`) → `lint` → `test` on every push/PR, auto-filing a `source:ci` issue on failure. This **overrides** the global "always run `pnpm build` before committing" rule because `pnpm build` runs migrations and requires a live DB. Failing checks → `source:ci` issue → the `fix-ci-issue` worker pushes a fix (retries up to 3x, then `needs-human`); CI closes the issue on green. Running `pnpm lint`/`pnpm test` locally for fast feedback is fine but not required.
+**Do NOT run `pnpm build` before or after commits.** The Dark Flow CI gate (`.github/workflows/darkflow-ci-gate.yml`) runs `install` → `build` (`prisma generate && tsc --noEmit`) → `lint` → `test` on every push/PR on the project's self-hosted runner; it does not file anything itself. The `ci-watch` routine reads that workflow's conclusion and files a `source:ci` task on failure. This **overrides** the global "always run `pnpm build` before committing" rule because `pnpm build` runs migrations and requires a live DB. Failing checks → `source:ci` task → the `fix-ci-issue` worker pushes a fix (retries up to 3x, then `needs-human`); the task closes on green. Running `pnpm lint`/`pnpm test` locally for fast feedback is fine but not required. See `docs/ci-runner.md` for the full split between the workflow and `ci-watch`.
 
 ## Architecture
 

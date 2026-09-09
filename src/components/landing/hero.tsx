@@ -63,10 +63,12 @@ export function Hero() {
       {/* dot grid background */}
       <div className="absolute inset-0 dot-grid opacity-100 pointer-events-none" />
 
-      {/* left glow */}
-      <div className="absolute top-1/3 -left-32 w-[560px] h-[560px] bg-violet-600/12 rounded-full blur-[100px] pointer-events-none" />
+      {/* left glow — top-anchored with a fixed px offset (not top-1/3 or bottom-1/4):
+          percentage/bottom anchoring recomputes against the section's own height, which
+          shifts post-hydration and registered as CLS on these large boxes (Task #304) */}
+      <div className="absolute top-[220px] -left-32 w-[560px] h-[560px] bg-violet-600/12 rounded-full blur-[100px] pointer-events-none" />
       {/* right glow */}
-      <div className="absolute bottom-1/4 right-0 w-[400px] h-[400px] bg-indigo-600/8 rounded-full blur-[80px] pointer-events-none" />
+      <div className="absolute top-[420px] right-0 w-[400px] h-[400px] bg-indigo-600/8 rounded-full blur-[80px] pointer-events-none" />
 
       <div className="relative max-w-7xl mx-auto px-6 w-full">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">

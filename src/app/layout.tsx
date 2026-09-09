@@ -60,7 +60,7 @@ export default function RootLayout({
             href="mailto:hello@scopegate.dev"
             aria-label="Contact us by email"
             title="Contact us"
-            className="fixed bottom-5 right-5 z-50 flex size-12 cursor-pointer items-center justify-center rounded-full bg-violet-600 text-white shadow-lg transition-colors hover:bg-violet-500"
+            className="fixed bottom-5 right-5 z-50 hidden size-12 cursor-pointer items-center justify-center rounded-full bg-violet-600 text-white shadow-lg transition-colors hover:bg-violet-500 md:flex"
           >
             <MailIcon className="size-5" />
           </a>

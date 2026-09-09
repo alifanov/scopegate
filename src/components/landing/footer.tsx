@@ -1,4 +1,6 @@
+import { MailIcon } from "lucide-react";
 import Link from "next/link";
+import { isCloud } from "@/lib/cloud";
 
 const NAV_LINKS = {
   Product: [
@@ -119,6 +121,17 @@ export function Footer() {
             Built with Next.js · Self-hostable via Docker · MIT licensed core
           </p>
         </div>
+
+        {/* mobile-only contact link — desktop keeps the floating mail button, see layout.tsx */}
+        {isCloud() && (
+          <a
+            href="mailto:hello@scopegate.dev"
+            className="mt-6 flex items-center justify-center gap-2 text-sm text-slate-400 hover:text-slate-300 transition-colors md:hidden"
+          >
+            <MailIcon className="size-4" />
+            hello@scopegate.dev
+          </a>
+        )}
       </div>
     </footer>
   );

@@ -136,3 +136,11 @@ export function getPolarProductId(
 export function checkoutSlug(plan: PlanDef, cycle: BillingCycle): string {
   return cycle === "annual" ? `${plan.slug}-annual` : plan.slug;
 }
+
+/** Whether a plan's billing cycle actually has a Polar product configured.
+ *  Server-only (reads process.env) — resolve this on the server and pass the
+ *  boolean down, since `PlanDef.polarProductIdEnv*` only holds the env var
+ *  NAME and is always truthy, which is not purchasability. */
+export function hasCheckout(plan: PlanDef, cycle: BillingCycle): boolean {
+  return Boolean(getPolarProductId(plan, cycle));
+}

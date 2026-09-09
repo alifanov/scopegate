@@ -52,6 +52,7 @@ export function BillingClient({
   planValidUntil,
   usage,
   checkoutAvailable,
+  productAvailability,
   initialCycle = "monthly",
 }: {
   plans: PlanDef[];
@@ -60,6 +61,10 @@ export function BillingClient({
   planValidUntil: string | null;
   usage: Usage;
   checkoutAvailable: boolean;
+  /** Real per-plan, per-cycle Polar product availability, resolved server-side.
+   *  `PlanDef.polarProductIdEnv*` only holds an env var NAME — always truthy,
+   *  and not the same thing as "is this product actually configured". */
+  productAvailability: Record<string, { monthly: boolean; annual: boolean }>;
   initialCycle?: BillingCycle;
 }) {
   const [pending, setPending] = useState<string | null>(null);
@@ -70,11 +75,25 @@ export function BillingClient({
   const current = getPlanDef(currentSlug);
   const currentLimits = current.limits;
   const annual = cycle === "annual";
+  const annualAvailable = plans.some((plan) => productAvailability[plan.slug]?.annual);
 
   async function startCheckout(plan: PlanDef) {
     setPending(plan.slug);
     try {
-      await authClient.checkout({ slug: checkoutSlug(plan, cycle) });
+      // Better-auth's client resolves `{ data, error }` instead of rejecting
+      // on a 4xx (e.g. a checkout slug with no matching Polar product) — not
+      // checking `error` left the button on "Opening…" forever. The timeout
+      // is belt-and-suspenders against a genuinely hung request.
+      const { error } = await Promise.race([
+        authClient.checkout({ slug: checkoutSlug(plan, cycle) }),
+        new Promise<{ error: { message: string } }>((resolve) =>
+          setTimeout(() => resolve({ error: { message: "Checkout timed out" } }), 10_000),
+        ),
+      ]);
+      if (error) {
+        toast.error("Could not open checkout. Please try again.");
+        setPending(null);
+      }
     } catch {
       toast.error("Could not open checkout. Please try again.");
       setPending(null);
@@ -137,36 +156,39 @@ export function BillingClient({
         )}
       </Card>
 
-      <div className="flex items-center justify-center gap-3">
-        <span className={`text-sm ${!annual ? "font-medium" : "text-muted-foreground"}`}>
-          Monthly
-        </span>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={annual}
-          aria-label="Toggle annual billing"
-          onClick={() => setCycle(annual ? "monthly" : "annual")}
-          className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
-            annual ? "bg-primary" : "bg-muted"
-          }`}
-        >
-          <span
-            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-background rounded-full shadow transition-transform ${
-              annual ? "translate-x-5" : "translate-x-0"
+      {annualAvailable && (
+        <div className="flex items-center justify-center gap-3">
+          <span className={`text-sm ${!annual ? "font-medium" : "text-muted-foreground"}`}>
+            Monthly
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={annual}
+            aria-label="Toggle annual billing"
+            onClick={() => setCycle(annual ? "monthly" : "annual")}
+            className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
+              annual ? "bg-primary" : "bg-muted"
             }`}
-          />
-        </button>
-        <span className={`text-sm ${annual ? "font-medium" : "text-muted-foreground"}`}>
-          Annual <span className="text-emerald-600 dark:text-emerald-400">save 20%</span>
-        </span>
-      </div>
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-background rounded-full shadow transition-transform ${
+                annual ? "translate-x-5" : "translate-x-0"
+              }`}
+            />
+          </button>
+          <span className={`text-sm ${annual ? "font-medium" : "text-muted-foreground"}`}>
+            Annual <span className="text-emerald-600 dark:text-emerald-400">save 20%</span>
+          </span>
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {plans.map((plan) => {
           const isCurrent = plan.slug === currentSlug;
-          const productField = annual ? plan.polarProductIdEnvYearly : plan.polarProductIdEnv;
-          const purchasable = checkoutAvailable && Boolean(productField);
+          const purchasable =
+            checkoutAvailable &&
+            Boolean(productAvailability[plan.slug]?.[annual ? "annual" : "monthly"]);
           const price = annual ? plan.priceYearly : plan.priceMonthly;
           return (
             <Card key={plan.slug} className={isCurrent ? "border-primary" : undefined}>

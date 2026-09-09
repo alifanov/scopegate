@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { isCloud } from "@/lib/cloud";
 import { getCurrentUser } from "@/lib/auth-middleware";
-import { publicPlans } from "@/lib/plans";
+import { publicPlans, hasCheckout } from "@/lib/plans";
 import { currentMonth } from "@/lib/plan-limits";
 import { BillingClient } from "./billing-client";
 
@@ -43,6 +43,14 @@ export default async function BillingPage({
     }),
   ]);
 
+  const plans = publicPlans();
+  const productAvailability = Object.fromEntries(
+    plans.map((plan) => [
+      plan.slug,
+      { monthly: hasCheckout(plan, "monthly"), annual: hasCheckout(plan, "annual") },
+    ]),
+  );
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div>
@@ -52,7 +60,7 @@ export default async function BillingPage({
         </p>
       </div>
       <BillingClient
-        plans={publicPlans()}
+        plans={plans}
         currentSlug={row?.planSlug ?? "free"}
         planStatus={row?.planStatus ?? null}
         planValidUntil={row?.planValidUntil?.toISOString() ?? null}
@@ -62,6 +70,7 @@ export default async function BillingPage({
           requestsThisMonth: usage?.count ?? 0,
         }}
         checkoutAvailable={Boolean(process.env.POLAR_ACCESS_TOKEN)}
+        productAvailability={productAvailability}
         initialCycle={billingParam === "annual" ? "annual" : "monthly"}
       />
     </div>

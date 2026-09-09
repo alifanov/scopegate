@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth-middleware";
 import { isCloud } from "@/lib/cloud";
 import { MARKETING_VIEWPORT } from "@/lib/marketing-viewport";
+import { OG_DEFAULTS } from "@/lib/og";
 import { Navbar } from "@/components/landing/navbar";
 import { Hero } from "@/components/landing/hero";
 import { DemoVideo } from "@/components/landing/demo-video";
@@ -24,6 +25,7 @@ export const metadata: Metadata = {
     "Give each AI agent exactly the access it needs — nothing more. ScopeGate enforces per-agent permissions on MCP: restrict tools, scopes & data, instant revoke, full audit trail. Free plan available.",
   alternates: { canonical: "https://scopegate.dev" },
   openGraph: {
+    ...OG_DEFAULTS,
     title: "ScopeGate — Granular AI Agent Permissions for MCP | Free",
     description:
       "Give each AI agent exactly the access it needs — nothing more. ScopeGate enforces per-agent permissions on MCP: restrict tools, scopes & data, instant revoke, full audit trail. Free plan available.",

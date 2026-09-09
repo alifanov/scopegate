@@ -5,6 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { MARKETING_VIEWPORT } from "@/lib/marketing-viewport";
+import { OG_DEFAULTS } from "@/lib/og";
 
 /* ---------- static params ---------- */
 
@@ -30,6 +31,7 @@ export async function generateMetadata({
     description: data.metaDescription,
     alternates: { canonical: `https://scopegate.dev/compare/${data.slug}` },
     openGraph: {
+      ...OG_DEFAULTS,
       title: data.metaTitle,
       description: data.metaDescription,
       url: `https://scopegate.dev/compare/${data.slug}`,

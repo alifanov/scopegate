@@ -7,6 +7,7 @@ import { isCloud } from "@/lib/cloud";
 import { publicPlans, UNLIMITED } from "@/lib/plans";
 import type { Metadata } from "next";
 import { MARKETING_VIEWPORT } from "@/lib/marketing-viewport";
+import { OG_DEFAULTS } from "@/lib/og";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -15,6 +16,7 @@ export const metadata: Metadata = {
     "Free plan to get started, Pro for solo developers, Team for shared governance. Simple transparent pricing for AI agent permission control.",
   alternates: { canonical: "https://scopegate.dev/pricing" },
   openGraph: {
+    ...OG_DEFAULTS,
     title: "Pricing — Free Plan Available, Pro from $29/mo",
     description:
       "Free plan to get started, Pro for solo developers, Team for shared governance. Simple transparent pricing for AI agent permission control.",

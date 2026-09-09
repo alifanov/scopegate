@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { MARKETING_VIEWPORT } from "@/lib/marketing-viewport";
+import { OG_DEFAULTS } from "@/lib/og";
 import Link from "next/link";
 import { Navbar } from "@/components/landing/navbar";
 import { Footer } from "@/components/landing/footer";
@@ -13,6 +14,7 @@ export const metadata: Metadata = {
     canonical: "https://scopegate.dev/integrations",
   },
   openGraph: {
+    ...OG_DEFAULTS,
     title: "Integrations — Secure Google, Slack, GitHub & More for AI Agents",
     description:
       "Browse ScopeGate integrations. Set granular AI agent permissions for Google Drive, Gmail, Slack, GitHub, Notion, Twitter, LinkedIn, Google Ads, OpenRouter, and more.",

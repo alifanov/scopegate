@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { isCloud } from "@/lib/cloud";
+import { OG_DEFAULTS } from "@/lib/og";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,19 +31,10 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
+    ...OG_DEFAULTS,
     title: "Control What Each AI Agent Can Access — ScopeGate",
     description: DESCRIPTION,
     url: "https://scopegate.dev",
-    siteName: "ScopeGate",
-    images: [
-      {
-        url: "/og-image.png",
-        width: 1200,
-        height: 630,
-        alt: "ScopeGate — AI Access Proxy Layer",
-      },
-    ],
-    type: "website",
   },
   twitter: {
     card: "summary_large_image",

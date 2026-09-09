@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { MARKETING_VIEWPORT } from "@/lib/marketing-viewport";
+import { OG_DEFAULTS } from "@/lib/og";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navbar } from "@/components/landing/navbar";
@@ -29,6 +30,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       canonical: `https://scopegate.dev/integrations/${integration.slug}`,
     },
     openGraph: {
+      ...OG_DEFAULTS,
       title: integration.metaTitle,
       description: integration.metaDescription,
       url: `https://scopegate.dev/integrations/${integration.slug}`,

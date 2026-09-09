@@ -4,6 +4,7 @@ import Link from "next/link";
 import { INTEGRATIONS_SENTENCE } from "@/data/faq";
 import type { Metadata } from "next";
 import { MARKETING_VIEWPORT } from "@/lib/marketing-viewport";
+import { OG_DEFAULTS } from "@/lib/og";
 
 export const metadata: Metadata = {
   title: "Docs — How to Set Up Your MCP Proxy & AI Agent Permissions",
@@ -11,6 +12,7 @@ export const metadata: Metadata = {
     "Learn how ScopeGate works as an MCP proxy layer. Set up per-agent permissions, audit trails, and rate limiting for AI agents accessing Google, Slack, GitHub, and more.",
   alternates: { canonical: "https://scopegate.dev/docs" },
   openGraph: {
+    ...OG_DEFAULTS,
     title: "Docs — How to Set Up Your MCP Proxy & AI Agent Permissions",
     description:
       "Learn how ScopeGate works as an MCP proxy layer. Set up per-agent permissions, audit trails, and rate limiting for AI agents accessing Google, Slack, GitHub, and more.",

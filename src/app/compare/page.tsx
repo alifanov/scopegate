@@ -4,6 +4,7 @@ import { comparisons } from "@/data/comparisons";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { MARKETING_VIEWPORT } from "@/lib/marketing-viewport";
+import { OG_DEFAULTS } from "@/lib/og";
 
 export const metadata: Metadata = {
   title: "ScopeGate vs Alternatives — MCP Gateway Comparison",
@@ -11,6 +12,7 @@ export const metadata: Metadata = {
     "Compare ScopeGate with MCP gateways, AI agent platforms, and API proxies. See feature-by-feature breakdowns for Obot, Keycard, LiteLLM, Arcade, Composio, and more.",
   alternates: { canonical: "https://scopegate.dev/compare" },
   openGraph: {
+    ...OG_DEFAULTS,
     title: "ScopeGate vs Alternatives — MCP Gateway Comparison",
     description:
       "Compare ScopeGate with MCP gateways, AI agent platforms, and API proxies. Feature-by-feature breakdowns for 10 competitors.",

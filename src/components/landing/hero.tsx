@@ -1,6 +1,3 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
 
 const CODE_LINES = [
@@ -61,18 +58,6 @@ function LockIcon() {
 }
 
 export function Hero() {
-  const [visibleLines, setVisibleLines] = useState(0);
-
-  useEffect(() => {
-    let i = 0;
-    const timer = setInterval(() => {
-      i++;
-      setVisibleLines(i);
-      if (i >= CODE_LINES.length) clearInterval(timer);
-    }, 110);
-    return () => clearInterval(timer);
-  }, []);
-
   return (
     <section className="relative min-h-screen flex items-start lg:items-center pt-20 pb-16 overflow-hidden">
       {/* dot grid background */}
@@ -170,24 +155,18 @@ export function Hero() {
                 <span className="ml-2 text-xs text-slate-400 font-mono">agent-setup.ts</span>
               </div>
 
-              {/* code lines — all rows always rendered (reserves final height, no CLS);
-                  not-yet-typed rows are `invisible` so they still occupy their line box */}
+              {/* rendered fully server-side — no typewriter effect: it kept the
+                  LCP element empty until hydration (Task #303) */}
               <div className="p-5 font-mono text-[13px] leading-7">
-                {CODE_LINES.map((line, i) => {
-                  const shown = i < visibleLines;
-                  return (
-                    <div key={line.text || `blank-${i}`} className={shown ? undefined : "invisible"}>
-                      {line.type === "blank" ? (
-                        <span>&nbsp;</span>
-                      ) : (
-                        <span className={colorMap[line.type]}>{line.text}</span>
-                      )}
-                      {shown && i === visibleLines - 1 && visibleLines < CODE_LINES.length && (
-                        <span className="inline-block w-[7px] h-[14px] bg-violet-400 animate-cursor align-middle ml-0.5" />
-                      )}
-                    </div>
-                  );
-                })}
+                {CODE_LINES.map((line, i) => (
+                  <div key={line.text || `blank-${i}`}>
+                    {line.type === "blank" ? (
+                      <span>&nbsp;</span>
+                    ) : (
+                      <span className={colorMap[line.type]}>{line.text}</span>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
 

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { PROVIDER_REGISTRY, getCredentialGroup } from "../provider-registry";
 import { revokeProviderToken } from "../service-revocation";
 
 describe("revokeProviderToken", () => {
@@ -6,11 +7,16 @@ describe("revokeProviderToken", () => {
     const revokeGoogle = vi.fn().mockResolvedValue(undefined);
     const revokeLinkedIn = vi.fn().mockResolvedValue(undefined);
 
-    for (const provider of ["gmail", "calendar", "drive", "googleAds", "searchConsole"]) {
+    const googleProviders = PROVIDER_REGISTRY.filter((def) => getCredentialGroup(def.key) === "google").map(
+      (def) => def.key
+    );
+    expect(googleProviders.length).toBeGreaterThan(0);
+
+    for (const provider of googleProviders) {
       await revokeProviderToken(provider, "token", { revokeGoogle, revokeLinkedIn });
     }
 
-    expect(revokeGoogle).toHaveBeenCalledTimes(5);
+    expect(revokeGoogle).toHaveBeenCalledTimes(googleProviders.length);
     expect(revokeLinkedIn).not.toHaveBeenCalled();
   });
 

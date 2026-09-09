@@ -1,7 +1,6 @@
 import { revokeGoogleToken } from "@/lib/google-oauth";
 import { revokeLinkedInToken } from "@/lib/linkedin-oauth";
-
-const GOOGLE_PROVIDERS = new Set(["gmail", "calendar", "drive", "googleAds", "searchConsole"]);
+import { getCredentialGroup } from "@/lib/provider-registry";
 
 type RevokeOptions = {
   revokeGoogle?: typeof revokeGoogleToken;
@@ -14,9 +13,10 @@ export async function revokeProviderToken(
   token: string,
   { revokeGoogle = revokeGoogleToken, revokeLinkedIn = revokeLinkedInToken }: RevokeOptions = {}
 ): Promise<void> {
-  if (GOOGLE_PROVIDERS.has(provider)) {
+  const group = getCredentialGroup(provider);
+  if (group === "google") {
     await revokeGoogle(token);
-  } else if (provider === "linkedin") {
+  } else if (group === "linkedin") {
     await revokeLinkedIn(token);
   }
 }

@@ -130,7 +130,7 @@ describe("acceptInvite", () => {
       data: { usedAt: expect.any(Date) },
     });
     expect(database.user.create).toHaveBeenCalledWith({
-      data: { email: "a@b.com", name: "A", emailVerified: true },
+      data: { email: "a@b.com", name: "A", emailVerified: false },
     });
     expect(database.account.create).toHaveBeenCalledWith({
       data: {
@@ -141,6 +141,62 @@ describe("acceptInvite", () => {
         password: "hashed",
       },
     });
+  });
+
+  it("marks emailVerified false for an open invite (Task #321)", async () => {
+    database.inviteToken.findUnique.mockResolvedValue({ ...validInvite, email: null });
+    database.user.create.mockResolvedValue({ id: "user-1", email: "a@b.com" });
+
+    await acceptInvite(
+      { token: "tok", email: "a@b.com", password: "longenoughpw" },
+      { database, transaction, hashPassword, generateId }
+    );
+
+    expect(database.user.create).toHaveBeenCalledWith({
+      data: { email: "a@b.com", name: "", emailVerified: false },
+    });
+  });
+
+  it("marks emailVerified true for an invite tied to the accepted email (Task #321)", async () => {
+    database.inviteToken.findUnique.mockResolvedValue({
+      ...validInvite,
+      email: "a@b.com",
+    });
+    database.user.create.mockResolvedValue({ id: "user-1", email: "a@b.com" });
+
+    await acceptInvite(
+      { token: "tok", email: "a@b.com", password: "longenoughpw" },
+      { database, transaction, hashPassword, generateId }
+    );
+
+    expect(database.user.create).toHaveBeenCalledWith({
+      data: { email: "a@b.com", name: "", emailVerified: true },
+    });
+  });
+
+  it("rejects a non-string email with 400 instead of throwing", async () => {
+    database.inviteToken.findUnique.mockResolvedValue(validInvite);
+
+    await expect(
+      acceptInvite(
+        // @ts-expect-error — exercising a malformed request body
+        { token: "tok", email: 12345, password: "longenoughpw" },
+        { database, transaction, hashPassword, generateId }
+      )
+    ).rejects.toMatchObject({ message: "Invalid email address", status: 400 });
+
+    expect(database.user.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a malformed email string with 400", async () => {
+    database.inviteToken.findUnique.mockResolvedValue(validInvite);
+
+    await expect(
+      acceptInvite(
+        { token: "tok", email: "not-an-email", password: "longenoughpw" },
+        { database, transaction, hashPassword, generateId }
+      )
+    ).rejects.toMatchObject({ message: "Invalid email address", status: 400 });
   });
 
   it("rejects a duplicate email via the unique constraint instead of a pre-check", async () => {

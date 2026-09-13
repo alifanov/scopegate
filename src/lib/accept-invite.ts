@@ -1,8 +1,11 @@
 import crypto from "node:crypto";
+import { z } from "zod";
 import { db } from "@/lib/db";
 import { auth, MIN_PASSWORD_LENGTH } from "@/lib/auth";
 import { Prisma } from "@/generated/prisma/client";
 import { AuthError } from "@/lib/auth-middleware";
+
+const emailSchema = z.string().email();
 
 type AcceptInviteDatabase = {
   inviteToken: Pick<typeof db.inviteToken, "findUnique" | "updateMany">;
@@ -64,7 +67,11 @@ export async function acceptInvite(
     generateId = () => crypto.randomUUID(),
   }: AcceptInviteOptions = {}
 ) {
-  const email = input.email.toLowerCase();
+  const parsedEmail = emailSchema.safeParse(input.email);
+  if (!parsedEmail.success) {
+    throw new AcceptInviteError("Invalid email address", 400);
+  }
+  const email = parsedEmail.data.toLowerCase();
 
   const invite = await database.inviteToken.findUnique({
     where: { token: input.token },
@@ -113,7 +120,12 @@ export async function acceptInvite(
     let user;
     try {
       user = await tx.user.create({
-        data: { email, name: input.name || "", emailVerified: true },
+        // Only an invite tied to a specific email counts as verified — an open
+        // invite (invite.email === null) lets the holder type any address, so
+        // marking it verified would let better-auth's account-linking silently
+        // attach a later Google/magic-link sign-in for that address to this
+        // attacker-created account (Task #321).
+        data: { email, name: input.name || "", emailVerified: Boolean(invite.email) },
       });
     } catch (error) {
       // Unique constraint on User.email — rely on the DB instead of a

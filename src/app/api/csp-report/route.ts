@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { trace, SpanStatusCode } from "@opentelemetry/api";
+import { getClientIp } from "@/lib/mcp/api-keys";
 
 // CSP violations are reported by the browser to this endpoint. Two wire formats
 // exist depending on which directive the browser honoured:
@@ -10,6 +11,41 @@ import { trace, SpanStatusCode } from "@opentelemetry/api";
 export const dynamic = "force-dynamic";
 
 const tracer = trace.getTracer("scopegate/csp-report");
+
+// This endpoint is public and unauthenticated (see src/middleware.ts) — one
+// caller can otherwise emit unlimited spans/log lines. Three independent caps:
+// body size, reports-per-request, and requests-per-IP.
+const MAX_BODY_BYTES = 64 * 1024;
+const MAX_REPORTS_PER_REQUEST = 10;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 30;
+// ponytail: hard cap so a burst of unique IPs can't grow the Map without bound
+const RATE_LIMIT_BUCKET_MAX = 20_000;
+
+type RateBucket = { count: number; resetAt: number };
+const rateBuckets = new Map<string, RateBucket>();
+
+function isRateLimited(ip: string, now = Date.now()): boolean {
+  const existing = rateBuckets.get(ip);
+  if (!existing || existing.resetAt <= now) {
+    rateBuckets.delete(ip); // re-set below to move it to the end (most recent)
+    rateBuckets.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+
+    for (const [key, bucket] of rateBuckets) {
+      if (bucket.resetAt > now) break;
+      rateBuckets.delete(key);
+    }
+    while (rateBuckets.size > RATE_LIMIT_BUCKET_MAX) {
+      const oldestKey = rateBuckets.keys().next().value;
+      if (oldestKey === undefined) break;
+      rateBuckets.delete(oldestKey);
+    }
+    return false;
+  }
+
+  existing.count += 1;
+  return existing.count > RATE_LIMIT_MAX;
+}
 
 type NormalizedViolation = {
   blockedURI?: string;
@@ -59,6 +95,7 @@ function normalize(payload: unknown): NormalizedViolation[] {
   // report-to: array of { type, body }
   if (Array.isArray(payload)) {
     return payload
+      .slice(0, MAX_REPORTS_PER_REQUEST)
       .filter(
         (entry): entry is { type?: string; body?: Record<string, unknown> } =>
           !!entry && typeof entry === "object",
@@ -85,13 +122,29 @@ function normalize(payload: unknown): NormalizedViolation[] {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    const ip = getClientIp(request);
+    if (isRateLimited(ip)) {
+      return new NextResponse(null, { status: 204 });
+    }
+
+    // Reject on the declared size first (avoids reading a huge body at all);
+    // still re-check the actual size below since Content-Length can be absent or lie.
+    const declaredLength = Number(request.headers.get("content-length"));
+    if (declaredLength > MAX_BODY_BYTES) {
+      return new NextResponse(null, { status: 204 });
+    }
+
     const userAgent = request.headers.get("user-agent") ?? undefined;
+
+    const rawBody = await request.text();
+    if (Buffer.byteLength(rawBody, "utf8") > MAX_BODY_BYTES) {
+      return new NextResponse(null, { status: 204 });
+    }
 
     let payload: unknown = null;
     try {
       // CSP reports arrive as application/csp-report or application/reports+json.
-      // request.json() parses both since they are JSON bodies.
-      payload = await request.json();
+      payload = rawBody ? JSON.parse(rawBody) : null;
     } catch {
       payload = null;
     }

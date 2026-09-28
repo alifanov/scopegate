@@ -29,11 +29,17 @@ const THREADS_TEXT_TOTAL_BUDGET_MS = 8_000;
 const THREADS_MEDIA_TOTAL_BUDGET_MS = 24_000;
 const THREADS_TEXT_CONTAINER_TIMEOUT_MS = 4_500;
 const THREADS_MEDIA_CONTAINER_TIMEOUT_MS = 18_000;
+// Publish-step cap for TEXT, and the slice every flow reserves for publish out of its budget.
+// Media/carousel publish is NOT capped by it: it gets whatever is left of the 24s media
+// budget. Meta answers a 6-7 child CAROUSEL publish in >3.5s while committing the post in
+// ~3s, so a 3.5s cap with ~10s of budget left turned 39/48 real successes into errors
+// (2026-09, AuditLog: 94% of carousels went live, 17% reported success).
 const THREADS_PUBLISH_TIMEOUT_MS = 3_500;
 const THREADS_STATUS_POLL_TIMEOUT_MS = 2_500;
 const THREADS_STATUS_POLL_INTERVAL_MS = 1_000;
 // After a failed publish response we briefly confirm the container actually went live.
-// Lives outside the 8s publish budget but well within the handler's 30s cap.
+// Lives outside the publish budget: 24s media budget + ≤3s confirm (+ one 2.5s in-flight
+// poll) still ends before the handler's 30s cap.
 const THREADS_CONFIRM_BUDGET_MS = 3_000;
 // Meta routinely emits a 500 code=1 ("unknown error") on threads_publish that a plain retry
 // clears. Retry a handful of times, each guarded by confirmPublished so we never double-post.
@@ -48,8 +54,13 @@ const THREADS_CONFIRM_BUDGET_MS = 3_000;
 // checking current error-rate impact first — that was already tried and reverted in 773b2c2.
 // recordThreadsPublishOutcome() below marks the slow-path calls (retried / partial_success)
 // so this trade-off's frequency is visible in SigNoz independent of the p99 number.
+// 2026-09: media publish now gets the rest of the budget instead of a flat 3.5s (see
+// THREADS_PUBLISH_TIMEOUT_MS). Same trade in the same direction: carousel publishes that
+// used to "fail" at ~14s now succeed at up to ~24s — expect media p99 to move up, and
+// the carousel error rate to drop to real failures only. The total budget is unchanged.
 const THREADS_PUBLISH_MAX_ATTEMPTS = 3;
 const THREADS_PUBLISH_RETRY_DELAY_MS = 600;
+const THREADS_CAROUSEL_RETRY_DELAY_MS = 1_500;
 
 const THREADS_MAX_TEXT_LENGTH = 500;
 
@@ -95,12 +106,16 @@ async function waitForContainerReady(
 // error, the caller would retry and double-post. So we poll the container status — it
 // flips to PUBLISHED once the post exists — and treat that as success. Best-effort:
 // failures during the poll are swallowed; if we can't confirm, the original error stands.
-// A terminal non-PUBLISHED status (still FINISHED, or ERROR/EXPIRED) proves the publish
-// didn't take and won't spontaneously, so we return false immediately instead of burning
-// the whole confirm budget — this keeps the guard cheap enough to run before every retry.
+// ERROR/EXPIRED are terminal: return false at once. FINISHED depends on `inFlight`:
+// - Meta answered with an error (inFlight=false) — the publish request is over, FINISHED
+//   means it didn't take, so stop and keep the guard cheap before each transient retry.
+// - we timed out / lost the connection (inFlight=true) — Meta may still be committing the
+//   post, and the FINISHED→PUBLISHED flip lags the commit (observed: post live at +3s,
+//   still FINISHED on the confirm poll), so keep polling for the whole confirm budget.
 async function confirmPublished(
   serviceConnectionId: string,
-  creationId: string
+  creationId: string,
+  inFlight: boolean
 ): Promise<boolean> {
   const deadline = Date.now() + THREADS_CONFIRM_BUDGET_MS;
   while (Date.now() < deadline) {
@@ -112,11 +127,11 @@ async function confirmPublished(
       )) as ThreadsContainerStatus;
       if (result.status === "PUBLISHED") return true;
       if (
-        result.status === "FINISHED" ||
         result.status === "ERROR" ||
-        result.status === "EXPIRED"
+        result.status === "EXPIRED" ||
+        (result.status === "FINISHED" && !inFlight)
       ) {
-        return false; // terminal, definitively not published — stop polling
+        return false; // definitively not published — stop polling
       }
     } catch {
       // ignore — confirmation is best-effort
@@ -133,14 +148,20 @@ async function confirmPublished(
 // Every attempt confirms via container status first: if the post actually went live it is
 // reported as success (never a failure), and confirming before each retry prevents a
 // double-post. A revoked/expired token surfaces immediately — that publish never happened.
+// A publish timeout is deliberately NOT retried: its outcome is unknown (retry = double-post
+// risk), and for media it now consumes the rest of the budget anyway; confirmPublished
+// polling through FINISHED is what turns a late-but-real publish into a success.
+// `preferredTimeoutMs` = THREADS_PUBLISH_TIMEOUT_MS for TEXT, Infinity for media (= all of
+// the remaining budget, floored at 1s by computeStepTimeout).
 async function publishContainer(
   serviceConnectionId: string,
   creationId: string,
-  deadline: number
+  deadline: number,
+  preferredTimeoutMs: number
 ): Promise<unknown> {
   let lastErr: unknown;
   for (let attempt = 1; attempt <= THREADS_PUBLISH_MAX_ATTEMPTS; attempt++) {
-    const publishTimeout = computeStepTimeout(THREADS_PUBLISH_TIMEOUT_MS, deadline, Date.now(), 0);
+    const publishTimeout = computeStepTimeout(preferredTimeoutMs, deadline, Date.now(), 0);
     try {
       const result = await threadsFetch(serviceConnectionId, "/me/threads_publish", {
         method: "POST",
@@ -156,7 +177,9 @@ async function publishContainer(
       if (err instanceof OAuthTokenError) throw err;
       // The post may already be live (timeout/network fired after Meta committed it) — a
       // retry would double-post, so confirm before deciding to try again.
-      if (await confirmPublished(serviceConnectionId, creationId)) {
+      // No Meta error response (timeout/network) = the publish may still be in flight.
+      const inFlight = !(err instanceof ThreadsApiError);
+      if (await confirmPublished(serviceConnectionId, creationId, inFlight)) {
         recordThreadsPublishOutcome("success_after_retry");
         return {
           status: "success",
@@ -167,7 +190,11 @@ async function publishContainer(
         };
       }
       // Retry only Meta's transient 5xx/code=1/2 errors, and only while budget remains.
-      const transient = err instanceof ThreadsApiError && err.isTransient;
+      // Plus code=24 ("resource does not exist") on publish: Meta can report a fresh
+      // carousel container FINISHED prematurely, reject the publish, then flip it back to
+      // IN_PROGRESS → FINISHED (trace 2026-09-26). The confirm poll above waits that out.
+      const transient =
+        err instanceof ThreadsApiError && (err.isTransient || err.code === 24);
       const budgetLeft = deadline - Date.now() > THREADS_PUBLISH_RETRY_DELAY_MS + 1_000;
       if (transient && budgetLeft && attempt < THREADS_PUBLISH_MAX_ATTEMPTS) {
         trace.getActiveSpan()?.setAttribute("threads.publish_retry", attempt);
@@ -264,12 +291,35 @@ async function publishCarousel(
   if (replyControl) body.reply_control = replyControl;
   if (quotePostId) body.quote_post_id = quotePostId;
 
-  const carouselResult = (await threadsFetch(serviceConnectionId, "/me/threads", {
-    method: "POST",
-    body: JSON.stringify(body),
-    timeout: THREADS_MEDIA_CONTAINER_TIMEOUT_MS,
-    retry: false,
-  })) as { id: string };
+  const createCarousel = async () =>
+    (await threadsFetch(serviceConnectionId, "/me/threads", {
+      method: "POST",
+      body: JSON.stringify(body),
+      timeout: computeStepTimeout(
+        THREADS_MEDIA_CONTAINER_TIMEOUT_MS,
+        deadline,
+        Date.now(),
+        THREADS_PUBLISH_TIMEOUT_MS
+      ),
+      retry: false,
+    })) as { id: string };
+  let carouselResult: { id: string };
+  try {
+    carouselResult = await createCarousel();
+  } catch (err) {
+    // 400 code=100/24 right after every child polled FINISHED on the first try (trace
+    // 2026-09-25) matches the premature-FINISHED pattern above: the children aren't
+    // referenceable yet. Creating a container has no side effect, so one delayed retry
+    // is safe. ponytail: single retry, fixed delay — make it a loop if 100/24 persists.
+    const notReadyYet =
+      err instanceof ThreadsApiError && err.status === 400 && (err.code === 100 || err.code === 24);
+    if (!notReadyYet || deadline - Date.now() < THREADS_CAROUSEL_RETRY_DELAY_MS + THREADS_PUBLISH_TIMEOUT_MS) {
+      throw err;
+    }
+    span?.setAttribute("threads.create_carousel_retry", 1);
+    await sleep(THREADS_CAROUSEL_RETRY_DELAY_MS);
+    carouselResult = await createCarousel();
+  }
   span?.setAttribute("threads.container_id", carouselResult.id);
 
   // Step 4: the carousel container itself must reach FINISHED before publishing.
@@ -291,7 +341,7 @@ async function publishCarousel(
 
   // Step 5: publish.
   span?.setAttribute("threads.step", "publish");
-  return publishContainer(serviceConnectionId, carouselResult.id, deadline);
+  return publishContainer(serviceConnectionId, carouselResult.id, deadline, Infinity);
 }
 
 export const threadsTools: ToolDefinition[] = [
@@ -439,9 +489,14 @@ export const threadsTools: ToolDefinition[] = [
         };
       }
 
-      // Step 3: Publish — cap timeout against remaining budget so total never exceeds 8s
+      // Step 3: Publish — TEXT capped at 3.5s, media gets the rest of its budget
       span?.setAttribute("threads.step", "publish");
-      return publishContainer(context.serviceConnectionId, containerResult.id, deadline);
+      return publishContainer(
+        context.serviceConnectionId,
+        containerResult.id,
+        deadline,
+        isMedia ? Infinity : THREADS_PUBLISH_TIMEOUT_MS
+      );
     },
   },
   {
@@ -548,7 +603,12 @@ export const threadsTools: ToolDefinition[] = [
       }
 
       // Step 3: Publish reply — cap timeout against remaining budget
-      return publishContainer(context.serviceConnectionId, containerResult.id, deadline);
+      return publishContainer(
+        context.serviceConnectionId,
+        containerResult.id,
+        deadline,
+        isMedia ? Infinity : THREADS_PUBLISH_TIMEOUT_MS
+      );
     },
   },
   {

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { threadsFetch, ThreadsApiError } from "../../threads";
 
 vi.mock("../../threads", async (importActual) => {
@@ -23,6 +23,10 @@ describe("threads_publish_thread", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("polls the container until FINISHED before publishing text posts too", async () => {
@@ -72,6 +76,7 @@ describe("threads_publish_thread", () => {
   });
 
   it("polls the media container until FINISHED before publishing media posts", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(0);
     vi.mocked(threadsFetch)
       .mockResolvedValueOnce({ id: "container-2" }) // create container
       .mockResolvedValueOnce({ status: "FINISHED" }) // status poll
@@ -114,7 +119,8 @@ describe("threads_publish_thread", () => {
       {
         method: "POST",
         body: JSON.stringify({ creation_id: "container-2" }),
-        timeout: 3_500,
+        // media publish gets the rest of the 24s budget, not the 3.5s TEXT cap
+        timeout: 24_000,
         retry: false,
       }
     );
@@ -213,7 +219,148 @@ describe("threads_publish_thread", () => {
     ).rejects.toThrow("Threads API timed out");
   });
 
+  it("gives a late carousel publish whatever is left of the budget", async () => {
+    // Publish starts 14s into the 24s media budget (the observed 7-slide timing):
+    // it must get the remaining 10s, where the old flat cap gave it 3.5s.
+    let now = 0;
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    vi.mocked(threadsFetch)
+      .mockResolvedValueOnce({ id: "item-0" })
+      .mockResolvedValueOnce({ id: "item-1" })
+      .mockResolvedValueOnce({ status: "FINISHED" })
+      .mockResolvedValueOnce({ status: "FINISHED" })
+      .mockResolvedValueOnce({ id: "carousel-late" })
+      .mockImplementationOnce(async () => {
+        now = 14_000; // carousel poll returns late
+        return { status: "FINISHED" };
+      })
+      .mockResolvedValueOnce({ id: "thread-late" });
+
+    await publishThreadTool.handler(
+      {
+        media_type: "CAROUSEL",
+        items: [
+          { type: "IMAGE", url: "https://example.com/a.png" },
+          { type: "IMAGE", url: "https://example.com/b.png" },
+        ],
+      },
+      { serviceConnectionId: "conn-late" }
+    );
+
+    expect(threadsFetch).toHaveBeenLastCalledWith("conn-late", "/me/threads_publish", {
+      method: "POST",
+      body: JSON.stringify({ creation_id: "carousel-late" }),
+      timeout: 10_000,
+      retry: false,
+    });
+  });
+
+  it("keeps polling through FINISHED after a publish timeout and reports the post as published", async () => {
+    vi.useFakeTimers();
+    vi.mocked(threadsFetch)
+      .mockResolvedValueOnce({ id: "container-lag" }) // create
+      .mockResolvedValueOnce({ status: "FINISHED" }) // wait_container
+      .mockRejectedValueOnce(new Error("Threads API timed out (>3500ms).")) // publish in flight
+      .mockResolvedValueOnce({ status: "FINISHED" }) // confirm #1 — flip still lagging
+      .mockResolvedValueOnce({ status: "PUBLISHED" }); // confirm #2
+
+    const result = publishThreadTool.handler(
+      { media_type: "TEXT", text: "Hello" },
+      { serviceConnectionId: "conn-lag" }
+    );
+    await vi.runAllTimersAsync();
+
+    await expect(result).resolves.toMatchObject({ status: "success", published: true });
+    expect(threadsFetch).toHaveBeenCalledTimes(5);
+  });
+
+  it.each(["ERROR", "EXPIRED"])(
+    "stops confirming at once on a %s container after a publish timeout",
+    async (status) => {
+      vi.mocked(threadsFetch)
+        .mockResolvedValueOnce({ id: "container-t" })
+        .mockResolvedValueOnce({ status: "FINISHED" })
+        .mockRejectedValueOnce(new Error("Threads API timed out (>3500ms)."))
+        .mockResolvedValueOnce({ status });
+
+      await expect(
+        publishThreadTool.handler(
+          { media_type: "TEXT", text: "Hello" },
+          { serviceConnectionId: "conn-t" }
+        )
+      ).rejects.toThrow("Threads API timed out");
+
+      // create + wait poll + publish + ONE confirm poll
+      expect(threadsFetch).toHaveBeenCalledTimes(4);
+    }
+  );
+
+  it("retries publish after code=24 once the carousel container is really FINISHED", async () => {
+    vi.useFakeTimers();
+    vi.mocked(threadsFetch)
+      .mockResolvedValueOnce({ id: "item-0" })
+      .mockResolvedValueOnce({ id: "item-1" })
+      .mockResolvedValueOnce({ status: "FINISHED" })
+      .mockResolvedValueOnce({ status: "FINISHED" })
+      .mockResolvedValueOnce({ id: "carousel-24" })
+      .mockResolvedValueOnce({ status: "FINISHED" }) // premature FINISHED
+      .mockRejectedValueOnce(
+        new ThreadsApiError("Threads API error (400) code=24: The requested resource does not exist", 400, 24)
+      )
+      .mockResolvedValueOnce({ status: "IN_PROGRESS" }) // confirm — Meta flipped it back
+      .mockResolvedValueOnce({ status: "FINISHED" }) // confirm — really ready, not published
+      .mockResolvedValueOnce({ id: "thread-24" }); // publish #2
+
+    const result = publishThreadTool.handler(
+      {
+        media_type: "CAROUSEL",
+        items: [
+          { type: "IMAGE", url: "https://example.com/a.png" },
+          { type: "IMAGE", url: "https://example.com/b.png" },
+        ],
+      },
+      { serviceConnectionId: "conn-24" }
+    );
+    await vi.runAllTimersAsync();
+
+    await expect(result).resolves.toEqual({ id: "thread-24" });
+    expect(threadsFetch).toHaveBeenCalledTimes(10);
+  });
+
+  it("retries creating the carousel container once on 400 code=100", async () => {
+    vi.useFakeTimers();
+    vi.mocked(threadsFetch)
+      .mockResolvedValueOnce({ id: "item-0" })
+      .mockResolvedValueOnce({ id: "item-1" })
+      .mockResolvedValueOnce({ status: "FINISHED" })
+      .mockResolvedValueOnce({ status: "FINISHED" })
+      .mockRejectedValueOnce(
+        new ThreadsApiError("Threads API error (400) code=100: Invalid parameter", 400, 100)
+      )
+      .mockResolvedValueOnce({ id: "carousel-100" }) // retry succeeds
+      .mockResolvedValueOnce({ status: "FINISHED" })
+      .mockResolvedValueOnce({ id: "thread-100" });
+
+    const result = publishThreadTool.handler(
+      {
+        media_type: "CAROUSEL",
+        items: [
+          { type: "IMAGE", url: "https://example.com/a.png" },
+          { type: "IMAGE", url: "https://example.com/b.png" },
+        ],
+      },
+      { serviceConnectionId: "conn-100" }
+    );
+    await vi.runAllTimersAsync();
+
+    await expect(result).resolves.toEqual({ id: "thread-100" });
+    expect(threadsFetch).toHaveBeenNthCalledWith(6, "conn-100", "/me/threads", expect.objectContaining({
+      body: JSON.stringify({ media_type: "CAROUSEL", children: "item-0,item-1" }),
+    }));
+  });
+
   it("publishes a carousel: parallel item containers → carousel container → publish", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(0);
     vi.mocked(threadsFetch)
       .mockResolvedValueOnce({ id: "item-0" }) // create item 0
       .mockResolvedValueOnce({ id: "item-1" }) // create item 1
@@ -274,7 +421,7 @@ describe("threads_publish_thread", () => {
     expect(threadsFetch).toHaveBeenNthCalledWith(7, "conn-c", "/me/threads_publish", {
       method: "POST",
       body: JSON.stringify({ creation_id: "carousel-1" }),
-      timeout: 3_500,
+      timeout: 24_000, // remaining media budget, not the 3.5s TEXT cap
       retry: false,
     });
   });

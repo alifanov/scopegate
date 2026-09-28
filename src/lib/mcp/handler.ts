@@ -9,8 +9,21 @@ import {
   revokeConnectionWithNotification,
   recordTransientTokenFailure,
 } from "../oauth-token-lifecycle";
+import { MetaGraphApiError } from "./meta-graph";
 
 const tracer = trace.getTracer("scopegate");
+
+// Client-facing error text. Raw messages stay in AuditLog/SigNoz — they can carry DB or
+// transport internals — but two classes are safe and actionable for the caller:
+// an upstream API rejection (status + provider code/message) and a timeout, where the
+// action may still have gone through, so a blind retry risks a duplicate.
+export function safeErrorDetail(err: unknown): string {
+  if (err instanceof MetaGraphApiError) return `Error: ${err.message}`;
+  if (err instanceof Error && (err.name === "TimeoutError" || /timed out/i.test(err.message))) {
+    return "Error: Upstream API timed out. The action may still have completed — verify before retrying.";
+  }
+  return "Error: Tool execution failed";
+}
 
 export function createMcpServerForEndpoint(
   endpointId: string,
@@ -148,7 +161,7 @@ function registerTool(
                 ? "Error: Service connection token expired or invalid. Please reconnect the service."
                 : isTokenError
                   ? "Error: Temporary authentication issue with the service connection. Please retry."
-                  : "Error: Tool execution failed";
+                  : safeErrorDetail(err);
 
             return {
               content: [{ type: "text" as const, text: userMessage }],

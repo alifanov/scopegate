@@ -3,7 +3,9 @@ import { serviceFetch, type ServiceFetchOptions } from "@/lib/mcp/service-fetch"
 import { OAuthTokenError } from "@/lib/oauth-token-lifecycle";
 import { getProviderDef } from "@/lib/provider-registry";
 
-type MetaGraphErrorBody = { error?: { code?: number; message?: string } };
+type MetaGraphErrorBody = {
+  error?: { code?: number; message?: string; error_subcode?: number; error_user_msg?: string };
+};
 
 // Shared across every Meta Graph API surface (Threads, Instagram, Meta Ads): carries
 // the HTTP status + Meta error code so callers can distinguish a transient server-side
@@ -48,8 +50,14 @@ export async function metaGraphFetch(
         { provider: providerKey, code: errorCode }
       );
     }
+    // A bare "code=100: Invalid parameter" doesn't say which parameter — the subcode and
+    // user message do, so keep them in the (audited) error text.
+    const subcode = body?.error?.error_subcode;
+    const userMsg = body?.error?.error_user_msg;
+    const detail =
+      (subcode !== undefined ? ` subcode=${subcode}` : "") + (userMsg ? ` — ${userMsg}` : "");
     throw new MetaGraphApiError(
-      `${label} API error (${res.status}) code=${errorCode}: ${errorMessage}`,
+      `${label} API error (${res.status}) code=${errorCode}: ${errorMessage}${detail}`,
       res.status,
       errorCode
     );

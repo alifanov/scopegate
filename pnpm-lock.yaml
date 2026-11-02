@@ -27,7 +27,7 @@ overrides:
   '@humanfs/node': '>=0.16.8'
   ip-address: '>=10.7.1'
   postcss: '>=8.5.18'
-  vite: '>=7.3.2'
+  vite: '>=8.1.6'
   nodemailer: '>=10.0.9'
   '@grpc/grpc-js': '>=1.14.5'
   effect: '>=3.20.0'
@@ -191,7 +191,7 @@ importers:
         specifier: ^5
         version: 5.9.3
       vite:
-        specifier: '>=7.3.2'
+        specifier: '>=8.1.6'
         version: 8.3.5(@types/node@20.19.43)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)
       vitest:
         specifier: ~4.1.8
@@ -2942,7 +2942,7 @@ packages:
     resolution: {integrity: sha512-fKShNpKZzupWZuY0z7egydvL0sqW4INEZBEExMBMAa6izlENEVHwoXgdaTCaBZ5fwlr4xf2o1wXC83n9RpO+NA==}
     peerDependencies:
       msw: ^2.4.9
-      vite: '>=7.3.2'
+      vite: '>=8.1.6'
     peerDependenciesMeta:
       msw:
         optional: true
@@ -5751,7 +5751,7 @@ packages:
       '@vitest/ui': 4.1.12
       happy-dom: '*'
       jsdom: '*'
-      vite: '>=7.3.2'
+      vite: '>=8.1.6'
     peerDependenciesMeta:
       '@edge-runtime/vm':
         optional: true
@@ -11880,7 +11880,7 @@ snapshots:
     dependencies:
       lightningcss: 1.33.0
       picomatch: 4.0.4
-      postcss: 8.5.23
+      postcss: 8.5.29
       rolldown: 1.2.15
       tinyglobby: 0.2.17
     optionalDependencies:

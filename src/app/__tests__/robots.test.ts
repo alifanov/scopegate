@@ -43,7 +43,13 @@ describe("robots.txt", () => {
       // covered by some disallow entry that is itself a prefix of it.
       const isBlocked = (path: string) =>
         disallowed.some((rule) => path.startsWith(rule));
-      for (const path of ["/billing", "/projects", "/settings", "/notifications"]) {
+      for (const path of [
+        "/billing",
+        "/projects",
+        "/settings",
+        "/notifications",
+        "/api/mcp/%7Bapi_key%7D",
+      ]) {
         expect(isBlocked(path)).toBe(true);
       }
     });

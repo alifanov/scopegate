@@ -24,6 +24,10 @@ export default function robots(): MetadataRoute.Robots {
         '/settings/',
         '/notifications',
         '/notifications/',
+        // API routes are never pages. Crawlers pick up placeholder MCP URLs
+        // (/api/mcp/{api_key}) from docs and third-party listings, hit 401,
+        // and Search Console reports them as "unauthorized request" errors.
+        '/api/',
       ],
     },
     sitemap: 'https://scopegate.dev/sitemap.xml',
